@@ -157,15 +157,13 @@ install_x-ui() {
 
     # 创建x-ui目录并解压到该目录
     mkdir -p /usr/local/x-ui/
-    tar xJvf m-ui-linux-amd64.tar.gz -C /usr/local/x-ui/
+    cd /usr/local/
+    tar zxvf m-ui-linux-amd64.tar.gz -C /usr/local/x-ui/
     rm m-ui-linux-amd64.tar.gz -f
     
     # 进入x-ui目录并设置权限
     cd /usr/local/x-ui/
     chmod +x x-ui bin/xray-linux-amd64
-    
-    # 重命名可执行文件以匹配服务文件
-    mv x-ui x-ui
     
     cp -f x-ui.service /etc/systemd/system/
     # 使用我们自己的仓库下载x-ui.sh
