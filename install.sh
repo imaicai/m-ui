@@ -35,11 +35,12 @@ if [[ $arch == "x86_64" || $arch == "x64" || $arch == "amd64" ]]; then
     arch="amd64"
 elif [[ $arch == "aarch64" || $arch == "arm64" ]]; then
     arch="arm64"
-elif [[ $arch == "s390x" ]]; then
-    arch="s390x"
-else
+elif [[ $arch == "s390x" || $arch == "mips64" || $arch == "ppc64le" || $arch == "riscv64" ]]; then
+    echo -e "${yellow}当前架构(${arch})暂无发布包，回退使用 amd64 包（可能无法运行）${plain}"
     arch="amd64"
-    echo -e "${red}检测架构失败，使用默认架构: ${arch}${plain}"
+else
+    echo -e "${yellow}检测架构失败，使用默认架构: amd64${plain}"
+    arch="amd64"
 fi
 
 echo "架构: ${arch}"
@@ -124,7 +125,7 @@ install_x-ui() {
         fi
         echo -e "检测到 x-ui 最新版本：${last_version}，开始安装"
         pkg_name="m-ui-linux-${arch}.tar.gz"
-        # 修正下载链接以匹配您的发布版本（按架构动态选择）
+        # 按架构动态选择
         wget -N --no-check-certificate -O "/usr/local/${pkg_name}" "https://github.com/imaicai/m-ui/releases/download/${last_version}/${pkg_name}"
         if [[ $? -ne 0 ]]; then
             echo -e "${red}下载 x-ui 失败，请确保你的服务器能够下载 Github 的文件${plain}"
@@ -138,7 +139,6 @@ install_x-ui() {
     else
         last_version=$1
         pkg_name="m-ui-linux-${arch}.tar.gz"
-        # 修正下载链接以匹配您的发布版本（按架构动态选择）
         url="https://github.com/imaicai/m-ui/releases/download/${last_version}/${pkg_name}"
         echo -e "开始安装 x-ui v$1"
         wget -N --no-check-certificate -O "/usr/local/${pkg_name}" ${url}
@@ -162,15 +162,29 @@ install_x-ui() {
     cd /usr/local/
     tar zxvf ${pkg_name} -C /usr/local/x-ui/
     rm ${pkg_name} -f
+
+    # 兼容解压后出现顶层目录的情况，将内容上移至 /usr/local/x-ui/
+    if [[ ! -f "/usr/local/x-ui/x-ui" && -d "/usr/local/x-ui" ]]; then
+        subdir=$(find "/usr/local/x-ui" -mindepth 1 -maxdepth 1 -type d | head -n 1)
+        if [[ -n "$subdir" ]]; then
+            mv "$subdir"/* "/usr/local/x-ui/" 2>/dev/null || true
+            rmdir "$subdir" 2>/dev/null || true
+        fi
+    fi
     
     # 进入x-ui目录并设置权限
     cd /usr/local/x-ui/
-    chmod +x x-ui bin/xray-linux-${arch}
+    # 兼容不同包名的可执行文件（m-ui/x-ui）
+    if [[ -f "m-ui" && ! -f "x-ui" ]]; then
+        mv m-ui x-ui
+    fi
+    chmod +x x-ui || true
+    chmod +x bin/xray-linux-${arch} || true
     
     cp -f x-ui.service /etc/systemd/system/
-    # 使用我们自己的仓库下载x-ui.sh
+    # 使用我们自己的仓库下载x-ui.sh（管理脚本）
     wget --no-check-certificate -O /usr/bin/x-ui https://raw.githubusercontent.com/imaicai/m-ui/master/x-ui.sh
-    chmod +x /usr/local/x-ui/x-ui.sh
+    chmod +x /usr/local/x-ui/x-ui.sh 2>/dev/null || true
     chmod +x /usr/bin/x-ui
     config_after_install
     systemctl daemon-reload

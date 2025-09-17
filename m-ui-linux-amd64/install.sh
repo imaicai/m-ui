@@ -35,11 +35,12 @@ if [[ $arch == "x86_64" || $arch == "x64" || $arch == "amd64" ]]; then
     arch="amd64"
 elif [[ $arch == "aarch64" || $arch == "arm64" ]]; then
     arch="arm64"
-elif [[ $arch == "s390x" ]]; then
-    arch="s390x"
-else
+elif [[ $arch == "s390x" || $arch == "mips64" || $arch == "ppc64le" || $arch == "riscv64" ]]; then
+    echo -e "${yellow}当前架构(${arch})暂无发布包，回退使用 amd64 包（可能无法运行）${plain}"
     arch="amd64"
-    echo -e "${red}检测架构失败，使用默认架构: ${arch}${plain}"
+else
+    echo -e "${yellow}检测架构失败，使用默认架构: amd64${plain}"
+    arch="amd64"
 fi
 
 echo "架构: ${arch}"
@@ -123,12 +124,12 @@ install_x-ui() {
             exit 1
         fi
         echo -e "检测到 x-ui 最新版本：${last_version}，开始安装"
-        # 修正下载链接以匹配您的发布版本
-        wget -N --no-check-certificate -O /usr/local/m-ui-linux-amd64.tar.gz https://github.com/imaicai/m-ui/releases/download/${last_version}/m-ui-linux-amd64.tar.gz
+        pkg_name="m-ui-linux-${arch}.tar.gz"
+        wget -N --no-check-certificate -O "/usr/local/${pkg_name}" "https://github.com/imaicai/m-ui/releases/download/${last_version}/${pkg_name}"
         if [[ $? -ne 0 ]]; then
             echo -e "${red}下载 x-ui 失败，请确保你的服务器能够下载 Github 的文件${plain}"
             echo -e "${yellow}尝试使用 curl 下载...${plain}"
-            curl -L -o /usr/local/m-ui-linux-amd64.tar.gz https://github.com/imaicai/m-ui/releases/download/${last_version}/m-ui-linux-amd64.tar.gz
+            curl -L -o "/usr/local/${pkg_name}" "https://github.com/imaicai/m-ui/releases/download/${last_version}/${pkg_name}"
             if [[ $? -ne 0 ]]; then
                 echo -e "${red}使用 curl 下载也失败了，请检查网络连接或稍后再试${plain}"
                 exit 1
@@ -136,14 +137,14 @@ install_x-ui() {
         fi
     else
         last_version=$1
-        # 修正下载链接以匹配您的发布版本
-        url="https://github.com/imaicai/m-ui/releases/download/${last_version}/m-ui-linux-amd64.tar.gz"
+        pkg_name="m-ui-linux-${arch}.tar.gz"
+        url="https://github.com/imaicai/m-ui/releases/download/${last_version}/${pkg_name}"
         echo -e "开始安装 x-ui v$1"
-        wget -N --no-check-certificate -O /usr/local/m-ui-linux-amd64.tar.gz ${url}
+        wget -N --no-check-certificate -O "/usr/local/${pkg_name}" ${url}
         if [[ $? -ne 0 ]]; then
             echo -e "${red}下载 x-ui v$1 失败，请确保此版本存在${plain}"
             echo -e "${yellow}尝试使用 curl 下载...${plain}"
-            curl -L -o /usr/local/m-ui-linux-amd64.tar.gz ${url}
+            curl -L -o "/usr/local/${pkg_name}" ${url}
             if [[ $? -ne 0 ]]; then
                 echo -e "${red}使用 curl 下载也失败了，请检查网络连接或稍后再试${plain}"
                 exit 1
@@ -157,20 +158,22 @@ install_x-ui() {
 
     # 创建x-ui目录并解压到该目录
     mkdir -p /usr/local/x-ui/
-    tar xJvf m-ui-linux-amd64.tar.gz -C /usr/local/x-ui/
-    rm m-ui-linux-amd64.tar.gz -f
+    tar zxvf ${pkg_name} -C /usr/local/x-ui/
+    rm ${pkg_name} -f
     
     # 进入x-ui目录并设置权限
     cd /usr/local/x-ui/
-    chmod +x x-ui bin/xray-linux-amd64
-    
-    # 重命名可执行文件以匹配服务文件
-    mv x-ui x-ui
+    # 兼容不同包名的可执行文件（m-ui/x-ui）
+    if [[ -f "m-ui" && ! -f "x-ui" ]]; then
+        mv m-ui x-ui
+    fi
+    chmod +x x-ui || true
+    chmod +x bin/xray-linux-${arch} || true
     
     cp -f x-ui.service /etc/systemd/system/
-    # 使用我们自己的仓库下载x-ui.sh
+    # 使用我们自己的仓库下载x-ui.sh（管理脚本）
     wget --no-check-certificate -O /usr/bin/x-ui https://raw.githubusercontent.com/imaicai/m-ui/master/x-ui.sh
-    chmod +x /usr/local/x-ui/x-ui.sh
+    chmod +x /usr/local/x-ui/x-ui.sh 2>/dev/null || true
     chmod +x /usr/bin/x-ui
     config_after_install
     systemctl daemon-reload
