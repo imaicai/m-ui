@@ -3,10 +3,10 @@ package controller
 import (
 	"net/http"
 	"time"
-	"m-ui/logger"
-	"m-ui/web/job"
-	"m-ui/web/service"
-	"m-ui/web/session"
+	"x-ui/logger"
+	"x-ui/web/job"
+	"x-ui/web/service"
+	"x-ui/web/session"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,7 +36,7 @@ func (a *IndexController) initRouter(g *gin.RouterGroup) {
 
 func (a *IndexController) index(c *gin.Context) {
 	if session.IsLogin(c) {
-		c.Redirect(http.StatusTemporaryRedirect, "mui/")
+		c.Redirect(http.StatusTemporaryRedirect, "xui/")
 		return
 	}
 	html(c, "login.html", "登录", nil)

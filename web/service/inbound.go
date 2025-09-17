@@ -3,10 +3,10 @@ package service
 import (
 	"fmt"
 	"time"
-	"m-ui/database"
-	"m-ui/database/model"
-	"m-ui/util/common"
-	"m-ui/xray"
+	"x-ui/database"
+	"x-ui/database/model"
+	"x-ui/util/common"
+	"x-ui/xray"
 
 	"gorm.io/gorm"
 )

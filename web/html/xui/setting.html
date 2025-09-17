@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "head" .}}
+<style>
+    /* 布局样式 */
+    @media (min-width: 769px) {
+        .ant-layout-content {
+            margin: var(--space-4) var(--space-4);
+        }
+    }
+
+    /* 标签页导航 */
+    .setting-tabs {
+        margin-top: var(--space-4);
+    }
+
+    .setting-tabs .ant-tabs-nav {
+        margin: 0;
+    }
+
+    .setting-tabs .ant-tabs-tab {
+        padding: var(--space-2) var(--space-4);
+        font-weight: var(--font-medium);
+    }
+
+    .setting-tabs .ant-tabs-tab-active {
+        color: var(--primary);
+    }
+
+    .setting-tabs .ant-tabs-ink-bar {
+        background-color: var(--primary);
+    }
+
+    /* 设置卡片 */
+    .setting-card {
+        background-color: var(--surface) !important;
+        border-radius: var(--radius-md) !important;
+        border: none !important;
+        box-shadow: var(--shadow-sm) !important;
+        margin-bottom: var(--space-4);
+        padding: var(--space-4);
+    }
+
+    /* 表单元素 */
+    .setting-form .ant-form-item {
+        margin-bottom: var(--space-3);
+    }
+
+    .setting-form .ant-form-item-label {
+        font-weight: var(--font-medium);
+    }
+
+    .setting-form .ant-input,
+    .setting-form .ant-input-number,
+    .setting-form .ant-select-selector {
+        border-radius: var(--radius-sm) !important;
+        border-color: var(--divider) !important;
+    }
+
+    .setting-form .ant-input:focus,
+    .setting-form .ant-input-number:focus,
+    .setting-form .ant-select-focused .ant-select-selector {
+        border-color: var(--primary) !important;
+        box-shadow: 0 0 0 2px var(--primary-10) !important;
+    }
+
+    /* 按钮区域 */
+    .setting-actions {
+        margin-bottom: var(--space-4);
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 768px) {
+        .ant-col-sm-24 {
+            margin-top: var(--space-2);
+        }
+
+        .setting-card {
+            padding: var(--space-3);
+        }
+    }
+</style>
+<body>
+<a-layout id="app" v-cloak>
+    {{ template "commonSider" . }}
+    <a-layout id="content-layout">
+        <a-layout-content>
+            <a-spin :spinning="spinning" :delay="500" tip="loading">
+                <div class="setting-actions">
+                    <a-button type="primary" :disabled="saveBtnDisable" @click="updateAllSetting" 
+                              style="margin-right: var(--space-3);">
+                        保存配置
+                    </a-button>
+                    <a-button type="danger" :disabled="!saveBtnDisable" @click="restartPanel">
+                        重启面板
+                    </a-button>
+                </div>
+                <a-tabs class="setting-tabs" default-active-key="1">
+                        <a-tab-pane key="1" tab="面板配置">
+                            <a-card class="setting-card">
+                                <setting-list-item type="text" title="面板监听 IP" desc="默认留空监听所有 IP，重启面板生效" v-model="allSetting.webListen"></setting-list-item>
+                                <a-divider style="margin: var(--space-2) 0" />
+                                <setting-list-item type="number" title="面板监听端口" desc="重启面板生效" v-model.number="allSetting.webPort"></setting-list-item>
+                                <a-divider style="margin: var(--space-2) 0" />
+                                <setting-list-item type="text" title="面板证书公钥文件路径" desc="填写一个 '/' 开头的绝对路径，重启面板生效" v-model="allSetting.webCertFile"></setting-list-item>
+                                <a-divider style="margin: var(--space-2) 0" />
+                                <setting-list-item type="text" title="面板证书密钥文件路径" desc="填写一个 '/' 开头的绝对路径，重启面板生效" v-model="allSetting.webKeyFile"></setting-list-item>
+                                <a-divider style="margin: var(--space-2) 0" />
+                                <setting-list-item type="text" title="面板 url 根路径" desc="必须以 '/' 开头，以 '/' 结尾，重启面板生效" v-model="allSetting.webBasePath"></setting-list-item>
+                            </a-card>
+                        </a-tab-pane>
+                        <a-tab-pane key="2" tab="用户设置">
+                            <a-card class="setting-card">
+                                <a-form class="setting-form">
+                                    <a-form-item label="原用户名">
+                                        <a-input v-model="user.oldUsername" style="max-width: 300px"></a-input>
+                                    </a-form-item>
+                                    <a-form-item label="原密码">
+                                        <a-input type="password" v-model="user.oldPassword" style="max-width: 300px"></a-input>
+                                    </a-form-item>
+                                    <a-divider style="margin: var(--space-3) 0" />
+                                    <a-form-item label="新用户名">
+                                        <a-input v-model="user.newUsername" style="max-width: 300px"></a-input>
+                                    </a-form-item>
+                                    <a-form-item label="新密码">
+                                        <a-input type="password" v-model="user.newPassword" style="max-width: 300px"></a-input>
+                                    </a-form-item>
+                                    <a-form-item>
+                                        <a-button type="primary" @click="updateUser" style="margin-top: var(--space-2)">
+                                            修改
+                                        </a-button>
+                                    </a-form-item>
+                                </a-form>
+                            </a-card>
+                        </a-tab-pane>
+                        <a-tab-pane key="3" tab="xray 相关设置">
+                            <a-card class="setting-card">
+                                <setting-list-item type="textarea" title="xray 配置模版" desc="以该模版为基础生成最终的 xray 配置文件，重启面板生效" v-model="allSetting.xrayTemplateConfig"></setting-list-item>
+                            </a-card>
+                        </a-tab-pane>
+                        <a-tab-pane key="4" tab="TG提醒相关设置">
+                            <a-card class="setting-card">
+                                <setting-list-item type="switch" title="启用电报机器人" desc="重启面板生效" v-model="allSetting.tgBotEnable"></setting-list-item>
+                                <a-divider style="margin: var(--space-2) 0" />
+                                <setting-list-item type="text" title="电报机器人TOKEN" desc="重启面板生效" v-model="allSetting.tgBotToken"></setting-list-item>
+                                <a-divider style="margin: var(--space-2) 0" />
+                                <setting-list-item type="number" title="电报机器人ChatId" desc="重启面板生效" v-model.number="allSetting.tgBotChatId"></setting-list-item>
+                                <a-divider style="margin: var(--space-2) 0" />
+                                <setting-list-item type="text" title="电报机器人通知时间" desc="采用Crontab定时格式,重启面板生效" v-model="allSetting.tgRunTime"></setting-list-item>
+                            </a-card>
+                        </a-tab-pane>
+                        <a-tab-pane key="5" tab="其他设置">
+                            <a-card class="setting-card">
+                                <setting-list-item type="text" title="时区" desc="定时任务按照该时区的时间运行，重启面板生效" v-model="allSetting.timeLocation"></setting-list-item>
+                            </a-card>
+                        </a-tab-pane>
+                    </a-tabs>
+                </a-space>
+            </a-spin>
+        </a-layout-content>
+    </a-layout>
+</a-layout>
+{{template "js" .}}
+{{template "component/setting"}}
+<script>
+
+    const app = new Vue({
+        delimiters: ['[[', ']]'],
+        el: '#app',
+        data: {
+            siderDrawer,
+            spinning: false,
+            oldAllSetting: new AllSetting(),
+            allSetting: new AllSetting(),
+            saveBtnDisable: true,
+            user: {},
+        },
+        methods: {
+            loading(spinning = true) {
+                this.spinning = spinning;
+            },
+            async getAllSetting() {
+                this.loading(true);
+                const msg = await HttpUtil.post("/xui/setting/all");
+                this.loading(false);
+                if (msg.success) {
+                    this.oldAllSetting = new AllSetting(msg.obj);
+                    this.allSetting = new AllSetting(msg.obj);
+                    this.saveBtnDisable = true;
+                }
+            },
+            async updateAllSetting() {
+                this.loading(true);
+                const msg = await HttpUtil.post("/xui/setting/update", this.allSetting);
+                this.loading(false);
+                if (msg.success) {
+                    await this.getAllSetting();
+                }
+            },
+            async updateUser() {
+                this.loading(true);
+                const msg = await HttpUtil.post("/xui/setting/updateUser", this.user);
+                this.loading(false);
+                if (msg.success) {
+                    this.user = {};
+                }
+            },
+            async restartPanel() {
+                await new Promise(resolve => {
+                    this.$confirm({
+                        title: '重启面板',
+                        content: '确定要重启面板吗？点击确定将于 3 秒后重启，若重启后无法访问面板，请前往服务器查看面板日志信息',
+                        okText: '确定',
+                        cancelText: '取消',
+                        onOk: () => resolve(),
+                    });
+                });
+                this.loading(true);
+                const msg = await HttpUtil.post("/xui/setting/restartPanel");
+                this.loading(false);
+                if (msg.success) {
+                    this.loading(true);
+                    await PromiseUtil.sleep(5000);
+                    location.reload();
+                }
+            }
+        },
+        async mounted() {
+            await this.getAllSetting();
+            while (true) {
+                await PromiseUtil.sleep(1000);
+                this.saveBtnDisable = this.oldAllSetting.equals(this.allSetting);
+            }
+        },
+    });
+
+</script>
+</body>
+</html>

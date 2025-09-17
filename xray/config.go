@@ -2,7 +2,7 @@ package xray
 
 import (
 	"bytes"
-	"m-ui/util/json_util"
+	"x-ui/util/json_util"
 )
 
 type Config struct {

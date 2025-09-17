@@ -4,21 +4,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type muiController struct {
+type XUIController struct {
 	BaseController
 
 	inboundController *InboundController
 	settingController *SettingController
 }
 
-func NewmuiController(g *gin.RouterGroup) *muiController {
-	a := &muiController{}
+func NewXUIController(g *gin.RouterGroup) *XUIController {
+	a := &XUIController{}
 	a.initRouter(g)
 	return a
 }
 
-func (a *muiController) initRouter(g *gin.RouterGroup) {
-	g = g.Group("/mui")
+func (a *XUIController) initRouter(g *gin.RouterGroup) {
+	g = g.Group("/xui")
 	g.Use(a.checkLogin)
 
 	g.GET("/", a.index)
@@ -29,14 +29,14 @@ func (a *muiController) initRouter(g *gin.RouterGroup) {
 	a.settingController = NewSettingController(g)
 }
 
-func (a *muiController) index(c *gin.Context) {
+func (a *XUIController) index(c *gin.Context) {
 	html(c, "index.html", "系统状态", nil)
 }
 
-func (a *muiController) inbounds(c *gin.Context) {
+func (a *XUIController) inbounds(c *gin.Context) {
 	html(c, "inbounds.html", "入站列表", nil)
 }
 
-func (a *muiController) setting(c *gin.Context) {
+func (a *XUIController) setting(c *gin.Context) {
 	html(c, "setting.html", "设置", nil)
 }

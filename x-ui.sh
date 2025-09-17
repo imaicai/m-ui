@@ -94,7 +94,7 @@ before_show_menu() {
 }
 
 install() {
-    bash <(curl -Ls https://raw.githubusercontent.com/imaicai/m-ui/master/install.sh)
+    bash <(curl -Ls https://raw.githubusercontent.com/vaxilu/x-ui/master/install.sh)
     if [[ $? == 0 ]]; then
         if [[ $# == 0 ]]; then
             start
@@ -113,7 +113,7 @@ update() {
         fi
         return 0
     fi
-    bash <(curl -Ls https://raw.githubusercontent.com/imaicai/m-ui/master/install.sh)
+    bash <(curl -Ls https://raw.githubusercontent.com/vaxilu/x-ui/master/install.sh)
     if [[ $? == 0 ]]; then
         LOGI "更新完成，已自动重启面板 "
         exit 0
@@ -128,16 +128,16 @@ uninstall() {
         fi
         return 0
     fi
-    systemctl stop m-ui
-    systemctl disable m-ui
-    rm /etc/systemd/system/m-ui.service -f
+    systemctl stop x-ui
+    systemctl disable x-ui
+    rm /etc/systemd/system/x-ui.service -f
     systemctl daemon-reload
     systemctl reset-failed
-    rm /etc/m-ui/ -rf
-    rm /usr/local/m-ui/ -rf
+    rm /etc/x-ui/ -rf
+    rm /usr/local/x-ui/ -rf
 
     echo ""
-    echo -e "卸载成功，如果你想删除此脚本，则退出脚本后运行 ${green}rm /usr/bin/m-ui -f${plain} 进行删除"
+    echo -e "卸载成功，如果你想删除此脚本，则退出脚本后运行 ${green}rm /usr/bin/x-ui -f${plain} 进行删除"
     echo ""
 
     if [[ $# == 0 ]]; then
@@ -153,7 +153,7 @@ reset_user() {
         fi
         return 0
     fi
-    /usr/local/m-ui/m-ui setting -username admin -password admin
+    /usr/local/x-ui/x-ui setting -username admin -password admin
     echo -e "用户名和密码已重置为 ${green}admin${plain}，现在请重启面板"
     confirm_restart
 }
@@ -166,13 +166,13 @@ reset_config() {
         fi
         return 0
     fi
-    /usr/local/m-ui/m-ui setting -reset
+    /usr/local/x-ui/x-ui setting -reset
     echo -e "所有面板设置已重置为默认值，现在请重启面板，并使用默认的 ${green}54321${plain} 端口访问面板"
     confirm_restart
 }
 
 check_config() {
-    info=$(/usr/local/m-ui/m-ui setting -show true)
+    info=$(/usr/local/x-ui/x-ui setting -show true)
     if [[ $? != 0 ]]; then
         LOGE "get current settings error,please check logs"
         show_menu
@@ -186,7 +186,7 @@ set_port() {
         LOGD "已取消"
         before_show_menu
     else
-        /usr/local/m-ui/m-ui setting -port ${port}
+        /usr/local/x-ui/x-ui setting -port ${port}
         echo -e "设置端口完毕，现在请重启面板，并使用新设置的端口 ${green}${port}${plain} 访问面板"
         confirm_restart
     fi
@@ -198,11 +198,11 @@ start() {
         echo ""
         LOGI "面板已运行，无需再次启动，如需重启请选择重启"
     else
-        systemctl start m-ui
+        systemctl start x-ui
         sleep 2
         check_status
         if [[ $? == 0 ]]; then
-            LOGI "m-ui 启动成功"
+            LOGI "x-ui 启动成功"
         else
             LOGE "面板启动失败，可能是因为启动时间超过了两秒，请稍后查看日志信息"
         fi
@@ -219,11 +219,11 @@ stop() {
         echo ""
         LOGI "面板已停止，无需再次停止"
     else
-        systemctl stop m-ui
+        systemctl stop x-ui
         sleep 2
         check_status
         if [[ $? == 1 ]]; then
-            LOGI "m-ui 与 xray 停止成功"
+            LOGI "x-ui 与 xray 停止成功"
         else
             LOGE "面板停止失败，可能是因为停止时间超过了两秒，请稍后查看日志信息"
         fi
@@ -235,11 +235,11 @@ stop() {
 }
 
 restart() {
-    systemctl restart m-ui
+    systemctl restart x-ui
     sleep 2
     check_status
     if [[ $? == 0 ]]; then
-        LOGI "m-ui 与 xray 重启成功"
+        LOGI "x-ui 与 xray 重启成功"
     else
         LOGE "面板重启失败，可能是因为启动时间超过了两秒，请稍后查看日志信息"
     fi
@@ -249,18 +249,18 @@ restart() {
 }
 
 status() {
-    systemctl status m-ui -l
+    systemctl status x-ui -l
     if [[ $# == 0 ]]; then
         before_show_menu
     fi
 }
 
 enable() {
-    systemctl enable m-ui
+    systemctl enable x-ui
     if [[ $? == 0 ]]; then
-        LOGI "m-ui 设置开机自启成功"
+        LOGI "x-ui 设置开机自启成功"
     else
-        LOGE "m-ui 设置开机自启失败"
+        LOGE "x-ui 设置开机自启失败"
     fi
 
     if [[ $# == 0 ]]; then
@@ -269,11 +269,11 @@ enable() {
 }
 
 disable() {
-    systemctl disable m-ui
+    systemctl disable x-ui
     if [[ $? == 0 ]]; then
-        LOGI "m-ui 取消开机自启成功"
+        LOGI "x-ui 取消开机自启成功"
     else
-        LOGE "m-ui 取消开机自启失败"
+        LOGE "x-ui 取消开机自启失败"
     fi
 
     if [[ $# == 0 ]]; then
@@ -282,14 +282,14 @@ disable() {
 }
 
 show_log() {
-    journalctl -u m-ui.service -e --no-pager -f
+    journalctl -u x-ui.service -e --no-pager -f
     if [[ $# == 0 ]]; then
         before_show_menu
     fi
 }
 
 migrate_v2_ui() {
-    /usr/local/m-ui/m-ui v2-ui
+    /usr/local/x-ui/x-ui v2-ui
 
     before_show_menu
 }
@@ -302,23 +302,23 @@ install_bbr() {
 }
 
 update_shell() {
-    wget -O /usr/bin/m-ui -N --no-check-certificate https://github.com/imaicai/m-ui/raw/master/m-ui.sh
+    wget -O /usr/bin/x-ui -N --no-check-certificate https://github.com/vaxilu/x-ui/raw/master/x-ui.sh
     if [[ $? != 0 ]]; then
         echo ""
         LOGE "下载脚本失败，请检查本机能否连接 Github"
         before_show_menu
     else
-        chmod +x /usr/bin/m-ui
+        chmod +x /usr/bin/x-ui
         LOGI "升级脚本成功，请重新运行脚本" && exit 0
     fi
 }
 
 # 0: running, 1: not running, 2: not installed
 check_status() {
-    if [[ ! -f /etc/systemd/system/m-ui.service ]]; then
+    if [[ ! -f /etc/systemd/system/x-ui.service ]]; then
         return 2
     fi
-    temp=$(systemctl status m-ui | grep Active | awk '{print $3}' | cut -d "(" -f2 | cut -d ")" -f1)
+    temp=$(systemctl status x-ui | grep Active | awk '{print $3}' | cut -d "(" -f2 | cut -d ")" -f1)
     if [[ x"${temp}" == x"running" ]]; then
         return 0
     else
@@ -327,7 +327,7 @@ check_status() {
 }
 
 check_enabled() {
-    temp=$(systemctl is-enabled m-ui)
+    temp=$(systemctl is-enabled x-ui)
     if [[ x"${temp}" == x"enabled" ]]; then
         return 0
     else
@@ -484,45 +484,45 @@ ssl_cert_issue() {
 }
 
 show_usage() {
-    echo "m-ui 管理脚本使用方法: "
+    echo "x-ui 管理脚本使用方法: "
     echo "------------------------------------------"
-    echo "m-ui              - 显示管理菜单 (功能更多)"
-    echo "m-ui start        - 启动 m-ui 面板"
-    echo "m-ui stop         - 停止 m-ui 面板"
-    echo "m-ui restart      - 重启 m-ui 面板"
-    echo "m-ui status       - 查看 m-ui 状态"
-    echo "m-ui enable       - 设置 m-ui 开机自启"
-    echo "m-ui disable      - 取消 m-ui 开机自启"
-    echo "m-ui log          - 查看 m-ui 日志"
-    echo "m-ui v2-ui        - 迁移本机器的 v2-ui 账号数据至 m-ui"
-    echo "m-ui update       - 更新 m-ui 面板"
-    echo "m-ui install      - 安装 m-ui 面板"
-    echo "m-ui uninstall    - 卸载 m-ui 面板"
+    echo "x-ui              - 显示管理菜单 (功能更多)"
+    echo "x-ui start        - 启动 x-ui 面板"
+    echo "x-ui stop         - 停止 x-ui 面板"
+    echo "x-ui restart      - 重启 x-ui 面板"
+    echo "x-ui status       - 查看 x-ui 状态"
+    echo "x-ui enable       - 设置 x-ui 开机自启"
+    echo "x-ui disable      - 取消 x-ui 开机自启"
+    echo "x-ui log          - 查看 x-ui 日志"
+    echo "x-ui v2-ui        - 迁移本机器的 v2-ui 账号数据至 x-ui"
+    echo "x-ui update       - 更新 x-ui 面板"
+    echo "x-ui install      - 安装 x-ui 面板"
+    echo "x-ui uninstall    - 卸载 x-ui 面板"
     echo "------------------------------------------"
 }
 
 show_menu() {
     echo -e "
-  ${green}m-ui 面板管理脚本${plain}
+  ${green}x-ui 面板管理脚本${plain}
   ${green}0.${plain} 退出脚本
 ————————————————
-  ${green}1.${plain} 安装 m-ui
-  ${green}2.${plain} 更新 m-ui
-  ${green}3.${plain} 卸载 m-ui
+  ${green}1.${plain} 安装 x-ui
+  ${green}2.${plain} 更新 x-ui
+  ${green}3.${plain} 卸载 x-ui
 ————————————————
   ${green}4.${plain} 重置用户名密码
   ${green}5.${plain} 重置面板设置
   ${green}6.${plain} 设置面板端口
   ${green}7.${plain} 查看当前面板设置
 ————————————————
-  ${green}8.${plain} 启动 m-ui
-  ${green}9.${plain} 停止 m-ui
-  ${green}10.${plain} 重启 m-ui
-  ${green}11.${plain} 查看 m-ui 状态
-  ${green}12.${plain} 查看 m-ui 日志
+  ${green}8.${plain} 启动 x-ui
+  ${green}9.${plain} 停止 x-ui
+  ${green}10.${plain} 重启 x-ui
+  ${green}11.${plain} 查看 x-ui 状态
+  ${green}12.${plain} 查看 x-ui 日志
 ————————————————
-  ${green}13.${plain} 设置 m-ui 开机自启
-  ${green}14.${plain} 取消 m-ui 开机自启
+  ${green}13.${plain} 设置 x-ui 开机自启
+  ${green}14.${plain} 取消 x-ui 开机自启
 ————————————————
   ${green}15.${plain} 一键安装 bbr (最新内核)
   ${green}16.${plain} 一键申请SSL证书(acme申请)

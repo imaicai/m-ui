@@ -2,14 +2,104 @@
 <html lang="en">
 {{template "head" .}}
 <style>
+    /* 布局样式 */
     @media (min-width: 769px) {
         .ant-layout-content {
-            margin: 24px 16px;
+            margin: var(--space-4) var(--space-4);
         }
     }
 
-    .ant-col-sm-24 {
-        margin-top: 10px;
+    /* 统计卡片 */
+    .stats-card {
+        border-radius: var(--radius-md) !important;
+        border: none !important;
+        box-shadow: var(--shadow-sm) !important;
+        margin-bottom: var(--space-4);
+        transition: all var(--transition-normal) var(--easing-standard) !important;
+    }
+
+    .stats-card:hover {
+        box-shadow: var(--shadow-md) !important;
+    }
+
+    .stats-card .ant-card-body {
+        padding: var(--space-3) var(--space-4) !important;
+    }
+
+    /* 表格样式 */
+    .inbounds-table {
+        background-color: var(--surface) !important;
+        border-radius: var(--radius-md) !important;
+        overflow: hidden;
+        box-shadow: var(--shadow-sm) !important;
+    }
+
+    .inbounds-table .ant-table-thead > tr > th {
+        background-color: var(--background) !important;
+        color: var(--text-primary) !important;
+        font-weight: var(--font-semibold) !important;
+        border-bottom: 1px solid var(--divider) !important;
+        padding: var(--space-3) var(--space-4) !important;
+    }
+
+    .inbounds-table .ant-table-tbody > tr > td {
+        border-bottom: 1px solid var(--divider) !important;
+        padding: var(--space-3) var(--space-4) !important;
+        transition: background-color var(--transition-fast) var(--easing-standard) !important;
+    }
+
+    .inbounds-table .ant-table-tbody > tr:hover > td {
+        background-color: rgba(67, 97, 238, 0.05) !important;
+    }
+
+    /* 状态标签 */
+    .status-tag {
+        border-radius: var(--radius-full) !important;
+        border: none !important;
+        padding: 0 var(--space-2) !important;
+        font-weight: var(--font-medium) !important;
+        line-height: 1.8 !important;
+        margin-right: var(--space-2) !important;
+    }
+
+    /* 操作按钮 */
+    .action-button {
+        color: var(--primary) !important;
+        transition: all var(--transition-fast) var(--easing-standard) !important;
+    }
+
+    .action-button:hover {
+        color: var(--primary-dark) !important;
+    }
+
+    /* 下拉菜单 */
+    .action-dropdown .ant-dropdown-menu {
+        border-radius: var(--radius-md) !important;
+        box-shadow: var(--shadow-md) !important;
+        padding: var(--space-1) !important;
+    }
+
+    .action-dropdown .ant-dropdown-menu-item {
+        border-radius: var(--radius-sm) !important;
+        padding: var(--space-2) var(--space-3) !important;
+        transition: all var(--transition-fast) var(--easing-standard) !important;
+    }
+
+    .action-dropdown .ant-dropdown-menu-item:hover {
+        background-color: rgba(67, 97, 238, 0.1) !important;
+        color: var(--primary) !important;
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 768px) {
+        .ant-col-sm-24 {
+            margin-top: var(--space-2);
+        }
+        
+        .inbounds-table .ant-table-thead > tr > th,
+        .inbounds-table .ant-table-tbody > tr > td {
+            padding: var(--space-2) var(--space-3) !important;
+        }
     }
 </style>
 <body>
@@ -23,35 +113,56 @@
                         Please go to the panel settings as soon as possible to modify the username and password, otherwise there may be a risk of leaking account information
                     </a-tag>
                 </transition>
-                <transition name="list" appear>
-                    <a-card hoverable style="margin-bottom: 20px;">
-                        <a-row>
-                            <a-col :xs="24" :sm="24" :lg="12">
-                                总上传 / 下载：
-                                <a-tag color="green">[[ sizeFormat(total.up) ]] / [[ sizeFormat(total.down) ]]</a-tag>
+                <transition name="fade-in" appear>
+                    <a-card class="stats-card">
+                        <a-row type="flex" justify="space-between" align="middle">
+                            <a-col :xs="24" :sm="8">
+                                <div class="stat-item">
+                                    <div class="stat-label">总上传 / 下载</div>
+                                    <div class="stat-value">
+                                        <a-tag class="status-tag" style="background-color: var(--primary-20); color: var(--primary);">
+                                            [[ sizeFormat(total.up) ]] / [[ sizeFormat(total.down) ]]
+                                        </a-tag>
+                                    </div>
+                                </div>
                             </a-col>
-                            <a-col :xs="24" :sm="24" :lg="12">
-                                总用量：
-                                <a-tag color="green">[[ sizeFormat(total.up + total.down) ]]</a-tag>
+                            <a-col :xs="24" :sm="8">
+                                <div class="stat-item">
+                                    <div class="stat-label">总用量</div>
+                                    <div class="stat-value">
+                                        <a-tag class="status-tag" style="background-color: var(--success-20); color: var(--success);">
+                                            [[ sizeFormat(total.up + total.down) ]]
+                                        </a-tag>
+                                    </div>
+                                </div>
                             </a-col>
-                            <a-col :xs="24" :sm="24" :lg="12">
-                                入站数量：
-                                <a-tag color="green">[[ dbInbounds.length ]]</a-tag>
+                            <a-col :xs="24" :sm="8">
+                                <div class="stat-item">
+                                    <div class="stat-label">入站数量</div>
+                                    <div class="stat-value">
+                                        <a-tag class="status-tag" style="background-color: var(--accent-20); color: var(--accent);">
+                                            [[ dbInbounds.length ]]
+                                        </a-tag>
+                                    </div>
+                                </div>
                             </a-col>
                         </a-row>
                     </a-card>
                 </transition>
-                <transition name="list" appear>
-                    <a-card hoverable>
+                <transition name="fade-in" appear>
+                    <a-card class="stats-card">
                         <div slot="title">
-                            <a-button type="primary" icon="plus" @click="openAddInbound"></a-button>
+                            <a-button type="primary" icon="plus" @click="openAddInbound" class="add-button">
+                                添加入站
+                            </a-button>
                         </div>
-<!--                        <a-input v-model="searchKey" placeholder="搜索" autofocus style="max-width: 300px"></a-input>-->
-                        <a-table :columns="columns" :row-key="dbInbound => dbInbound.id"
+                        <a-table class="inbounds-table" 
+                                 :columns="columns" 
+                                 :row-key="dbInbound => dbInbound.id"
                                  :data-source="dbInbounds"
-                                 :loading="spinning" :scroll="{ x: 1500 }"
+                                 :loading="spinning" 
+                                 :scroll="{ x: 1500 }"
                                  :pagination="false"
-                                 style="margin-top: 20px"
                                  @change="() => getDBInbounds()">
                             <template slot="action" slot-scope="text, dbInbound">
                                 <a-dropdown :trigger="['click']">
@@ -75,40 +186,73 @@
                                 </a-dropdown>
                             </template>
                             <template slot="protocol" slot-scope="text, dbInbound">
-                                <a-tag color="blue">[[ dbInbound.protocol ]]</a-tag>
+                                <a-tag class="status-tag" 
+                                       :style="{backgroundColor: getProtocolColor(dbInbound.protocol) + '20', 
+                                               color: getProtocolColor(dbInbound.protocol)}">
+                                    [[ dbInbound.protocol ]]
+                                </a-tag>
                             </template>
                             <template slot="traffic" slot-scope="text, dbInbound">
-                                <a-tag color="blue">[[ sizeFormat(dbInbound.up) ]] / [[ sizeFormat(dbInbound.down) ]]</a-tag>
-                                <template v-if="dbInbound.total > 0">
-                                    <a-tag v-if="dbInbound.up + dbInbound.down < dbInbound.total" color="cyan">[[ sizeFormat(dbInbound.total) ]]</a-tag>
-                                    <a-tag v-else color="red">[[ sizeFormat(dbInbound.total) ]]</a-tag>
-                                </template>
-                                <a-tag v-else color="green">无限制</a-tag>
+                                <div class="traffic-info">
+                                    <div class="traffic-up">
+                                        <a-icon type="arrow-up" style="color: var(--primary);"/>
+                                        [[ sizeFormat(dbInbound.up) ]]
+                                    </div>
+                                    <div class="traffic-down">
+                                        <a-icon type="arrow-down" style="color: var(--accent);"/>
+                                        [[ sizeFormat(dbInbound.down) ]]
+                                    </div>
+                                    <div v-if="dbInbound.total > 0" class="traffic-total">
+                                        <a-icon type="database"/>
+                                        <span :style="{color: dbInbound.up + dbInbound.down < dbInbound.total ? 'var(--success)' : 'var(--error)'}">
+                                            [[ sizeFormat(dbInbound.total) ]]
+                                        </span>
+                                    </div>
+                                    <div v-else class="traffic-total">
+                                        <a-icon type="database"/>
+                                        <span style="color: var(--success)">无限制</span>
+                                    </div>
+                                </div>
                             </template>
                             <template slot="settings" slot-scope="text, dbInbound">
-                                <a-button type="link" @click="showInfo(dbInbound)">查看</a-button>
+                                <a-button type="link" class="action-button" @click="showInfo(dbInbound)">
+                                    查看
+                                </a-button>
                             </template>
                             <template slot="stream" slot-scope="text, dbInbound, index">
                                 <template v-if="dbInbound.isVMess || dbInbound.isVLess || dbInbound.isTrojan || dbInbound.isSS">
-                                    <a-tag color="green">[[ inbounds[index].stream.network ]]</a-tag>
-                                    <a-tag v-if="inbounds[index].stream.isTls" color="blue">tls</a-tag>
-                                    <a-tag v-if="inbounds[index].stream.isXTls" color="blue">xtls</a-tag>
+                                    <a-tag class="status-tag" style="background-color: var(--success-20); color: var(--success);">
+                                        [[ inbounds[index].stream.network ]]
+                                    </a-tag>
+                                    <a-tag v-if="inbounds[index].stream.isTls" 
+                                           class="status-tag" 
+                                           style="background-color: var(--primary-20); color: var(--primary);">
+                                        tls
+                                    </a-tag>
+                                    <a-tag v-if="inbounds[index].stream.isXTls" 
+                                           class="status-tag" 
+                                           style="background-color: var(--primary-20); color: var(--primary);">
+                                        xtls
+                                    </a-tag>
                                 </template>
-                                <template v-else>无</template>
+                                <template v-else>
+                                    <span class="text-secondary">无</span>
+                                </template>
                             </template>
                             <template slot="enable" slot-scope="text, dbInbound">
-                                <a-switch v-model="dbInbound.enable" @change="switchEnable(dbInbound)"></a-switch>
+                                <a-switch v-model="dbInbound.enable" 
+                                          @change="switchEnable(dbInbound)"
+                                          :checked-children="'开'"
+                                          :un-checked-children="'关'">
+                                </a-switch>
                             </template>
                             <template slot="expiryTime" slot-scope="text, dbInbound">
                                 <template v-if="dbInbound.expiryTime > 0">
-                                    <a-tag v-if="dbInbound.isExpiry" color="red">
+                                    <div :style="{color: dbInbound.isExpiry ? 'var(--error)' : 'var(--primary)'}">
                                         [[ DateUtil.formatMillis(dbInbound.expiryTime) ]]
-                                    </a-tag>
-                                    <a-tag v-else color="blue">
-                                        [[ DateUtil.formatMillis(dbInbound.expiryTime) ]]
-                                    </a-tag>
+                                    </div>
                                 </template>
-                                <a-tag v-else color="green">无限期</a-tag>
+                                <div style="color: var(--success)">无限期</div>
                             </template>
                         </a-table>
                     </a-card>
@@ -123,53 +267,63 @@
     const columns = [{
         title: "操作",
         align: 'center',
-        width: 30,
+        width: 40,
         scopedSlots: { customRender: 'action' },
+        className: 'action-column'
     }, {
         title: "启用",
         align: 'center',
-        width: 40,
+        width: 50,
         scopedSlots: { customRender: 'enable' },
+        className: 'enable-column'
     }, {
-        title: "id",
+        title: "ID",
         align: 'center',
         dataIndex: "id",
-        width: 30,
+        width: 40,
+        className: 'id-column'
     }, {
         title: "备注",
-        align: 'center',
-        width: 100,
+        align: 'left',
         dataIndex: "remark",
+        width: 120,
+        className: 'remark-column'
     }, {
         title: "协议",
         align: 'center',
-        width: 60,
+        width: 70,
         scopedSlots: { customRender: 'protocol' },
+        className: 'protocol-column'
     }, {
         title: "端口",
         align: 'center',
         dataIndex: "port",
         width: 60,
+        className: 'port-column'
     }, {
-        title: "流量↑|↓",
+        title: "流量",
         align: 'center',
-        width: 150,
+        width: 160,
         scopedSlots: { customRender: 'traffic' },
+        className: 'traffic-column'
     }, {
-        title: "详细信息",
+        title: "详情",
         align: 'center',
-        width: 40,
+        width: 50,
         scopedSlots: { customRender: 'settings' },
+        className: 'settings-column'
     }, {
-        title: "传输配置",
+        title: "传输",
         align: 'center',
-        width: 60,
+        width: 70,
         scopedSlots: { customRender: 'stream' },
+        className: 'stream-column'
     }, {
         title: "到期时间",
         align: 'center',
-        width: 80,
+        width: 100,
         scopedSlots: { customRender: 'expiryTime' },
+        className: 'expiry-column'
     }];
 
     const app = new Vue({
@@ -183,12 +337,24 @@
             searchKey: '',
         },
         methods: {
+            getProtocolColor(protocol) {
+                const colors = {
+                    'vmess': '#4361EE',
+                    'vless': '#3A0CA3',
+                    'trojan': '#7209B7',
+                    'shadowsocks': '#4CC9F0',
+                    'http': '#4895EF',
+                    'socks': '#560BAD',
+                    'dokodemo-door': '#3F37C9'
+                };
+                return colors[protocol.toLowerCase()] || '#4361EE';
+            },
             loading(spinning=true) {
                 this.spinning = spinning;
             },
             async getDBInbounds() {
                 this.loading();
-                const msg = await HttpUtil.post('/mui/inbound/list');
+                const msg = await HttpUtil.post('/xui/inbound/list');
                 this.loading(false);
                 if (!msg.success) {
                     return;
@@ -273,7 +439,7 @@
                     streamSettings: inbound.stream.toString(),
                     sniffing: inbound.canSniffing() ? inbound.sniffing.toString() : '{}',
                 };
-                await this.submit('/mui/inbound/add', data, inModal);
+                await this.submit('/xui/inbound/add', data, inModal);
             },
             async updateInbound(inbound, dbInbound) {
                 const data = {
@@ -291,7 +457,7 @@
                     streamSettings: inbound.stream.toString(),
                     sniffing: inbound.canSniffing() ? inbound.sniffing.toString() : '{}',
                 };
-                await this.submit(`/mui/inbound/update/${dbInbound.id}`, data, inModal);
+                await this.submit(`/xui/inbound/update/${dbInbound.id}`, data, inModal);
             },
             resetTraffic(dbInbound) {
                 this.$confirm({
@@ -313,7 +479,7 @@
                     content: '确定要删除入站吗?',
                     okText: '删除',
                     cancelText: '取消',
-                    onOk: () => this.submit('/mui/inbound/del/' + dbInbound.id),
+                    onOk: () => this.submit('/xui/inbound/del/' + dbInbound.id),
                 });
             },
             showQrcode(dbInbound) {
@@ -324,7 +490,7 @@
                 infoModal.show(dbInbound);
             },
             switchEnable(dbInbound) {
-                this.submit(`/mui/inbound/update/${dbInbound.id}`, dbInbound);
+                this.submit(`/xui/inbound/update/${dbInbound.id}`, dbInbound);
             },
             async submit(url, data, modal) {
                 const msg = await HttpUtil.postWithModal(url, data, modal);

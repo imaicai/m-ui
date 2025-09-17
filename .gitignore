@@ -3,8 +3,8 @@ tmp
 bin/xray-darwin-arm64
 bin/config.json
 dist/
-m-ui-*.tar.gz
-/m-ui
+x-ui-*.tar.gz
+/x-ui
 /release.sh
 .sync*
 main

@@ -34,7 +34,7 @@ func GetLogLevel() LogLevel {
 	if IsDebug() {
 		return Debug
 	}
-	logLevel := os.Getenv("mui_LOG_LEVEL")
+	logLevel := os.Getenv("XUI_LOG_LEVEL")
 	if logLevel == "" {
 		return Info
 	}
@@ -42,7 +42,7 @@ func GetLogLevel() LogLevel {
 }
 
 func IsDebug() bool {
-	return os.Getenv("mui_DEBUG") == "true"
+	return os.Getenv("XUI_DEBUG") == "true"
 }
 
 func GetDBPath() string {

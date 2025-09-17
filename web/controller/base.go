@@ -3,7 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"m-ui/web/session"
+	"x-ui/web/session"
 )
 
 type BaseController struct {

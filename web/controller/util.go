@@ -5,9 +5,9 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"m-ui/config"
-	"m-ui/logger"
-	"m-ui/web/entity"
+	"x-ui/config"
+	"x-ui/logger"
+	"x-ui/web/entity"
 )
 
 func getUriId(c *gin.Context) int64 {
