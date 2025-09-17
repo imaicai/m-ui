@@ -123,12 +123,13 @@ install_x-ui() {
             exit 1
         fi
         echo -e "检测到 x-ui 最新版本：${last_version}，开始安装"
-        # 修正下载链接以匹配您的发布版本
-        wget -N --no-check-certificate -O /usr/local/m-ui-linux-amd64.tar.gz https://github.com/imaicai/m-ui/releases/download/${last_version}/m-ui-linux-amd64.tar.gz
+        pkg_name="m-ui-linux-${arch}.tar.gz"
+        # 修正下载链接以匹配您的发布版本（按架构动态选择）
+        wget -N --no-check-certificate -O "/usr/local/${pkg_name}" "https://github.com/imaicai/m-ui/releases/download/${last_version}/${pkg_name}"
         if [[ $? -ne 0 ]]; then
             echo -e "${red}下载 x-ui 失败，请确保你的服务器能够下载 Github 的文件${plain}"
             echo -e "${yellow}尝试使用 curl 下载...${plain}"
-            curl -L -o /usr/local/m-ui-linux-amd64.tar.gz https://github.com/imaicai/m-ui/releases/download/${last_version}/m-ui-linux-amd64.tar.gz
+            curl -L -o "/usr/local/${pkg_name}" "https://github.com/imaicai/m-ui/releases/download/${last_version}/${pkg_name}"
             if [[ $? -ne 0 ]]; then
                 echo -e "${red}使用 curl 下载也失败了，请检查网络连接或稍后再试${plain}"
                 exit 1
@@ -136,14 +137,15 @@ install_x-ui() {
         fi
     else
         last_version=$1
-        # 修正下载链接以匹配您的发布版本
-        url="https://github.com/imaicai/m-ui/releases/download/${last_version}/m-ui-linux-amd64.tar.gz"
+        pkg_name="m-ui-linux-${arch}.tar.gz"
+        # 修正下载链接以匹配您的发布版本（按架构动态选择）
+        url="https://github.com/imaicai/m-ui/releases/download/${last_version}/${pkg_name}"
         echo -e "开始安装 x-ui v$1"
-        wget -N --no-check-certificate -O /usr/local/m-ui-linux-amd64.tar.gz ${url}
+        wget -N --no-check-certificate -O "/usr/local/${pkg_name}" ${url}
         if [[ $? -ne 0 ]]; then
             echo -e "${red}下载 x-ui v$1 失败，请确保此版本存在${plain}"
             echo -e "${yellow}尝试使用 curl 下载...${plain}"
-            curl -L -o /usr/local/m-ui-linux-amd64.tar.gz ${url}
+            curl -L -o "/usr/local/${pkg_name}" ${url}
             if [[ $? -ne 0 ]]; then
                 echo -e "${red}使用 curl 下载也失败了，请检查网络连接或稍后再试${plain}"
                 exit 1
@@ -158,12 +160,12 @@ install_x-ui() {
     # 创建x-ui目录并解压到该目录
     mkdir -p /usr/local/x-ui/
     cd /usr/local/
-    tar zxvf m-ui-linux-amd64.tar.gz -C /usr/local/x-ui/
-    rm m-ui-linux-amd64.tar.gz -f
+    tar zxvf ${pkg_name} -C /usr/local/x-ui/
+    rm ${pkg_name} -f
     
     # 进入x-ui目录并设置权限
     cd /usr/local/x-ui/
-    chmod +x x-ui bin/xray-linux-amd64
+    chmod +x x-ui bin/xray-linux-${arch}
     
     cp -f x-ui.service /etc/systemd/system/
     # 使用我们自己的仓库下载x-ui.sh
