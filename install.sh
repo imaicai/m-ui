@@ -113,14 +113,14 @@ install_m-ui() {
             exit 1
         fi
         echo -e "检测到 m-ui 最新版本：${last_version}，开始安装"
-        wget -N --no-check-certificate -O /usr/local/m-ui-linux-${arch}.tar.gz https://github.com/imaicai/m-ui/releases/download/${last_version}/m-ui-linux-${arch}.tar.gz
+        wget -N --no-check-certificate -O /usr/local/m-ui-linux-${arch}.tar.gz https://github.com/imaicai/m-ui/archive/refs/tags/1.0.0.zip
         if [[ $? -ne 0 ]]; then
             echo -e "${red}下载 m-ui 失败，请确保你的服务器能够下载 Github 的文件${plain}"
             exit 1
         fi
     else
         last_version=$1
-        url="https://github.com/imaicai/m-ui/releases/download/${last_version}/m-ui-linux-${arch}.tar.gz"
+        url="https://github.com/imaicai/m-ui/archive/refs/tags/1.0.0.zip"
         echo -e "开始安装 m-ui v$1"
         wget -N --no-check-certificate -O /usr/local/m-ui-linux-${arch}.tar.gz ${url}
         if [[ $? -ne 0 ]]; then
