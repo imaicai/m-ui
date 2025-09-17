@@ -94,18 +94,79 @@ before_show_menu() {
 }
 
 install() {
-    bash <(curl -Ls https://raw.githubusercontent.com/vaxilu/x-ui/master/install.sh)
+    # 在线安装，支持多镜像源与自动架构识别
+    local arch=$(uname -m)
+    local ARCH="" XRAY_BIN=""
+    case "$arch" in
+        x86_64) ARCH="amd64"; XRAY_BIN="xray-linux-amd64" ;;
+        aarch64|arm64) ARCH="arm64"; XRAY_BIN="xray-linux-arm64" ;;
+        *) LOGE "不支持的CPU架构: $arch"; [[ $# == 0 ]] && before_show_menu; return 1 ;;
+    esac
+
+    LOGI "检测到架构: $arch -> $ARCH"
+
+    # 多镜像源，依次尝试（可根据网络环境自行调整顺序）
+    local MIRRORS=(
+        "https://cdn.jsdelivr.net/gh/imaicai/m-ui@master"
+        "https://ghproxy.com/https://raw.githubusercontent.com/imaicai/m-ui/master"
+        "https://raw.githubusercontent.com/imaicai/m-ui/master"
+    )
+
+    # 通用下载函数（优先 curl，无则尝试 wget）
+    function _try_download() {
+        local out="$1"; local rel="$2"; shift 2
+        for base in "${MIRRORS[@]}"; do
+            local url="${base}/${rel}"
+            LOGI "下载: ${url} -> ${out}"
+            if command -v curl >/dev/null 2>&1; then
+                curl -fsSL "$url" -o "$out" && return 0
+            fi
+            if command -v wget >/dev/null 2>&1; then
+                wget -qO "$out" "$url" && return 0
+            fi
+        done
+        return 1
+    }
+
+    local INSTALL_DIR="/usr/local/x-ui"
+    mkdir -p "$INSTALL_DIR/bin" "$INSTALL_DIR/config"
+
+    # 下载主程序与服务文件
+    _try_download "$INSTALL_DIR/x-ui" "pack/m-ui-linux-${ARCH}/x-ui" || { LOGE "下载 x-ui 失败，请检查网络或镜像可用性"; [[ $# == 0 ]] && before_show_menu; return 1; }
+    chmod +x "$INSTALL_DIR/x-ui"
+
+    _try_download "/etc/systemd/system/x-ui.service" "pack/m-ui-linux-${ARCH}/x-ui.service" || { LOGE "下载 x-ui.service 失败"; [[ $# == 0 ]] && before_show_menu; return 1; }
+
+    # 下载 xray 相关文件
+    _try_download "$INSTALL_DIR/bin/${XRAY_BIN}" "pack/m-ui-linux-${ARCH}/bin/${XRAY_BIN}" || { LOGE "下载 ${XRAY_BIN} 失败"; [[ $# == 0 ]] && before_show_menu; return 1; }
+    chmod +x "$INSTALL_DIR/bin/${XRAY_BIN}"
+
+    _try_download "$INSTALL_DIR/bin/geoip.dat" "pack/m-ui-linux-${ARCH}/bin/geoip.dat" || _try_download "$INSTALL_DIR/bin/geoip.dat" "pack/m-ui-linux-${ARCH}/bin/geoip.dat" || { LOGE "下载 geoip.dat 失败"; [[ $# == 0 ]] && before_show_menu; return 1; }
+    _try_download "$INSTALL_DIR/bin/geosite.dat" "pack/m-ui-linux-${ARCH}/bin/geosite.dat" || _try_download "$INSTALL_DIR/bin/geosite.dat" "pack/m-ui-linux-${ARCH}/bin/geosite.dat" || { LOGE "下载 geosite.dat 失败"; [[ $# == 0 ]] && before_show_menu; return 1; }
+
+    # 下载管理脚本到 /usr/bin/x-ui
+    _try_download "/usr/bin/x-ui" "x-ui.sh" || { LOGE "下载管理脚本失败"; [[ $# == 0 ]] && before_show_menu; return 1; }
+    chmod +x "/usr/bin/x-ui"
+
+    # 注册并启动服务
+    systemctl daemon-reload
+    systemctl enable x-ui
+    systemctl start x-ui
+    sleep 2
+    check_status
     if [[ $? == 0 ]]; then
-        if [[ $# == 0 ]]; then
-            start
-        else
-            start 0
-        fi
+        LOGI "x-ui 安装并启动成功"
+    else
+        LOGE "面板启动失败，请执行 'x-ui log' 查看日志"
+    fi
+
+    if [[ $# == 0 ]]; then
+        before_show_menu
     fi
 }
 
 update() {
-    confirm "本功能会强制重装当前最新版，数据不会丢失，是否继续?" "n"
+    confirm "本功能会强制在线更新到当前仓库版本，数据不会丢失，是否继续?" "n"
     if [[ $? != 0 ]]; then
         LOGE "已取消"
         if [[ $# == 0 ]]; then
@@ -113,9 +174,9 @@ update() {
         fi
         return 0
     fi
-    bash <(curl -Ls https://raw.githubusercontent.com/vaxilu/x-ui/master/install.sh)
+    install 0
     if [[ $? == 0 ]]; then
-        LOGI "更新完成，已自动重启面板 "
+        LOGI "更新完成"
         exit 0
     fi
 }
@@ -302,10 +363,26 @@ install_bbr() {
 }
 
 update_shell() {
-    wget -O /usr/bin/x-ui -N --no-check-certificate https://github.com/imaicai/m-ui/raw/master/x-ui.sh
-    if [[ $? != 0 ]]; then
+    # 多镜像源下载管理脚本
+    local MIRRORS=(
+        "https://cdn.jsdelivr.net/gh/imaicai/m-ui@master/x-ui.sh"
+        "https://ghproxy.com/https://raw.githubusercontent.com/imaicai/m-ui/master/x-ui.sh"
+        "https://raw.githubusercontent.com/imaicai/m-ui/master/x-ui.sh"
+    )
+    local ok=1
+    for url in "${MIRRORS[@]}"; do
+        LOGI "下载更新脚本: $url"
+        if command -v curl >/dev/null 2>&1; then
+            curl -fsSL "$url" -o /usr/bin/x-ui && ok=0 && break
+        fi
+        if command -v wget >/dev/null 2>&1; then
+            wget -qO /usr/bin/x-ui "$url" && ok=0 && break
+        fi
+    done
+
+    if [[ $ok -ne 0 ]]; then
         echo ""
-        LOGE "下载脚本失败，请检查本机能否连接 Github"
+        LOGE "下载脚本失败，请检查本机能否连接镜像源"
         before_show_menu
     else
         chmod +x /usr/bin/x-ui
@@ -392,7 +469,7 @@ show_enable_status() {
 
 check_xray_status() {
     count=$(ps -ef | grep "xray-linux" | grep -v "grep" | wc -l)
-    if [[ count -ne 0 ]]; then
+    if [[ $count -ne 0 ]]; then
         return 0
     else
         return 1
