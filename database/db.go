@@ -5,7 +5,7 @@ import (
     "gorm.io/gorm"
     "gorm.io/gorm/logger"
     "os"
-    "path"
+    "path/filepath"
     "x-ui/config"
     "x-ui/database/model"
 )
@@ -41,7 +41,7 @@ func initSetting() error {
 }
 
 func InitDB(dbPath string) error {
-    dir := path.Dir(dbPath)
+    dir := filepath.Dir(dbPath)
     err := os.MkdirAll(dir, 0755)
     if err != nil {
         return err

@@ -1,64 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 {{template "head" .}}
-<style>
-    @media (min-width: 769px) {
-        .ant-layout-content {
-            margin: 24px 16px;
-        }
-    }
-
-    .ant-col-sm-24 {
-        margin-top: 16px;
-    }
-
-    .dashboard-header {
-        font-size: 24px;
-        font-weight: 500;
-        color: #333;
-        margin-bottom: 24px;
-        padding-left: 8px;
-        border-left: 4px solid #667eea;
-    }
-
-    .stat-card {
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
-    }
-
-    .stat-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    .progress-info {
-        font-size: 14px;
-        color: #666;
-        margin-top: 8px;
-    }
-
-    .system-info-card {
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
-    }
-
-    .system-info-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    .info-label {
-        font-weight: 500;
-        color: #555;
-    }
-
-    .info-value {
-        font-weight: 600;
-        color: #333;
-    }
-</style>
 <body>
 <a-layout id="app" v-cloak>
     {{ template "commonSider" . }}

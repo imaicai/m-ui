@@ -11,37 +11,40 @@
     <a-icon type="setting"></a-icon>
     <span>面板设置</span>
 </a-menu-item>
-<!--<a-menu-item key="{{ .base_path }}xui/clients">-->
-<!--    <a-icon type="laptop"></a-icon>-->
-<!--    <span>客户端</span>-->
-<!--</a-menu-item>-->
-<a-sub-menu>
-    <template slot="title">
-        <a-icon type="link"></a-icon>
-        <span>其他</span>
-    </template>
-    <a-menu-item key="https://github.com/imaicai/m-ui/">
-        <a-icon type="github"></a-icon>
-        <span>Github</span>
-    </a-menu-item>
-</a-sub-menu>
-<a-menu-item key="{{ .base_path }}logout">
-    <a-icon type="logout"></a-icon>
-    <span>退出登录</span>
-</a-menu-item>
 {{end}}
 
 
 {{define "commonSider"}}
-<a-layout-sider id="sider" collapsible breakpoint="md" collapsed-width="0">
-    <div style="height: 64px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); margin-bottom: 16px;">
-        <div style="color: white; font-size: 20px; font-weight: 600; letter-spacing: 1px;">M-UI</div>
+<a-layout-header id="topnav" style="background: #fff; padding: 0 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); position: sticky; top:0; z-index:100;">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex; align-items:center;">
+            <div style="font-size: 20px; font-weight: 600; color:#1f1f1f; letter-spacing: 1px; margin-right: 16px;">M-UI</div>
+            <a-menu mode="horizontal" :selected-keys="['{{ .request_uri }}']"
+                    @click="({key}) => key.startsWith('http') ? window.open(key) : location.href = key">
+                {{template "menuItems" .}}
+            </a-menu>
+        </div>
+        <div style="display:flex; align-items:center; gap:16px;">
+            <a href="https://github.com/imaicai/m-ui/" target="_blank" style="color:#333;">
+                <a-icon type="github" style="font-size:18px;"></a-icon>
+            </a>
+            <a @click="location.href='{{ .base_path }}logout'" style="color:#333;">
+                <a-icon type="logout" style="font-size:18px;"></a-icon>
+            </a>
+        </div>
     </div>
-    <a-menu theme="dark" mode="inline" :selected-keys="['{{ .request_uri }}']"
-            @click="({key}) => key.startsWith('http') ? window.open(key) : location.href = key">
-        {{template "menuItems" .}}
-    </a-menu>
-</a-layout-sider>
+</a-layout-header>
+<script>
+
+    const siderDrawer = {
+        visible: false,
+        show() { this.visible = true; },
+        close() { this.visible = false; },
+        change() { this.visible = !this.visible; }
+    };
+
+</script>
+{{end}}
 <a-drawer id="sider-drawer" placement="left" :closable="false"
           @close="siderDrawer.close()"
           :visible="siderDrawer.visible" :wrap-style="{ padding: 0 }">

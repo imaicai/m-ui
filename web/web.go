@@ -175,7 +175,13 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 	engine.Use(func(c *gin.Context) {
 		uri := c.Request.RequestURI
 		if strings.HasPrefix(uri, assetsBasePath) {
-			c.Header("Cache-Control", "max-age=31536000")
+			if config.IsDebug() {
+				c.Header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+				c.Header("Pragma", "no-cache")
+				c.Header("Expires", "0")
+			} else {
+				c.Header("Cache-Control", "max-age=31536000")
+			}
 		}
 	})
 	err = s.initI18n(engine)

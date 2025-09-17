@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 	"x-ui/config"
 	"x-ui/logger"
 	"x-ui/web/entity"
@@ -81,8 +82,12 @@ func html(c *gin.Context, name string, title string, data gin.H) {
 }
 
 func getContext(h gin.H) gin.H {
+	cur := config.GetVersion()
+	if config.IsDebug() {
+		cur = time.Now().Format("20060102150405.000000000")
+	}
 	a := gin.H{
-		"cur_ver": config.GetVersion(),
+		"cur_ver": cur,
 	}
 	if h != nil {
 		for key, value := range h {

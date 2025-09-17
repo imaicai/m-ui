@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"runtime"
+	"path/filepath"
 )
 
 //go:embed version
@@ -46,5 +48,9 @@ func IsDebug() bool {
 }
 
 func GetDBPath() string {
+	// 使用本地 data 目录在 Debug 或 Windows 环境下，便于开发与避免权限问题
+	if IsDebug() || runtime.GOOS == "windows" {
+		return filepath.Join(".", "data", fmt.Sprintf("%s.db", GetName()))
+	}
 	return fmt.Sprintf("/etc/%s/%s.db", GetName(), GetName())
 }
