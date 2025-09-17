@@ -1,12 +1,17 @@
 [Unit]
 Description=m-ui Service
-After=network.target
-Wants=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
+User=root
 WorkingDirectory=/usr/local/x-ui/
 ExecStart=/usr/local/x-ui/x-ui
+Restart=always
+RestartSec=2s
+LimitNOFILE=65535
+Environment=GIN_MODE=release
 
 [Install]
 WantedBy=multi-user.target
