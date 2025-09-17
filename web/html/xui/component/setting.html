@@ -1,21 +1,28 @@
 {{define "component/settingListItem"}}
-<a-list-item style="padding: 20px">
+<a-list-item style="padding: 20px; border-bottom: 1px solid #f0f0f0;">
     <a-row>
         <a-col :lg="24" :xl="12">
-            <a-list-item-meta :title="title" :description="desc"/>
+            <a-list-item-meta :title="title" :description="desc">
+                    <template slot="title">
+                        <span style="font-weight: 500; color: #333;">{{ title }}</span>
+                    </template>
+                    <template slot="description">
+                        <span style="color: #666;">{{ desc }}</span>
+                    </template>
+                </a-list-item-meta>
         </a-col>
         <a-col :lg="24" :xl="12">
             <template v-if="type === 'text'">
-                <a-input :value="value" @input="$emit('input', $event.target.value)"></a-input>
+                <a-input :value="value" @input="$emit('input', $event.target.value)" style="border-radius: 8px;"></a-input>
             </template>
             <template v-else-if="type === 'number'">
-                <a-input type="number" :value="value" @input="$emit('input', $event.target.value)"></a-input>
+                <a-input type="number" :value="value" @input="$emit('input', $event.target.value)" style="border-radius: 8px;"></a-input>
             </template>
             <template v-else-if="type === 'textarea'">
-                <a-textarea :value="value" @input="$emit('input', $event.target.value)" :auto-size="{ minRows: 10, maxRows: 10 }"></a-textarea>
+                <a-textarea :value="value" @input="$emit('input', $event.target.value)" :auto-size="{ minRows: 10, maxRows: 10 }" style="border-radius: 8px;"></a-textarea>
             </template>
             <template v-else-if="type === 'switch'">
-                <a-switch :checked="value" @change="value => $emit('input', value)"></a-switch>
+                <a-switch :checked="value" @change="value => $emit('input', value)" style="zoom: 1.2;"></a-switch>
             </template>
         </a-col>
     </a-row>

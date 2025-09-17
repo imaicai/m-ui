@@ -2,130 +2,99 @@
 <html lang="en">
 {{template "head" .}}
 <style>
+
     #app {
+        padding-top: 100px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         min-height: 100vh;
-        background-color: var(--background);
     }
-    
-    .login-container {
-        min-height: 100vh;
-        padding: var(--space-4);
+
+    h1 {
+        text-align: center;
+        color: #fff;
+        margin: 20px 0 50px 0;
+        font-weight: 300;
+        font-size: 28px;
+        letter-spacing: 1px;
     }
-    
+
     .login-card {
-        overflow: hidden;
-        border-radius: var(--radius-lg);
-        box-shadow: var(--shadow-lg);
-        background-color: var(--surface);
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        padding: 40px 30px;
     }
-    
-    .illustration-side {
-        background-color: var(--primary-light);
-        background-image: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
-        padding: 0;
-        position: relative;
-        min-height: 600px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+
+    .ant-btn, .ant-input {
+        height: 50px;
+        border-radius: 8px;
     }
-    
-    .form-side {
-        padding: var(--space-8);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-    
+
     .ant-input-affix-wrapper .ant-input-prefix {
-        color: var(--text-secondary);
-        font-size: var(--text-lg);
-        margin-right: var(--space-2);
+        left: 16px;
     }
-    
-    .login-form-forgot {
-        float: right;
+
+    .ant-input-affix-wrapper .ant-input:not(:first-child) {
+        padding-left: 40px;
     }
-    
-    @media (max-width: 768px) {
-        .illustration-side {
-            display: none;
-        }
-        
-        .form-side {
-            padding: var(--space-5);
-        }
+
+    .login-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        font-weight: 500;
+        letter-spacing: 1px;
+        transition: all 0.3s ease;
     }
+
+    .login-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    }
+
 </style>
 <body>
 <a-layout id="app" v-cloak>
-    <a-layout-content class="login-container">
-        <a-row type="flex" justify="center" align="middle" style="min-height: 100vh;">
-            <a-col :xs="22" :sm="20" :md="18" :lg="16" :xl="14">
-                <a-card class="login-card" :bordered="false">
-                    <a-row type="flex">
-                        <!-- 左侧插画区域 -->
-                        <a-col :xs="0" :sm="0" :md="12" class="illustration-side">
-                            <div class="login-illustration">
-                                <div class="server-icon"></div>
-                                <div class="connection-line"></div>
-                                <div class="data-point"></div>
-                                <div class="data-point"></div>
-                                <div class="data-point"></div>
-                                <div class="data-point"></div>
-                                <div class="decoration-square"></div>
-                                <div class="decoration-square"></div>
-                            </div>
-                        </a-col>
-                        
-                        <!-- 右侧表单区域 -->
-                        <a-col :xs="24" :sm="24" :md="12" class="form-side">
-                            <transition name="fade-in" appear>
-                                <div>
-                                    <h1 class="login-title">{{ .title }}</h1>
-                                    <a-form>
-                                        <a-form-item>
-                                            <a-input 
-                                                v-model.trim="user.username" 
-                                                placeholder='{{ i18n "username" }}'
-                                                @keydown.enter.native="login" 
-                                                size="large"
-                                                autofocus>
-                                                <a-icon slot="prefix" type="user"/>
-                                            </a-input>
-                                        </a-form-item>
-                                        <a-form-item>
-                                            <a-input 
-                                                type="password" 
-                                                v-model.trim="user.password"
-                                                placeholder='{{ i18n "password" }}' 
-                                                @keydown.enter.native="login"
-                                                size="large">
-                                                <a-icon slot="prefix" type="lock"/>
-                                            </a-input>
-                                        </a-form-item>
-                                        <a-form-item>
-                                            <a-button 
-                                                type="primary" 
-                                                block 
-                                                @click="login" 
-                                                :loading="loading"
-                                                class="login-button">
-                                                {{ i18n "login" }}
-                                            </a-button>
-                                        </a-form-item>
-                                    </a-form>
-                                </div>
-                            </transition>
-                        </a-col>
-                    </a-row>
-                </a-card>
-            </a-col>
-        </a-row>
-    </a-layout-content>
+    <transition name="list" appear>
+        <a-layout-content>
+            <a-row type="flex" justify="center">
+                <a-col :xs="22" :sm="20" :md="16" :lg="12" :xl="8">
+                    <h1>{{ .title }}</h1>
+                </a-col>
+            </a-row>
+            <a-row type="flex" justify="center">
+                <a-col :xs="22" :sm="20" :md="16" :lg="12" :xl="8">
+                    <div class="login-card">
+                        <a-form>
+                            <a-form-item>
+                                <a-input v-model.trim="user.username" placeholder='{{ i18n "username" }}'
+                                         @keydown.enter.native="login" autofocus>
+                                    <a-icon slot="prefix" type="user" style="color: rgba(0,0,0,.25)"/>
+                                </a-input>
+                            </a-form-item>
+                            <a-form-item>
+                                <a-input type="password" v-model.trim="user.password"
+                                         placeholder='{{ i18n "password" }}' @keydown.enter.native="login">
+                                    <a-icon slot="prefix" type="lock" style="color: rgba(0,0,0,.25)"/>
+                                </a-input>
+                            </a-form-item>
+                            <a-form-item>
+                                <a-button class="login-btn" block @click="login" :loading="loading">{{ i18n "login" }}</a-button>
+                            </a-form-item>
+                        </a-form>
+                    </div>
+                </a-col>
+            </a-row>
+        </a-layout-content>
+    </transition>
 </a-layout>
 {{template "js" .}}
 <script>
+    const leftColor = RandomUtil.randomIntRange(0x222222, 0xFFFFFF / 2).toString(16);
+    const rightColor = RandomUtil.randomIntRange(0xFFFFFF / 2, 0xDDDDDD).toString(16);
+    const deg = RandomUtil.randomIntRange(0, 360);
+    const background = `linear-gradient(${deg}deg, #${leftColor} 10%, #${rightColor} 100%)`;
+    document.querySelector('#app').style.background = background;
     const app = new Vue({
         delimiters: ['[[', ']]'],
         el: '#app',

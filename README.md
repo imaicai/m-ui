@@ -1,43 +1,63 @@
-# x-ui
+# M-UI
 
-支持多协议多用户的 xray 面板
+现代化、高级的多协议多用户 xray 面板
 
-# 功能介绍
+<p align="center">
+  <img src="https://img.shields.io/github/v/release/imaicai/m-ui?style=flat-square" alt="GitHub release">
+  <img src="https://img.shields.io/github/downloads/imaicai/m-ui/total?style=flat-square" alt="GitHub All Releases">
+  <img src="https://img.shields.io/github/license/imaicai/m-ui?style=flat-square" alt="GitHub">
+</p>
 
-- 系统状态监控
-- 支持多用户多协议，网页可视化操作
-- 支持的协议：vmess、vless、trojan、shadowsocks、dokodemo-door、socks、http
-- 支持配置更多传输配置
-- 流量统计，限制流量，限制到期时间
-- 可自定义 xray 配置模板
-- 支持 https 访问面板（自备域名 + ssl 证书）
-- 支持一键SSL证书申请且自动续签
-- 更多高级配置项，详见面板
+<p align="center">
+  <b>全新现代化UI设计 | 高级功能 | 极致体验</b>
+</p>
+
+# 🌟 核心特性
+
+### 🎨 现代化UI设计
+- 全新现代化界面，美观大方
+- 响应式设计，适配各种设备
+- 流畅的动画效果和交互体验
+- 深色模式支持
+
+### 🔧 强大功能
+- **多协议支持**：vmess、vless、trojan、shadowsocks、dokodemo-door、socks、http
+- **系统监控**：实时监控CPU、内存、硬盘、网络等系统资源
+- **流量控制**：精确的流量统计和限制功能
+- **用户管理**：多用户支持，独立配置
+- **安全访问**：支持HTTPS访问面板
+- **SSL证书**：一键申请和自动续签SSL证书
+- **TG机器人**：实时通知和提醒功能
+
+### ⚡ 高性能
+- 基于Go语言开发，高性能低资源占用
+- 优化的xray内核配置
+- 支持高并发连接
 
 # 安装&升级
 
 ```
-bash <(curl -Ls https://raw.githubusercontent.com/vaxilu/x-ui/master/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/imaicai/m-ui/master/install.sh)
 ```
 
-## 手动安装&升级
+## 🛠️ 手动安装
 
-1. 首先从 https://github.com/vaxilu/x-ui/releases 下载最新的压缩包，一般选择 `amd64`架构
-2. 然后将这个压缩包上传到服务器的 `/root/`目录下，并使用 `root`用户登录服务器
+1. 从 [Releases](https://github.com/imaicai/m-ui/releases) 下载最新的压缩包，一般选择 `amd64`架构
+2. 将压缩包上传到服务器的 `/root/`目录下，并使用 `root`用户登录服务器
 
-> 如果你的服务器 cpu 架构不是 `amd64`，自行将命令中的 `amd64`替换为其他架构
+> 如果你的服务器 CPU 架构不是 `amd64`，请将命令中的 `amd64`替换为相应架构
 
-```
+```bash
 cd /root/
-rm x-ui/ /usr/local/x-ui/ /usr/bin/x-ui -rf
-tar zxvf x-ui-linux-amd64.tar.gz
-chmod +x x-ui/x-ui x-ui/bin/xray-linux-* x-ui/x-ui.sh
-cp x-ui/x-ui.sh /usr/bin/x-ui
-cp -f x-ui/x-ui.service /etc/systemd/system/
-mv x-ui/ /usr/local/
+rm m-ui/ /usr/local/m-ui/ /usr/bin/m-ui -rf
+tar zxvf m-ui-linux-amd64.tar.gz
+chmod +x m-ui/m-ui m-ui/bin/xray-linux-* m-ui/m-ui.sh
+cp m-ui/m-ui.sh /usr/bin/m-ui
+cp -f m-ui/m-ui.service /etc/systemd/system/
+mv m-ui/ /usr/local/
 systemctl daemon-reload
-systemctl enable x-ui
-systemctl restart x-ui
+systemctl enable m-ui
+systemctl restart m-ui
 ```
 
 ## 使用docker安装
@@ -53,18 +73,18 @@ curl -fsSL https://get.docker.com | sh
 2. 安装x-ui
 
 ```shell
-mkdir x-ui && cd x-ui
+mkdir m-ui && cd m-ui
 docker run -itd --network=host \
-    -v $PWD/db/:/etc/x-ui/ \
+    -v $PWD/db/:/etc/m-ui/ \
     -v $PWD/cert/:/root/cert/ \
-    --name x-ui --restart=unless-stopped \
-    enwaiax/x-ui:latest
+    --name m-ui --restart=unless-stopped \
+    imaicai/m-ui:latest
 ```
 
 > Build 自己的镜像
 
-```shell
-docker build -t x-ui .
+```
+
 ```
 
 ## SSL证书申请
@@ -122,22 +142,39 @@ TG通知内容：
 - Ubuntu 16+
 - Debian 8+
 
-# 常见问题
+# 📸 界面预览
+
+![Dashboard](media/2022-04-04_141259.png)
+![Inbounds](media/2022-04-17_110907.png)
+![Settings](media/2022-04-17_111321.png)
+
+# 📚 常见问题
 
 ## 从 v2-ui 迁移
 
-首先在安装了 v2-ui 的服务器上安装最新版 x-ui，然后使用以下命令进行迁移，将迁移本机 v2-ui 的 `所有 inbound 账号数据`至 x-ui，`面板设置和用户名密码不会迁移`
+首先在安装了 v2-ui 的服务器上安装最新版 M-UI，然后使用以下命令进行迁移：
 
-> 迁移成功后请 `关闭 v2-ui`并且 `重启 x-ui`，否则 v2-ui 的 inbound 会与 x-ui 的 inbound 会产生 `端口冲突`
-
-```
-x-ui v2-ui
+```bash
+m-ui v2-ui
 ```
 
-## issue 关闭
+> 迁移成功后请关闭 v2-ui 并重启 M-UI
 
-各种小白问题看得血压很高
+## 面板访问
 
-## Stargazers over time
+默认端口：`54321`
+默认用户名：`admin`
+默认密码：`admin`
 
-[![Stargazers over time](https://starchart.cc/vaxilu/x-ui.svg)](https://starchart.cc/vaxilu/x-ui)
+建议安装后立即修改默认用户名和密码！
+
+# 📜 许可证
+
+[GPL-3.0](LICENSE)
+
+# ❤️ 致谢
+
+- [xray-core](https://github.com/xtls/xray-core)
+- [vaxilu/x-ui](https://github.com/vaxilu/x-ui)
+- [Chasing66](https://github.com/Chasing66)
+- [FranzKafkaYu](https://github.com/FranzKafkaYu)

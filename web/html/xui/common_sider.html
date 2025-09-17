@@ -20,7 +20,7 @@
         <a-icon type="link"></a-icon>
         <span>其他</span>
     </template>
-    <a-menu-item key="https://github.com/vaxilu/x-ui/">
+    <a-menu-item key="https://github.com/imaicai/m-ui/">
         <a-icon type="github"></a-icon>
         <span>Github</span>
     </a-menu-item>
@@ -34,6 +34,9 @@
 
 {{define "commonSider"}}
 <a-layout-sider id="sider" collapsible breakpoint="md" collapsed-width="0">
+    <div style="height: 64px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); margin-bottom: 16px;">
+        <div style="color: white; font-size: 20px; font-weight: 600; letter-spacing: 1px;">M-UI</div>
+    </div>
     <a-menu theme="dark" mode="inline" :selected-keys="['{{ .request_uri }}']"
             @click="({key}) => key.startsWith('http') ? window.open(key) : location.href = key">
         {{template "menuItems" .}}
@@ -44,6 +47,9 @@
           :visible="siderDrawer.visible" :wrap-style="{ padding: 0 }">
     <div class="drawer-handle" @click="siderDrawer.change()" slot="handle">
         <a-icon :type="siderDrawer.visible ? 'close' : 'menu-fold'"></a-icon>
+    </div>
+    <div style="height: 64px; display: flex; align-items: center; justify-content: center; background: #f0f2f5; margin-bottom: 16px; border-bottom: 1px solid #e8e8e8;">
+        <div style="color: #333; font-size: 20px; font-weight: 600; letter-spacing: 1px;">M-UI</div>
     </div>
     <a-menu theme="light" mode="inline" :selected-keys="['{{ .request_uri }}']"
         @click="({key}) => key.startsWith('http') ? window.open(key) : location.href = key">
