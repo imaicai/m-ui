@@ -75,9 +75,19 @@ fi
 
 install_base() {
     if [[ x"${release}" == x"centos" ]]; then
+        echo -e "${green}检测到 CentOS 系统，正在安装必要组件...${plain}"
         yum install wget curl xz -y
-    else
+    elif [[ x"${release}" == x"ubuntu" ]]; then
+        echo -e "${green}检测到 Ubuntu 系统，正在安装必要组件...${plain}"
+        apt update
         apt install wget curl xz-utils -y
+    elif [[ x"${release}" == x"debian" ]]; then
+        echo -e "${green}检测到 Debian 系统，正在安装必要组件...${plain}"
+        apt update
+        apt install wget curl xz-utils -y
+    else
+        echo -e "${red}不支持的操作系统，请使用 CentOS 7+/Ubuntu 16+/Debian 8+ 系统${plain}"
+        exit 1
     fi
 }
 
