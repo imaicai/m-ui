@@ -41,8 +41,19 @@ const icons={
 };
 function icon(name){return `<span class="icon">${icons[name]}</span>`}
 
+function cookieValue(name){
+  const prefix=name+'=';
+  for(const part of document.cookie.split(';')){
+    const v=part.trim();
+    if(v.startsWith(prefix))return decodeURIComponent(v.slice(prefix.length));
+  }
+  return '';
+}
 async function api(path, options={}){
-  const opts={credentials:'same-origin',...options,headers:{...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}};
+  const method=String(options.method||'GET').toUpperCase();
+  const mutating=['POST','PUT','PATCH','DELETE'].includes(method);
+  const csrf=mutating?cookieValue('mui_csrf'):'';
+  const opts={credentials:'same-origin',...options,headers:{...(options.body?{'Content-Type':'application/json'}:{}),...(csrf?{'X-MUI-CSRF':csrf}:{}),...(options.headers||{})}};
   const res=await fetch(panelURL(path),opts);
   let data=null; try{data=await res.json()}catch{}
   if(res.status===401){state.loggedIn=false; state.boot=null; stopTimers(); render(); throw new Error(data?.error||'请先登录')}
@@ -75,7 +86,7 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(){return `<img src="${panelURL('assets/app-icon.png?v=1.4.10')}" alt="${esc(brandName())}" class="brand-image">`}
+function brandIcon(){return `<img src="${panelURL('assets/app-icon.png?v=1.5.0')}" alt="${esc(brandName())}" class="brand-image">`}
 
 function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon()}<div><strong>${esc(brandName())}</strong><small>最简单的代理面板</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
