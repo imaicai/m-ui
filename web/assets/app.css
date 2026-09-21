@@ -162,12 +162,20 @@ button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!impo
 }
 
 
-/* v1.4.7 traffic and sidebar footer */
+/* v1.4.7 traffic and sidebar service card */
 .sidebar-bottom{margin-top:auto}
-.system-pill{margin-top:0}
-.sidebar-credit{padding:10px 8px 0;color:var(--muted);font-size:11px;line-height:1.6}
-.sidebar-credit a{color:var(--primary);text-decoration:none;font-weight:700}
-.sidebar-credit a:hover{text-decoration:underline}
+.system-pill{margin-top:0;padding:13px 12px 12px}
+.system-pill .statusline{font-weight:700;color:var(--text)}
+.system-meta{display:flex;align-items:center;gap:4px;margin-top:10px;color:var(--muted);font-size:10.5px;line-height:1.25;white-space:nowrap}
+.system-meta a{text-decoration:none}
+.system-repo-link{color:var(--muted)}
+.system-repo-link:hover{color:var(--primary)}
+.minijet-link{color:var(--primary);font-weight:700}
+.minijet-link:hover{text-decoration:underline}
+.system-meta .github-link{width:18px;height:18px;min-width:18px;padding:0;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#52665e}
+.system-meta .github-link:hover{color:var(--primary);background:transparent!important;border:0!important;transform:none}
+.system-meta .github-link .icon{width:15px;height:15px}
+.system-tagline{margin-top:6px;color:var(--muted);font-size:11px;line-height:1.45}
 .footer{display:none!important}
 
 .node-guide{order:0}
@@ -186,7 +194,6 @@ button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!impo
 .restart-loading span{font-size:14px;color:var(--muted)}
 
 @media(max-width:760px){
-  .sidebar-credit{display:none}
   .clear-all-traffic-btn{padding:0 10px;font-size:12px}
   .clear-all-traffic-btn span{display:none}
   .traffic-cell{min-width:160px}
