@@ -732,6 +732,7 @@ func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 404, "节点不存在")
 		return
 	}
+	oldNode := old.Nodes[idx]
 
 	switch r.Method {
 	case http.MethodDelete:
@@ -802,8 +803,12 @@ func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, err.Error())
 		return
 	}
-	if r.Method == http.MethodPatch && next.Nodes[idx].Port != old.Nodes[idx].Port {
+	if r.Method == http.MethodDelete {
+		_ = tryCloseFirewall(oldNode.Port)
+	}
+	if r.Method == http.MethodPatch && next.Nodes[idx].Port != oldNode.Port {
 		_ = tryOpenFirewall(next.Nodes[idx].Port)
+		_ = tryCloseFirewall(oldNode.Port)
 	}
 	writeJSON(w, 200, makeBootstrap(next))
 }
