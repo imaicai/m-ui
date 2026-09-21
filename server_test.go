@@ -136,3 +136,14 @@ func TestTrafficDeltasMapByStableNodeID(t *testing.T) {
 		t.Fatalf("node-b traffic mismatch: %#v", st.Nodes[1])
 	}
 }
+
+func TestNewServerTracksPanelStartTime(t *testing.T) {
+	before := time.Now()
+	s := NewServer(nil, ServerConfig{})
+	if s.startedAt.IsZero() {
+		t.Fatal("panel start time must be initialized")
+	}
+	if s.startedAt.Before(before.Add(-time.Second)) || s.startedAt.After(time.Now().Add(time.Second)) {
+		t.Fatalf("unexpected panel start time: %v", s.startedAt)
+	}
+}

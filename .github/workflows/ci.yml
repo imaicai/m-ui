@@ -86,18 +86,26 @@ jobs:
           assert 'id="resetAllTraffic"' in app
           assert 'reset-node-traffic' in app
           assert '<th>流量</th>' in app
-          assert 'system-meta' in app and 'system-tagline' in app
-          assert 'system-repo-link' in app and 'minijet-link' in app
+          assert '稳定运行中' in app
+          assert 'M-Ui：最简单的代理面板' in app
+          assert 'MiniJet | 小飞机：最简单的代理客户端' in app
+          assert 'id="restartPanelSidebar"' in app
+          assert 'id="panelUptime"' in app and 'panel_uptime_seconds' in app
+          assert 'system-meta' not in app and 'minijet-link' not in app
           assert 'sidebar-credit' not in app
           assert 'https://github.com/imaicai/MiniJet' in app
-          assert '设置已保存' in app and '面板正在重启' in app
+          assert 'id="saveSettings" disabled' in app
+          assert 'out.restart_required' in app and 'out.relogin_required' in app
+          assert '设置已保存' in app
           assert '/api/nodes/reset-traffic' in server
           assert 'handleResetNodeTraffic' in server
           assert 'QueryUserTraffic' in xray
           assert 'StatsService' in xray
-          assert 'v1.4.7 traffic and sidebar service card' in css
-          assert '.system-meta .github-link' in css
-          assert 'border:0!important' in css
+          assert 'v1.4.7 service card, runtime and conditional settings save' in css
+          assert '.repo-icon-link' in css
+          assert '.restart-mark' in css
+          assert '#saveSettings:disabled' in css
+          assert '.panel-runtime' in css
           PY
 
       - name: Shell syntax
@@ -134,9 +142,13 @@ jobs:
           grep -q 'v1.4.1 refined UI' web/assets/app.css
           grep -q 'v1.4.2 toolbar and restart refinement' web/assets/app.css
           grep -q '管理员账号：' web/assets/app.js
-          grep -q 'restartPanelTop' web/assets/app.js
-          grep -q 'restartPanelSettings' web/assets/app.js
+          ! grep -q 'restartPanelTop' web/assets/app.js
+          ! grep -q 'restartPanelSettings' web/assets/app.js
+          grep -q 'restartPanelSidebar' web/assets/app.js
+          grep -q 'PanelUptimeSeconds' system.go
+          grep -q 'restartRequired := portChanged' server.go
+          grep -q 'reloginRequired := accountChanged || restartRequired' server.go
 
           grep -q '+新建节点' web/assets/app.js
-          grep -q 'github-link' web/assets/app.js
+          grep -q 'repo-icon-link' web/assets/app.js
           grep -q '/api/system/restart' server.go
