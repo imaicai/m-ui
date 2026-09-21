@@ -1,0 +1,62 @@
+name: Rebuild m-ui repository
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/rebuild-m-ui.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decode and verify new source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .m-ui-rebuild/part1.b64 .m-ui-rebuild/part2.b64 .m-ui-rebuild/part3.b64 .m-ui-rebuild/part4.b64 .m-ui-rebuild/part5.b64 | base64 -d > /tmp/m-ui-source.tar.gz
+          mkdir -p /tmp/m-ui-source
+          tar -xzf /tmp/m-ui-source.tar.gz -C /tmp/m-ui-source
+          test -f /tmp/m-ui-source/main.go
+          test -f /tmp/m-ui-source/install.sh
+          test -f /tmp/m-ui-source/web/index.html
+          grep -q 'module github.com/imaicai/m-ui' /tmp/m-ui-source/go.mod
+          grep -q 'MiniJet' /tmp/m-ui-source/README.md
+
+      - name: Replace old repository tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a /tmp/m-ui-source/. .
+          chmod +x install.sh m-ui-ctl uninstall.sh
+          git status --short
+
+      - name: Build and test before publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test ./...
+          go vet ./...
+          bash -n install.sh
+          bash -n m-ui-ctl
+          bash -n uninstall.sh
+
+      - name: Commit clean m-ui source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "MiniJet"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: rebuild m-ui v1.0.0"
+          git push origin HEAD:main
