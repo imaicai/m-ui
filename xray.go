@@ -137,7 +137,7 @@ func (x *XrayManager) Apply(st AppState) error {
 	if err := os.MkdirAll(filepath.Dir(x.configPath), 0755); err != nil {
 		return err
 	}
-	tmp := x.configPath + ".m-ui.tmp.json"
+	tmp := x.validationTempPath()
 	if err := os.WriteFile(tmp, b, 0644); err != nil {
 		return err
 	}
@@ -164,6 +164,10 @@ func (x *XrayManager) Apply(st AppState) error {
 		return fmt.Errorf("重启 Xray 失败: %s", strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+func (x *XrayManager) validationTempPath() string {
+	return x.configPath + ".m-ui.tmp.json"
 }
 
 func readableFile(path string) error {
