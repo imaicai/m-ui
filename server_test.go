@@ -147,3 +147,25 @@ func TestNewServerTracksPanelStartTime(t *testing.T) {
 		t.Fatalf("unexpected panel start time: %v", s.startedAt)
 	}
 }
+
+func TestNormalizeSubscriptionNodeIDsAndMembership(t *testing.T) {
+	st := defaultState()
+	st.Nodes = []Node{{ID: "n1"}, {ID: "n2"}}
+	ids, err := normalizeSubscriptionNodeIDs(st, []string{"n2", "n1", "n2", ""})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(ids, ",") != "n2,n1" {
+		t.Fatalf("unexpected normalized IDs: %#v", ids)
+	}
+	if _, err := normalizeSubscriptionNodeIDs(st, []string{"missing"}); err == nil {
+		t.Fatal("missing node ID should be rejected")
+	}
+	if !subscriptionHasNode(Subscription{IsDefault: true}, "n2") {
+		t.Fatal("default subscription must contain every node")
+	}
+	if subscriptionHasNode(Subscription{NodeIDs: []string{"n1"}}, "n2") {
+		t.Fatal("custom subscription must not contain unselected node")
+	}
+}
+
