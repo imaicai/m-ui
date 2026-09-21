@@ -615,6 +615,25 @@ func nodeURI(st AppState, n Node) string {
 	return fmt.Sprintf("vless://%s@%s?%s#%s", n.UUID, endpoint, q.Encode(), url.PathEscape(n.Name))
 }
 
+func tryCloseFirewall(port int) string {
+	p := strconv.Itoa(port) + "/tcp"
+	if _, err := exec.LookPath("ufw"); err == nil {
+		out, _ := exec.Command("ufw", "status").CombinedOutput()
+		if strings.Contains(strings.ToLower(string(out)), "status: active") {
+			if out2, err := exec.Command("ufw", "--force", "delete", "allow", p).CombinedOutput(); err != nil {
+				return "UFW 自动回收失败: " + strings.TrimSpace(string(out2))
+			}
+		}
+	}
+	if _, err := exec.LookPath("firewall-cmd"); err == nil {
+		if exec.Command("firewall-cmd", "--state").Run() == nil {
+			_ = exec.Command("firewall-cmd", "--permanent", "--remove-port="+p).Run()
+			_ = exec.Command("firewall-cmd", "--reload").Run()
+		}
+	}
+	return ""
+}
+
 func tryOpenFirewall(port int) string {
 	p := strconv.Itoa(port) + "/tcp"
 	if _, err := exec.LookPath("ufw"); err == nil {
