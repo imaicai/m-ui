@@ -72,7 +72,8 @@ jobs:
           grep -q 'page-heading-inline' web/assets/app.js
           grep -q 'subscription-guide' web/assets/app.js
           ! grep -q 'id="quickAdd"' web/assets/app.js
-          grep -q 'icon-add' web/assets/app.js
+          ! grep -q 'icon-add' web/assets/app.js
+          grep -q 'new-node-btn' web/assets/app.js
           grep -q 'v1.4.1 refined UI' web/assets/app.css
           grep -q 'v1.4.2 toolbar and restart refinement' web/assets/app.css
           grep -q '管理员账号：' web/assets/app.js
