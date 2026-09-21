@@ -33,20 +33,58 @@ func (x *XrayManager) BuildConfig(st AppState) ([]byte, error) {
 			enabled = append(enabled, n)
 		}
 	}
-	if len(enabled) > 0 {
-		if strings.TrimSpace(st.Settings.Domain) == "" {
-			return nil, errors.New("请先在系统设置中填写域名")
-		}
-		if err := readableFile(st.Settings.CertFile); err != nil {
-			return nil, fmt.Errorf("证书文件不可用: %w", err)
-		}
-		if err := readableFile(st.Settings.KeyFile); err != nil {
-			return nil, fmt.Errorf("私钥文件不可用: %w", err)
-		}
-	}
 
 	inbounds := make([]any, 0, len(enabled))
 	for _, n := range enabled {
+		security := nodeSecurity(n)
+		stream := map[string]any{
+			"method": "raw",
+		}
+		switch security {
+		case "reality":
+			if strings.TrimSpace(n.RealityPrivateKey) == "" || strings.TrimSpace(n.RealityPassword) == "" || strings.TrimSpace(n.RealityShortID) == "" {
+				return nil, fmt.Errorf("节点 %s 的 REALITY 密钥不完整", n.Name)
+			}
+			target := strings.TrimSpace(n.RealityTarget)
+			if target == "" {
+				target = st.Settings.RealityTarget
+			}
+			serverName := strings.TrimSpace(n.RealityServerName)
+			if serverName == "" {
+				serverName = st.Settings.RealityServerName
+			}
+			if target == "" || serverName == "" {
+				return nil, fmt.Errorf("节点 %s 的 REALITY 伪装目标未设置", n.Name)
+			}
+			stream["security"] = "reality"
+			stream["realitySettings"] = map[string]any{
+				"show":       false,
+				"target":     target,
+				"xver":       0,
+				"serverNames": []string{serverName},
+				"privateKey": n.RealityPrivateKey,
+				"shortIds":   []string{n.RealityShortID},
+			}
+		default:
+			if strings.TrimSpace(st.Settings.Domain) == "" {
+				return nil, fmt.Errorf("节点 %s 使用 TLS，请先在系统设置中填写节点域名", n.Name)
+			}
+			if err := readableFile(st.Settings.CertFile); err != nil {
+				return nil, fmt.Errorf("证书文件不可用: %w", err)
+			}
+			if err := readableFile(st.Settings.KeyFile); err != nil {
+				return nil, fmt.Errorf("私钥文件不可用: %w", err)
+			}
+			stream["security"] = "tls"
+			stream["tlsSettings"] = map[string]any{
+				"alpn": []string{"h2", "http/1.1"},
+				"certificates": []any{map[string]any{
+					"certificateFile": st.Settings.CertFile,
+					"keyFile":         st.Settings.KeyFile,
+				}},
+			}
+		}
+
 		inbounds = append(inbounds, map[string]any{
 			"listen":   "0.0.0.0",
 			"port":     n.Port,
@@ -60,17 +98,7 @@ func (x *XrayManager) BuildConfig(st AppState) ([]byte, error) {
 				}},
 				"decryption": "none",
 			},
-			"streamSettings": map[string]any{
-				"network":  "tcp",
-				"security": "tls",
-				"tlsSettings": map[string]any{
-					"alpn": []string{"h2", "http/1.1"},
-					"certificates": []any{map[string]any{
-						"certificateFile": st.Settings.CertFile,
-						"keyFile":         st.Settings.KeyFile,
-					}},
-				},
-			},
+			"streamSettings": stream,
 		})
 	}
 
@@ -91,6 +119,13 @@ func (x *XrayManager) BuildConfig(st AppState) ([]byte, error) {
 	return json.MarshalIndent(cfg, "", "  ")
 }
 
+func nodeSecurity(n Node) string {
+	if strings.EqualFold(strings.TrimSpace(n.Security), "reality") {
+		return "reality"
+	}
+	return "tls"
+}
+
 func (x *XrayManager) Apply(st AppState) error {
 	b, err := x.BuildConfig(st)
 	if err != nil {
@@ -102,7 +137,7 @@ func (x *XrayManager) Apply(st AppState) error {
 	if err := os.MkdirAll(filepath.Dir(x.configPath), 0755); err != nil {
 		return err
 	}
-	tmp := x.configPath + ".m-ui.tmp"
+	tmp := x.configPath + ".m-ui.tmp.json"
 	if err := os.WriteFile(tmp, b, 0644); err != nil {
 		return err
 	}
@@ -174,15 +209,59 @@ func availablePort(used map[int]bool) (int, error) {
 	return 0, errors.New("无法自动找到可用端口")
 }
 
+func (x *XrayManager) GenerateRealityMaterial() (privateKey, password, shortID string, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, x.bin, "x25519").CombinedOutput()
+	if err != nil {
+		return "", "", "", fmt.Errorf("REALITY 密钥生成失败: %s", strings.TrimSpace(string(out)))
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		lower := strings.ToLower(line)
+		switch {
+		case strings.HasPrefix(lower, "privatekey:") || strings.HasPrefix(lower, "private key:"):
+			privateKey = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
+		case strings.HasPrefix(lower, "password (publickey):") || strings.HasPrefix(lower, "password:") || strings.HasPrefix(lower, "public key:"):
+			password = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
+		}
+	}
+	if privateKey == "" || password == "" {
+		return "", "", "", fmt.Errorf("无法解析 Xray x25519 输出: %s", strings.TrimSpace(string(out)))
+	}
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return "", "", "", err
+	}
+	return privateKey, password, hex.EncodeToString(b), nil
+}
+
 func nodeURI(st AppState, n Node) string {
 	q := url.Values{}
 	q.Set("type", "tcp")
 	q.Set("encryption", "none")
-	q.Set("security", "tls")
 	q.Set("flow", "xtls-rprx-vision")
-	q.Set("sni", st.Settings.Domain)
-	q.Set("alpn", "h2,http/1.1")
-	return fmt.Sprintf("vless://%s@%s:%d?%s#%s", n.UUID, st.Settings.Domain, n.Port, q.Encode(), url.PathEscape(n.Name))
+
+	host := strings.TrimSpace(n.Address)
+	if nodeSecurity(n) == "reality" {
+		if host == "" {
+			host = strings.TrimSpace(st.Settings.Domain)
+		}
+		q.Set("security", "reality")
+		q.Set("sni", n.RealityServerName)
+		q.Set("fp", "chrome")
+		q.Set("pbk", n.RealityPassword)
+		q.Set("sid", n.RealityShortID)
+		q.Set("spx", "/")
+	} else {
+		if host == "" {
+			host = strings.TrimSpace(st.Settings.Domain)
+		}
+		q.Set("security", "tls")
+		q.Set("sni", st.Settings.Domain)
+		q.Set("alpn", "h2,http/1.1")
+	}
+	return fmt.Sprintf("vless://%s@%s:%d?%s#%s", n.UUID, host, n.Port, q.Encode(), url.PathEscape(n.Name))
 }
 
 func tryOpenFirewall(port int) string {
