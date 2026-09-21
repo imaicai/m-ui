@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -45,6 +47,7 @@ type loginFailure struct {
 
 type session struct {
 	Expires time.Time
+	CSRF    string
 }
 
 type PublicSettings struct {
@@ -237,7 +240,7 @@ func (s *Server) Run() error {
 
 	rootMux := http.NewServeMux()
 	rootMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, 200, map[string]any{"ok": true, "name": "m-ui", "version": version})
+		writeJSON(w, 200, map[string]any{"ok": true})
 	})
 	rootMux.HandleFunc("/sub/", s.handleSubscriptionFeed)
 	rootMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -275,8 +278,45 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("Referrer-Policy", "same-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
+		if r.TLS != nil {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func isMutatingMethod(method string) bool {
+	switch method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		return true
+	default:
+		return false
+	}
+}
+
+func requestSameOrigin(r *http.Request) bool {
+	if site := strings.TrimSpace(r.Header.Get("Sec-Fetch-Site")); site != "" && site != "same-origin" && site != "none" {
+		return false
+	}
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil || !strings.EqualFold(u.Host, r.Host) {
+		return false
+	}
+	if r.TLS != nil {
+		return strings.EqualFold(u.Scheme, "https")
+	}
+	return strings.EqualFold(u.Scheme, "http")
+}
+
+func constantTokenEqual(a, b string) bool {
+	if len(a) != len(b) || len(a) == 0 {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
 func (s *Server) auth(next http.HandlerFunc) http.HandlerFunc {
@@ -293,6 +333,13 @@ func (s *Server) auth(next http.HandlerFunc) http.HandlerFunc {
 			}
 			writeError(w, 401, "登录状态已过期")
 			return
+		}
+		sess := v.(session)
+		if isMutatingMethod(r.Method) {
+			if !requestSameOrigin(r) || !constantTokenEqual(strings.TrimSpace(r.Header.Get("X-MUI-CSRF")), sess.CSRF) {
+				writeError(w, http.StatusForbidden, "安全校验失败，请刷新页面后重试")
+				return
+			}
 		}
 		next(w, r)
 	}
