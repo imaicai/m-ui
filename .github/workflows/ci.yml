@@ -74,3 +74,12 @@ jobs:
           ! grep -q 'id="quickAdd"' web/assets/app.js
           grep -q 'icon-add' web/assets/app.js
           grep -q 'v1.4.1 refined UI' web/assets/app.css
+          grep -q 'v1.4.2 toolbar and restart refinement' web/assets/app.css
+          grep -q '管理员账号：' web/assets/app.js
+          grep -q 'restartPanelTop' web/assets/app.js
+          grep -q 'restartPanelSettings' web/assets/app.js
+          grep -q '+新建节点' web/assets/app.js
+          grep -q 'github-link' web/assets/app.js
+          grep -q '/api/system/restart' server.go
+          grep -q 'assets/favicon.ico' web/index.html
+          test -s web/assets/favicon.ico
