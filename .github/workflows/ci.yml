@@ -50,6 +50,6 @@ jobs:
           bash -n m-ui
           bash -n m-ui-ctl
           bash -n uninstall.sh
-          grep -q 'ExecStart=/usr/local/bin/m-ui-server' install.sh
+          grep -q 'ExecStart=$SERVER_BIN' install.sh
           grep -q 'SERVER_BIN="/usr/local/bin/m-ui-server"' install.sh
           grep -q '一键原版BBR+FQ加速' m-ui
