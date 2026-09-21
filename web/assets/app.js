@@ -1,5 +1,7 @@
 const $ = (s, r=document) => r.querySelector(s);
-const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const $ = (s, r=document) => [...r.querySelectorAll(s)];
+const PANEL_BASE = (() => { const p=location.pathname||'/'; return p.endsWith('/')?p:(p.slice(0,p.lastIndexOf('/')+1)||'/'); })();
+const panelURL = path => PANEL_BASE + String(path||'').replace(/^\\/+/, '');
 
 const state = {
   loggedIn: false,
@@ -22,7 +24,7 @@ function icon(name){return `<span class="icon">${icons[name]}</span>`}
 
 async function api(path, options={}){
   const opts={credentials:'same-origin',...options,headers:{...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}};
-  const res=await fetch(path,opts);
+  const res=await fetch(panelURL(path),opts);
   let data=null; try{data=await res.json()}catch{}
   if(res.status===401){state.loggedIn=false; state.boot=null; clearInterval(state.timer); render(); throw new Error(data?.error||'请先登录')}
   if(!res.ok) throw new Error(data?.error||`请求失败 (${res.status})`);
@@ -34,7 +36,7 @@ function esc(v=''){return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt
 function fmtBytes(v=0){if(!Number.isFinite(v))return '0 B';const u=['B','KB','MB','GB','TB'];let i=0;while(v>=1024&&i<u.length-1){v/=1024;i++}return `${v.toFixed(i?1:0)} ${u[i]}`}
 function fmtRate(v=0){return `${fmtBytes(v)}/s`}
 function fmtUptime(s=0){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);return d?`${d} 天 ${h} 小时`:h?`${h} 小时 ${m} 分钟`:`${m} 分钟`}
-function routeTitle(r){return {dashboard:['仪表盘','服务器与节点状态一目了然'],nodes:['节点管理','新手只需要一键添加，复杂配置由系统自动完成'],subscriptions:['订阅管理','复制订阅链接到客户端即可使用'],settings:['系统设置','只保留日常使用真正需要的设置']}[r]||['仪表盘','']}
+function routeTitle(r){return {dashboard:['仪表盘','服务器与节点状态一目了然'],nodes:['节点管理','新手只需要一键添加，复杂配置由系统自动完成'],subscriptions:['订阅管理','复制订阅链接到客户端即可使用'],settings:['系统设置','安全路径、证书与管理员账号统一管理']}[r]||['仪表盘','']}\nfunction protocolLabel(n){return n?.security==='reality'?'VLESS · REALITY · Vision':'VLESS · TLS · Vision'}
 
 function nav(){return `<aside class="sidebar"><div class="brand"><div class="brand-mark">M</div><div><strong>m-ui</strong><small>MiniJet · 简单 · 稳定 · 易用</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
