@@ -160,3 +160,34 @@ button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!impo
   .topbar-restart{height:32px;padding:0 10px}
   .new-node-btn{min-width:106px;padding:0 13px}
 }
+
+
+/* v1.4.7 traffic and sidebar footer */
+.sidebar-bottom{margin-top:auto}
+.system-pill{margin-top:0}
+.sidebar-credit{padding:10px 8px 0;color:var(--muted);font-size:11px;line-height:1.6}
+.sidebar-credit a{color:var(--primary);text-decoration:none;font-weight:700}
+.sidebar-credit a:hover{text-decoration:underline}
+.footer{display:none!important}
+
+.node-guide{order:0}
+.node-toolbar{order:1}
+.node-table-card{order:2}
+.clear-all-traffic-btn{height:44px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.clear-all-traffic-btn .icon{width:16px;height:16px}
+.traffic-cell{min-width:175px}
+.traffic-cell span{display:inline-block;min-width:78px;font-variant-numeric:tabular-nums}
+.operation-head,.operation-cell{min-width:205px}
+.node-table-card .table{min-width:1080px}
+
+.restart-loading{background:var(--bg)}
+.restart-loading>div{display:grid;gap:7px;text-align:center}
+.restart-loading strong{font-size:20px;color:var(--text)}
+.restart-loading span{font-size:14px;color:var(--muted)}
+
+@media(max-width:760px){
+  .sidebar-credit{display:none}
+  .clear-all-traffic-btn{padding:0 10px;font-size:12px}
+  .clear-all-traffic-btn span{display:none}
+  .traffic-cell{min-width:160px}
+}
