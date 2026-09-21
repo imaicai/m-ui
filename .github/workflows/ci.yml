@@ -56,6 +56,22 @@ jobs:
           assert re.search(r"(?<!\$)\$\('\.copy-uri'\)\.forEach", s) is None
           PY
 
+      - name: Panel port and brand assertions
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          app = Path("web/assets/app.js").read_text(encoding="utf-8")
+          server = Path("server.go").read_text(encoding="utf-8")
+          assert 'id="setPort"' in app
+          assert "panel_port:Number($('#setPort').value)" in app
+          assert "function brandName()" in app
+          assert "/api/panel-info" in app
+          assert 'panelMux.HandleFunc("/api/panel-info"' in server
+          assert 'PanelPort       int' in server
+          assert 'replaceServicePanelPort' in server
+          PY
+
       - name: Shell syntax
         shell: bash
         run: |

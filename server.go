@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -47,6 +48,7 @@ type session struct {
 type PublicSettings struct {
 	PanelName       string `json:"panel_name"`
 	PanelPath       string `json:"panel_path"`
+	PanelPort       int    `json:"panel_port"`
 	Domain          string `json:"domain"`
 	CertFile        string `json:"cert_file"`
 	KeyFile         string `json:"key_file"`
@@ -81,8 +83,117 @@ func (s *Server) panelPath() string {
 	return p
 }
 
+const mUIServicePath = "/etc/systemd/system/m-ui.service"
+
+func (s *Server) runningPanelPort() int {
+	p, _ := strconv.Atoi(panelPort(s.cfg.Addr))
+	if p < 1 {
+		return 16800
+	}
+	return p
+}
+
+func configuredPanelPortFromService(content string, fallback int) int {
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "Environment=MUI_ADDR=") {
+			continue
+		}
+		v := strings.TrimSpace(strings.TrimPrefix(line, "Environment=MUI_ADDR="))
+		if p, err := strconv.Atoi(panelPort(v)); err == nil && p >= 1024 && p <= 65535 {
+			return p
+		}
+	}
+	return fallback
+}
+
+func (s *Server) configuredPanelPort() int {
+	fallback := s.runningPanelPort()
+	b, err := os.ReadFile(mUIServicePath)
+	if err != nil {
+		return fallback
+	}
+	return configuredPanelPortFromService(string(b), fallback)
+}
+
+func replaceServicePanelPort(content string, port int) (string, error) {
+	if port < 1024 || port > 65535 {
+		return "", errors.New("面板端口必须是 1024-65535")
+	}
+	lines := strings.Split(content, "\n")
+	found := false
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "Environment=MUI_ADDR=") {
+			lines[i] = fmt.Sprintf("Environment=MUI_ADDR=0.0.0.0:%d", port)
+			found = true
+			break
+		}
+	}
+	if !found {
+		return "", errors.New("systemd 服务缺少 MUI_ADDR 配置")
+	}
+	return strings.Join(lines, "\n"), nil
+}
+
+func ensurePanelPortAvailable(port int) error {
+	ln, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	if err != nil {
+		return fmt.Errorf("端口 %d 已被占用", port)
+	}
+	_ = ln.Close()
+	return nil
+}
+
+func openLocalFirewallPort(port int) {
+	if path, err := exec.LookPath("ufw"); err == nil {
+		if out, err := exec.Command(path, "status").CombinedOutput(); err == nil && strings.Contains(strings.ToLower(string(out)), "status: active") {
+			_ = exec.Command(path, "allow", fmt.Sprintf("%d/tcp", port)).Run()
+			return
+		}
+	}
+	if path, err := exec.LookPath("firewall-cmd"); err == nil {
+		if err := exec.Command(path, "--state").Run(); err == nil {
+			_ = exec.Command(path, "--permanent", "--add-port", fmt.Sprintf("%d/tcp", port)).Run()
+			_ = exec.Command(path, "--reload").Run()
+		}
+	}
+}
+
+func (s *Server) stagePanelPort(port int) error {
+	if port == s.configuredPanelPort() {
+		return nil
+	}
+	if port != s.runningPanelPort() {
+		if err := ensurePanelPortAvailable(port); err != nil {
+			return err
+		}
+	}
+	b, err := os.ReadFile(mUIServicePath)
+	if err != nil {
+		return fmt.Errorf("读取 m-ui systemd 服务失败: %w", err)
+	}
+	next, err := replaceServicePanelPort(string(b), port)
+	if err != nil {
+		return err
+	}
+	tmp := mUIServicePath + ".tmp"
+	if err := os.WriteFile(tmp, []byte(next), 0644); err != nil {
+		return fmt.Errorf("写入端口配置失败: %w", err)
+	}
+	if err := os.Rename(tmp, mUIServicePath); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("保存端口配置失败: %w", err)
+	}
+	if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
+		return fmt.Errorf("systemd 重载失败: %s", strings.TrimSpace(string(out)))
+	}
+	openLocalFirewallPort(port)
+	return nil
+}
+
 func (s *Server) Run() error {
 	panelMux := http.NewServeMux()
+	panelMux.HandleFunc("/api/panel-info", s.handlePanelInfo)
 	panelMux.HandleFunc("/api/login", s.handleLogin)
 	panelMux.HandleFunc("/api/logout", s.auth(s.handleLogout))
 	panelMux.HandleFunc("/api/me", s.auth(s.handleMe))
@@ -237,13 +348,29 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"username": st.Settings.AdminUser, "name": st.Settings.PanelName, "version": version, "author": "MiniJet"})
 }
 
+func (s *Server) handlePanelInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	st := s.store.Snapshot()
+	writeJSON(w, 200, map[string]any{
+		"name":       st.Settings.PanelName,
+		"version":    version,
+		"author":     "MiniJet",
+		"panel_port": s.configuredPanelPort(),
+	})
+}
+
 func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		methodNotAllowed(w)
 		return
 	}
 	st := s.store.Snapshot()
-	writeJSON(w, 200, makeBootstrap(st))
+	out := makeBootstrap(st)
+	out.Settings.PanelPort = s.configuredPanelPort()
+	writeJSON(w, 200, out)
 }
 
 func makeBootstrap(st AppState) Bootstrap {
@@ -308,6 +435,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		PanelName       string `json:"panel_name"`
 		PanelPath       string `json:"panel_path"`
+		PanelPort       int    `json:"panel_port"`
 		Domain          string `json:"domain"`
 		CertFile        string `json:"cert_file"`
 		KeyFile         string `json:"key_file"`
@@ -317,6 +445,16 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		ConfirmPassword string `json:"confirm_password"`
 	}
 	if !decodeJSON(w, r, &in) {
+		return
+	}
+
+	oldConfiguredPort := s.configuredPanelPort()
+	requestedPort := in.PanelPort
+	if requestedPort == 0 {
+		requestedPort = oldConfiguredPort
+	}
+	if requestedPort < 1024 || requestedPort > 65535 {
+		writeError(w, 400, "面板端口必须是 1024-65535")
 		return
 	}
 
@@ -360,7 +498,18 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	portChanged := requestedPort != oldConfiguredPort
+	if portChanged {
+		if err := s.stagePanelPort(requestedPort); err != nil {
+			writeError(w, 400, err.Error())
+			return
+		}
+	}
+
 	if err := s.commitXrayState(old, next); err != nil {
+		if portChanged {
+			_ = s.stagePanelPort(oldConfiguredPort)
+		}
 		writeError(w, 400, err.Error())
 		return
 	}
@@ -381,7 +530,9 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	if accountChanged {
 		s.sessions.Range(func(k, v any) bool { s.sessions.Delete(k); return true })
 	}
-	writeJSON(w, 200, makeBootstrap(next))
+	out := makeBootstrap(next)
+	out.Settings.PanelPort = requestedPort
+	writeJSON(w, 200, out)
 }
 
 func (s *Server) handleCreateDefaultNode(w http.ResponseWriter, r *http.Request) {
