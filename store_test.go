@@ -30,7 +30,10 @@ func TestInitPasswordAndNewDefaults(t *testing.T) {
 	if len(st.Subscriptions) != 1 {
 		t.Fatalf("expected default subscription")
 	}
-	if st.Settings.CertFile != "/maicai/ssh/m-ui/fullchain.pem" || st.Settings.KeyFile != "/maicai/ssh/m-ui/privkey.pem" {
+	if st.Subscriptions[0].Slug == "" || st.Subscriptions[0].Slug != st.Subscriptions[0].Token {
+		t.Fatalf("default subscription slug not initialized: %#v", st.Subscriptions[0])
+	}
+	if st.Settings.CertFile != "/root/minijet/ssh/m-ui/fullchain.pem" || st.Settings.KeyFile != "/root/minijet/ssh/m-ui/privkey.pem" {
 		t.Fatalf("unexpected certificate defaults: %#v", st.Settings)
 	}
 	if !strings.HasPrefix(st.Settings.PanelPath, "/") || !strings.HasSuffix(st.Settings.PanelPath, "/") || st.Settings.PanelPath == "/" {
@@ -69,7 +72,7 @@ func TestOldStateMigratesWithoutChangingExistingNodeSecurity(t *testing.T) {
 	if st.Nodes[0].Security != "tls" {
 		t.Fatalf("existing node must remain TLS, got %q", st.Nodes[0].Security)
 	}
-	if st.Settings.CertFile != "/maicai/ssh/m-ui/fullchain.pem" || st.Settings.KeyFile != "/maicai/ssh/m-ui/privkey.pem" {
+	if st.Settings.CertFile != "/root/minijet/ssh/m-ui/fullchain.pem" || st.Settings.KeyFile != "/root/minijet/ssh/m-ui/privkey.pem" {
 		t.Fatalf("old defaults not migrated")
 	}
 }
@@ -121,5 +124,26 @@ func TestMicrosoftDefaultMigratesToAppleWithoutChangingExistingRealityNode(t *te
 	}
 	if st.Nodes[0].RealityTarget != "www.microsoft.com:443" || st.Nodes[0].RealityServerName != "www.microsoft.com" {
 		t.Fatalf("existing REALITY node must not be silently rewritten: %#v", st.Nodes[0])
+	}
+}
+
+func TestSubscriptionSlugMigratesFromToken(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "state.json")
+	old := AppState{
+		Version: 2,
+		Settings: defaultState().Settings,
+		Subscriptions: []Subscription{{ID: "s1", Name: "旧订阅", Token: "OldToken123", Enabled: true}},
+	}
+	b, _ := json.Marshal(old)
+	if err := os.WriteFile(p, b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := NewStore(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := s.Snapshot()
+	if st.Subscriptions[0].Slug != "OldToken123" {
+		t.Fatalf("slug migration failed: %#v", st.Subscriptions[0])
 	}
 }

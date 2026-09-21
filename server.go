@@ -145,11 +145,8 @@ func (s *Server) Run() error {
 		panelMux.ServeHTTP(w, r2)
 	})
 
-	srv := &http.Server{
-		Addr: s.cfg.Addr, Handler: securityHeaders(rootMux), ReadHeaderTimeout: 8 * time.Second,
-		ReadTimeout: 20 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second,
-	}
-	return srv.ListenAndServe()
+	handler := securityHeaders(s.redirectHTTPS(rootMux))
+	return s.servePanel(handler)
 }
 
 func securityHeaders(next http.Handler) http.Handler {
@@ -320,8 +317,8 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		next.Settings.Domain = domain
 	}
-	next.Settings.CertFile = cleanPath(in.CertFile, "/maicai/ssh/m-ui/fullchain.pem")
-	next.Settings.KeyFile = cleanPath(in.KeyFile, "/maicai/ssh/m-ui/privkey.pem")
+	next.Settings.CertFile = cleanPath(in.CertFile, "/root/minijet/ssh/m-ui/fullchain.pem")
+	next.Settings.KeyFile = cleanPath(in.KeyFile, "/root/minijet/ssh/m-ui/privkey.pem")
 	next.Settings.AdminUser = cleanText(in.AdminUser, old.Settings.AdminUser, 60)
 
 	accountChanged := next.Settings.AdminUser != old.Settings.AdminUser || in.NewPassword != ""
@@ -519,6 +516,32 @@ func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, makeBootstrap(next))
 }
 
+func normalizeSubscriptionSlug(v string) (string, error) {
+	v = strings.TrimSpace(v)
+	v = strings.TrimPrefix(v, "/sub/")
+	v = strings.Trim(v, "/")
+	if len(v) < 4 || len(v) > 80 {
+		return "", errors.New("订阅地址后缀长度应为 4-80 位")
+	}
+	for _, r := range v {
+		ok := r == '-' || r == '_' ||
+			(r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+		if !ok {
+			return "", errors.New("订阅地址只能包含字母、数字、- 和 _")
+		}
+	}
+	return v, nil
+}
+
+func subscriptionSlugExists(st AppState, slug, exceptID string) bool {
+	for _, sub := range st.Subscriptions {
+		if sub.ID != exceptID && strings.EqualFold(sub.Slug, slug) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		writeJSON(w, 200, s.store.Snapshot().Subscriptions)
@@ -530,16 +553,31 @@ func (s *Server) handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Name string `json:"name"`
+		Slug string `json:"slug"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&in)
 	var sub Subscription
 	err := s.store.Update(func(st *AppState) error {
-		sub = Subscription{ID: newID(), Name: cleanText(in.Name, "新订阅", 60), Token: randomToken(28), Enabled: true, CreatedAt: time.Now()}
+		token := randomToken(28)
+		slug := strings.TrimSpace(in.Slug)
+		if slug == "" {
+			slug = token
+		} else {
+			var err error
+			slug, err = normalizeSubscriptionSlug(slug)
+			if err != nil {
+				return err
+			}
+		}
+		if subscriptionSlugExists(*st, slug, "") {
+			return errors.New("该订阅地址已被使用")
+		}
+		sub = Subscription{ID: newID(), Name: cleanText(in.Name, "新订阅", 60), Token: token, Slug: slug, Enabled: true, CreatedAt: time.Now()}
 		st.Subscriptions = append(st.Subscriptions, sub)
 		return nil
 	})
 	if err != nil {
-		writeError(w, 500, err.Error())
+		writeError(w, 400, err.Error())
 		return
 	}
 	writeJSON(w, 201, sub)
@@ -551,32 +589,69 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 404, "订阅不存在")
 		return
 	}
-	if r.Method != http.MethodDelete {
-		methodNotAllowed(w)
-		return
-	}
-	err := s.store.Update(func(st *AppState) error {
-		if len(st.Subscriptions) <= 1 {
-			return errors.New("至少保留一个订阅")
+
+	switch r.Method {
+	case http.MethodPatch:
+		var in struct {
+			Name string `json:"name"`
+			Slug string `json:"slug"`
 		}
-		idx := -1
-		for i := range st.Subscriptions {
-			if st.Subscriptions[i].ID == id {
-				idx = i
-				break
+		if !decodeJSON(w, r, &in) {
+			return
+		}
+		err := s.store.Update(func(st *AppState) error {
+			idx := -1
+			for i := range st.Subscriptions {
+				if st.Subscriptions[i].ID == id {
+					idx = i
+					break
+				}
 			}
+			if idx < 0 {
+				return errors.New("订阅不存在")
+			}
+			slug, err := normalizeSubscriptionSlug(in.Slug)
+			if err != nil {
+				return err
+			}
+			if subscriptionSlugExists(*st, slug, id) {
+				return errors.New("该订阅地址已被使用")
+			}
+			st.Subscriptions[idx].Name = cleanText(in.Name, st.Subscriptions[idx].Name, 60)
+			st.Subscriptions[idx].Slug = slug
+			return nil
+		})
+		if err != nil {
+			writeError(w, 400, err.Error())
+			return
 		}
-		if idx < 0 {
-			return errors.New("订阅不存在")
+		writeJSON(w, 200, makeBootstrap(s.store.Snapshot()))
+	case http.MethodDelete:
+		err := s.store.Update(func(st *AppState) error {
+			if len(st.Subscriptions) <= 1 {
+				return errors.New("至少保留一个订阅")
+			}
+			idx := -1
+			for i := range st.Subscriptions {
+				if st.Subscriptions[i].ID == id {
+					idx = i
+					break
+				}
+			}
+			if idx < 0 {
+				return errors.New("订阅不存在")
+			}
+			st.Subscriptions = append(st.Subscriptions[:idx], st.Subscriptions[idx+1:]...)
+			return nil
+		})
+		if err != nil {
+			writeError(w, 400, err.Error())
+			return
 		}
-		st.Subscriptions = append(st.Subscriptions[:idx], st.Subscriptions[idx+1:]...)
-		return nil
-	})
-	if err != nil {
-		writeError(w, 400, err.Error())
-		return
+		writeJSON(w, 200, map[string]any{"ok": true})
+	default:
+		methodNotAllowed(w)
 	}
-	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
 func (s *Server) handleSubscriptionFeed(w http.ResponseWriter, r *http.Request) {
@@ -588,7 +663,7 @@ func (s *Server) handleSubscriptionFeed(w http.ResponseWriter, r *http.Request) 
 	st := s.store.Snapshot()
 	found := false
 	for _, sub := range st.Subscriptions {
-		if sub.Token == token && sub.Enabled {
+		if sub.Slug == token && sub.Enabled {
 			found = true
 			break
 		}
@@ -722,6 +797,9 @@ func normalizeDNSName(v string) (string, error) {
 }
 
 func validateEditedPort(port int, currentID string, nodes []Node) error {
+	if strings.Contains(strconv.Itoa(port), "4") {
+		return errors.New("节点端口不能包含数字 4")
+	}
 	for _, n := range nodes {
 		if n.ID != currentID && n.Port == port {
 			return fmt.Errorf("端口 %d 已被其他节点使用", port)

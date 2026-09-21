@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-var version = "1.3.1"
+var version = "1.4.0"
 
 //go:embed web/* web/assets/*
 var webFiles embed.FS
@@ -110,7 +110,7 @@ func main() {
 	}
 
 	srv := NewServer(store, ServerConfig{
-		Addr:       getenv("MUI_ADDR", "0.0.0.0:54321"),
+		Addr:       getenv("MUI_ADDR", "0.0.0.0:16800"),
 		XrayBin:    getenv("MUI_XRAY_BIN", "/usr/local/bin/xray"),
 		XrayConfig: getenv("MUI_XRAY_CONFIG", "/usr/local/etc/xray/config.json"),
 	})

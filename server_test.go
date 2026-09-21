@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestNormalizeNodeAddress(t *testing.T) {
 	tests := map[string]string{
@@ -37,5 +40,41 @@ func TestValidateEditedPortRejectsOtherNode(t *testing.T) {
 	nodes := []Node{{ID: "a", Port: 20001}, {ID: "b", Port: 20002}}
 	if err := validateEditedPort(20002, "a", nodes); err == nil {
 		t.Fatal("expected duplicate node port to be rejected")
+	}
+}
+
+func TestNormalizeSubscriptionSlug(t *testing.T) {
+	tests := map[string]string{
+		"abcd": "abcd",
+		"/sub/my-sub_01/": "my-sub_01",
+	}
+	for in, want := range tests {
+		got, err := normalizeSubscriptionSlug(in)
+		if err != nil || got != want {
+			t.Fatalf("normalizeSubscriptionSlug(%q) = %q, %v; want %q", in, got, err, want)
+		}
+	}
+	for _, bad := range []string{"a", "bad/path", "含中文"} {
+		if _, err := normalizeSubscriptionSlug(bad); err == nil {
+			t.Fatalf("expected invalid subscription slug: %q", bad)
+		}
+	}
+}
+
+func TestValidateEditedPortRejectsDigitFour(t *testing.T) {
+	if err := validateEditedPort(16804, "a", nil); err == nil {
+		t.Fatal("expected digit 4 in edited port to be rejected")
+	}
+}
+
+func TestPanelPortDefault(t *testing.T) {
+	if got := panelPort("0.0.0.0:16800"); got != "16800" {
+		t.Fatalf("unexpected panel port: %s", got)
+	}
+}
+
+func TestInvalidCertificateNeverForcesHTTPS(t *testing.T) {
+	if certificateValidForDomain("/does/not/exist.pem", "/does/not/exist.key", "panel.example.com", time.Now()) {
+		t.Fatal("missing certificate must never be treated as valid HTTPS")
 	}
 }

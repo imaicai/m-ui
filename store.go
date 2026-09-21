@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const stateVersion = 2
+const stateVersion = 3
 
 type Settings struct {
 	PanelName         string `json:"panel_name"`
@@ -51,6 +51,7 @@ type Subscription struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	Token     string    `json:"token"`
+	Slug      string    `json:"slug"`
 	Enabled   bool      `json:"enabled"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -96,11 +97,15 @@ func (s *Store) load() error {
 	if s.data.Settings.PanelPath == "" {
 		s.data.Settings.PanelPath = "/"
 	}
-	if s.data.Settings.CertFile == "" || s.data.Settings.CertFile == "/maicai/ssh/fullchain.pem" {
-		s.data.Settings.CertFile = "/maicai/ssh/m-ui/fullchain.pem"
+	if s.data.Settings.CertFile == "" ||
+		s.data.Settings.CertFile == "/maicai/ssh/fullchain.pem" ||
+		s.data.Settings.CertFile == "/maicai/ssh/m-ui/fullchain.pem" {
+		s.data.Settings.CertFile = "/root/minijet/ssh/m-ui/fullchain.pem"
 	}
-	if s.data.Settings.KeyFile == "" || s.data.Settings.KeyFile == "/maicai/ssh/privkey.pem" {
-		s.data.Settings.KeyFile = "/maicai/ssh/m-ui/privkey.pem"
+	if s.data.Settings.KeyFile == "" ||
+		s.data.Settings.KeyFile == "/maicai/ssh/privkey.pem" ||
+		s.data.Settings.KeyFile == "/maicai/ssh/m-ui/privkey.pem" {
+		s.data.Settings.KeyFile = "/root/minijet/ssh/m-ui/privkey.pem"
 	}
 	if s.data.Settings.DefaultProtocol == "" || strings.Contains(s.data.Settings.DefaultProtocol, "TLS") {
 		s.data.Settings.DefaultProtocol = "VLESS + RAW + REALITY + XTLS Vision"
@@ -116,6 +121,11 @@ func (s *Store) load() error {
 			s.data.Nodes[i].Security = "tls"
 		}
 	}
+	for i := range s.data.Subscriptions {
+		if strings.TrimSpace(s.data.Subscriptions[i].Slug) == "" {
+			s.data.Subscriptions[i].Slug = s.data.Subscriptions[i].Token
+		}
+	}
 	s.data.Version = stateVersion
 	return nil
 }
@@ -126,8 +136,8 @@ func defaultState() AppState {
 		Settings: Settings{
 			PanelName:         "m-ui",
 			PanelPath:         "",
-			CertFile:          "/maicai/ssh/m-ui/fullchain.pem",
-			KeyFile:           "/maicai/ssh/m-ui/privkey.pem",
+			CertFile:          "/root/minijet/ssh/m-ui/fullchain.pem",
+			KeyFile:           "/root/minijet/ssh/m-ui/privkey.pem",
 			DefaultProtocol:   "VLESS + RAW + REALITY + XTLS Vision",
 			RealityTarget:     "www.apple.com:443",
 			RealityServerName: "www.apple.com",
@@ -209,8 +219,9 @@ func (s *Store) EnsureInitialized(user, pass string) error {
 		st.Settings.PasswordSalt = salt
 		st.Settings.PasswordHash = hash
 		if len(st.Subscriptions) == 0 {
+			token := randomToken(24)
 			st.Subscriptions = append(st.Subscriptions, Subscription{
-				ID: newID(), Name: "默认订阅", Token: randomToken(24), Enabled: true, CreatedAt: time.Now(),
+				ID: newID(), Name: "默认订阅", Token: token, Slug: token, Enabled: true, CreatedAt: time.Now(),
 			})
 		}
 		return nil

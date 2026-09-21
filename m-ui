@@ -8,7 +8,7 @@ CTL_BIN="/usr/local/bin/m-ui-ctl"
 SERVICE="/etc/systemd/system/m-ui.service"
 DATA_DIR="/etc/m-ui"
 DATA_FILE="$DATA_DIR/state.json"
-CERT_DIR="/maicai/ssh/m-ui"
+CERT_DIR="/root/minijet/ssh/m-ui"
 XRAY_CONFIG="/usr/local/etc/xray/config.json"
 
 BLUE='\033[0;34m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -32,7 +32,7 @@ installed(){ [[ -x "$SERVER_BIN" && -f "$SERVICE" ]]; }
 panel_port(){
   local p
   p="$(sed -n 's/^Environment=MUI_ADDR=.*:\([0-9][0-9]*\)$/\1/p' "$SERVICE" 2>/dev/null | tail -n1 || true)"
-  [[ "$p" =~ ^[0-9]+$ ]] || p="54321"
+  [[ "$p" =~ ^[0-9]+$ ]] || p="16800"
   printf '%s' "$p"
 }
 
@@ -290,12 +290,12 @@ settings_menu(){
         pause
         ;;
       5)
-        warn "还原面板会保留节点和订阅，但重置：用户名=admin、随机密码、端口=54321、随机根路径。"
+        warn "还原面板会保留节点和订阅，但重置：用户名=admin、随机密码、端口=16800、随机根路径。"
         read -r -p "确认还原请输入 YES: " yes
         if [[ "$yes" == "YES" ]]; then
           echo
           if run_offline_setting --reset-panel-access; then
-            set_port 54321
+            set_port 16800
             restart_panel
             echo
             warn "请保存上方新的管理员密码。"

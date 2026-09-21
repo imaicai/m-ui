@@ -190,25 +190,33 @@ func readableFile(path string) error {
 }
 
 func generateUUID() (string, error) {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
+	for attempt := 0; attempt < 256; attempt++ {
+		b := make([]byte, 16)
+		if _, err := rand.Read(b); err != nil {
+			return "", err
+		}
+		// Use a valid UUIDv5-shaped random ID so the UUID itself does not contain the
+		// mandatory version-4 digit. Xray accepts any valid UUID for VLESS IDs.
+		b[6] = (b[6] & 0x0f) | 0x50
+		b[8] = (b[8] & 0x3f) | 0x80
+		h := hex.EncodeToString(b)
+		id := fmt.Sprintf("%s-%s-%s-%s-%s", h[0:8], h[8:12], h[12:16], h[16:20], h[20:32])
+		if !strings.Contains(id, "4") {
+			return id, nil
+		}
 	}
-	b[6] = (b[6] & 0x0f) | 0x40
-	b[8] = (b[8] & 0x3f) | 0x80
-	h := hex.EncodeToString(b)
-	return fmt.Sprintf("%s-%s-%s-%s-%s", h[0:8], h[8:12], h[12:16], h[16:20], h[20:32]), nil
+	return "", errors.New("无法生成不含数字 4 的 UUID")
 }
 
 func availablePort(used map[int]bool) (int, error) {
-	for i := 0; i < 300; i++ {
+	for i := 0; i < 1200; i++ {
 		rb := make([]byte, 2)
 		if _, err := rand.Read(rb); err != nil {
 			return 0, err
 		}
 		p := 10000 + int(rb[0])<<8 + int(rb[1])
 		p = 10000 + (p % 50000)
-		if used[p] {
+		if used[p] || strings.Contains(strconv.Itoa(p), "4") {
 			continue
 		}
 		ln, err := net.Listen("tcp", ":"+strconv.Itoa(p))
@@ -217,34 +225,56 @@ func availablePort(used map[int]bool) (int, error) {
 			return p, nil
 		}
 	}
-	return 0, errors.New("无法自动找到可用端口")
+	return 0, errors.New("无法自动找到不含数字 4 的可用端口")
+}
+
+func randomHexWithoutFour(bytesLen int) (string, error) {
+	for attempt := 0; attempt < 256; attempt++ {
+		b := make([]byte, bytesLen)
+		if _, err := rand.Read(b); err != nil {
+			return "", err
+		}
+		v := hex.EncodeToString(b)
+		if !strings.Contains(v, "4") {
+			return v, nil
+		}
+	}
+	return "", errors.New("无法生成不含数字 4 的随机参数")
 }
 
 func (x *XrayManager) GenerateRealityMaterial() (privateKey, password, shortID string, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, x.bin, "x25519").CombinedOutput()
-	if err != nil {
-		return "", "", "", fmt.Errorf("REALITY 密钥生成失败: %s", strings.TrimSpace(string(out)))
-	}
-	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.TrimSpace(line)
-		lower := strings.ToLower(line)
-		switch {
-		case strings.HasPrefix(lower, "privatekey:") || strings.HasPrefix(lower, "private key:"):
-			privateKey = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
-		case strings.HasPrefix(lower, "password (publickey):") || strings.HasPrefix(lower, "password:") || strings.HasPrefix(lower, "public key:"):
-			password = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
+	for attempt := 0; attempt < 128; attempt++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		out, runErr := exec.CommandContext(ctx, x.bin, "x25519").CombinedOutput()
+		cancel()
+		if runErr != nil {
+			return "", "", "", fmt.Errorf("REALITY 密钥生成失败: %s", strings.TrimSpace(string(out)))
 		}
+
+		privateKey, password = "", ""
+		for _, line := range strings.Split(string(out), "\n") {
+			line = strings.TrimSpace(line)
+			lower := strings.ToLower(line)
+			switch {
+			case strings.HasPrefix(lower, "privatekey:") || strings.HasPrefix(lower, "private key:"):
+				privateKey = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
+			case strings.HasPrefix(lower, "password (publickey):") || strings.HasPrefix(lower, "password:") || strings.HasPrefix(lower, "public key:"):
+				password = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
+			}
+		}
+		if privateKey == "" || password == "" {
+			return "", "", "", fmt.Errorf("无法解析 Xray x25519 输出: %s", strings.TrimSpace(string(out)))
+		}
+		if strings.Contains(privateKey, "4") || strings.Contains(password, "4") {
+			continue
+		}
+		shortID, err = randomHexWithoutFour(8)
+		if err != nil {
+			return "", "", "", err
+		}
+		return privateKey, password, shortID, nil
 	}
-	if privateKey == "" || password == "" {
-		return "", "", "", fmt.Errorf("无法解析 Xray x25519 输出: %s", strings.TrimSpace(string(out)))
-	}
-	b := make([]byte, 8)
-	if _, err := rand.Read(b); err != nil {
-		return "", "", "", err
-	}
-	return privateKey, password, hex.EncodeToString(b), nil
+	return "", "", "", errors.New("无法生成不含数字 4 的 REALITY 密钥参数")
 }
 
 func nodeURI(st AppState, n Node) string {
