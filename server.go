@@ -586,21 +586,19 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	restartRequired := portChanged
 	reloginRequired := accountChanged || restartRequired
 
-	expireSessionCookie := func(cookiePath string) {
+	expireAuthCookies := func(cookiePath string) {
 		p, err := normalizePanelPath(cookiePath)
 		if err != nil || p == "" {
 			p = "/"
 		}
-		http.SetCookie(w, &http.Cookie{
-			Name: "mui_session", Value: "", Path: p, HttpOnly: true,
-			SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: -1,
-		})
+		http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: "", Path: p, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: -1})
+		http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: "", Path: p, HttpOnly: false, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: -1})
 	}
 
 	if reloginRequired {
-		expireSessionCookie(old.Settings.PanelPath)
+		expireAuthCookies(old.Settings.PanelPath)
 		if next.Settings.PanelPath != old.Settings.PanelPath {
-			expireSessionCookie(next.Settings.PanelPath)
+			expireAuthCookies(next.Settings.PanelPath)
 		}
 		s.sessions.Range(func(k, v any) bool { s.sessions.Delete(k); return true })
 	} else if pathChanged {
@@ -618,7 +616,10 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 					SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil,
 					Expires: exp, MaxAge: int(time.Until(exp).Seconds()),
 				})
-				expireSessionCookie(old.Settings.PanelPath)
+				if sess, ok := v.(session); ok && sess.CSRF != "" {
+					http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: sess.CSRF, Path: p, HttpOnly: false, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, Expires: exp, MaxAge: int(time.Until(exp).Seconds())})
+				}
+				expireAuthCookies(old.Settings.PanelPath)
 			}
 		}
 	}
@@ -1209,6 +1210,17 @@ func (s *Server) recordLoginFailure(ip string) {
 	defer s.loginMu.Unlock()
 	f := s.failures[ip]
 	if f == nil {
+		if len(s.failures) >= 4096 {
+			now := time.Now()
+			for key, item := range s.failures {
+				if item.Until.IsZero() || item.Until.Before(now) {
+					delete(s.failures, key)
+				}
+				if len(s.failures) < 3072 {
+					break
+				}
+			}
+		}
 		f = &loginFailure{}
 		s.failures[ip] = f
 	}
@@ -1225,14 +1237,27 @@ func (s *Server) clearLoginFailure(ip string) {
 }
 
 func clientIP(r *http.Request) string {
-	if x := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0]); x != "" {
-		return x
-	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil {
-		return host
+	if err != nil {
+		host = r.RemoteAddr
 	}
-	return r.RemoteAddr
+	peer := net.ParseIP(strings.TrimSpace(host))
+	if peer != nil && (peer.IsLoopback() || peer.IsPrivate()) {
+		if x := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0]); x != "" {
+			if forwarded := net.ParseIP(x); forwarded != nil {
+				return forwarded.String()
+			}
+		}
+		if x := strings.TrimSpace(r.Header.Get("X-Real-IP")); x != "" {
+			if forwarded := net.ParseIP(x); forwarded != nil {
+				return forwarded.String()
+			}
+		}
+	}
+	if peer != nil {
+		return peer.String()
+	}
+	return host
 }
 
 func cleanText(v, fallback string, max int) string {
