@@ -377,15 +377,15 @@ enable_bbr_fq(){
 
   mkdir -p /etc/modules-load.d /etc/sysctl.d
   printf 'tcp_bbr\n' > /etc/modules-load.d/m-ui-bbr.conf
-  cat > /etc/sysctl.d/99-m-ui-bbr.conf <<'EOF'
+  cat > /etc/sysctl.d/99-m-ui-network.conf <<'EOF'
 # m-ui: Linux kernel native BBR + FQ
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 EOF
 
   sysctl -w net.ipv4.tcp_mtu_probing=1 >/dev/null 2>&1 || true
-  if ! grep -q "^net.ipv4.tcp_mtu_probing=1$" /etc/sysctl.d/99-m-ui-bbr.conf 2>/dev/null; then
-    echo "net.ipv4.tcp_mtu_probing=1" >> /etc/sysctl.d/99-m-ui-bbr.conf
+  if ! grep -q "^net.ipv4.tcp_mtu_probing=1$" /etc/sysctl.d/99-m-ui-network.conf 2>/dev/null; then
+    echo "net.ipv4.tcp_mtu_probing=1" >> /etc/sysctl.d/99-m-ui-network.conf
   fi
   ok "已启用并持久化原版 BBR + FQ + PMTU 黑洞自动探测。"
   printf '原拥塞控制: %s    原排队规则: %s\n' "${old_cc:---}" "${old_q:---}"
