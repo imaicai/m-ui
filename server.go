@@ -306,10 +306,7 @@ func requestSameOrigin(r *http.Request) bool {
 	if err != nil || !strings.EqualFold(u.Host, r.Host) {
 		return false
 	}
-	if r.TLS != nil {
-		return strings.EqualFold(u.Scheme, "https")
-	}
-	return strings.EqualFold(u.Scheme, "http")
+	return strings.EqualFold(u.Scheme, "https") || strings.EqualFold(u.Scheme, "http")
 }
 
 func constantTokenEqual(a, b string) bool {
