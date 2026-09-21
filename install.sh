@@ -44,9 +44,10 @@ info "检查基础环境…"
 install_packages
 command -v go >/dev/null 2>&1 || die "Go 安装失败。"
 
-mkdir -p "$DATA_DIR" /maicai/ssh /var/log/m-ui
+mkdir -p "$DATA_DIR" /maicai/ssh/m-ui /var/log/m-ui
 chmod 700 "$DATA_DIR"
 chmod 755 /maicai /maicai/ssh 2>/dev/null || true
+chmod 700 /maicai/ssh/m-ui 2>/dev/null || true
 
 if [[ -f "$DATA_FILE" ]]; then
   cp -a "$DATA_FILE" "$DATA_FILE.bak.$(date +%Y%m%d-%H%M%S)"
@@ -71,7 +72,9 @@ git clone --depth 1 --branch "$BRANCH" "$REPO" "$INSTALL_SRC" >/dev/null 2>&1 ||
 
 info "编译 m-ui…"
 cd "$INSTALL_SRC"
-CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=1.0.0" -o /tmp/m-ui-build .
+APP_VERSION="$(tr -d '[:space:]' < VERSION)"
+[[ -n "$APP_VERSION" ]] || APP_VERSION="1.1.0"
+CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${APP_VERSION}" -o /tmp/m-ui-build .
 install -m 0755 /tmp/m-ui-build "$BIN"
 rm -f /tmp/m-ui-build
 install -m 0755 "$INSTALL_SRC/m-ui-ctl" "$CTL"
@@ -128,17 +131,20 @@ open_port(){
 }
 open_port "$PANEL_PORT"
 
+PANEL_PATH="$("$BIN" --print-panel-path 2>/dev/null || true)"
+[[ -n "$PANEL_PATH" ]] || PANEL_PATH="/"
+
 SERVER_IP="$(curl -4 -fsS --max-time 4 https://api.ipify.org 2>/dev/null || true)"
 [[ -n "$SERVER_IP" ]] || SERVER_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 [[ -n "$SERVER_IP" ]] || SERVER_IP="你的服务器IP"
 
 ok "m-ui 安装完成"
 echo
-echo "  面板地址: http://${SERVER_IP}:${PANEL_PORT}/"
+echo "  面板地址: http://${SERVER_IP}:${PANEL_PORT}${PANEL_PATH}"
 echo "  程序名称: m-ui"
 echo "  作者:     MiniJet"
 echo "  数据文件: $DATA_FILE"
-echo "  证书目录: /maicai/ssh/"
+echo "  证书目录: /maicai/ssh/m-ui/"
 if [[ -n "$NEW_PASSWORD" ]]; then
   echo
 echo "  管理员账号: $ADMIN_USER"
