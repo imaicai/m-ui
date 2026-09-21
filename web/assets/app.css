@@ -51,3 +51,79 @@ button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!impo
   .icon-btn{width:36px;height:36px}
   .operation-head,.operation-cell,.sub-actions{min-width:150px}
 }
+
+
+/* v1.4.1 refined UI */
+.brand-image{width:44px;height:44px;display:block;object-fit:contain;border-radius:13px;box-shadow:0 8px 20px rgba(0,177,118,.16)}
+.brand{gap:12px;padding-bottom:22px}
+.brand strong{font-size:19px;letter-spacing:-.01em}
+.brand small{font-size:11px;margin-top:2px}
+.nav{gap:6px}
+.nav button{min-height:46px;padding:11px 13px;border-radius:10px;font-size:14px}
+.nav button .icon{width:20px;height:20px}
+.system-pill{padding:12px}
+.version-link{font-size:11px}
+
+.topbar{height:52px;padding:0 24px}
+.page-heading-inline{display:flex;align-items:center;gap:10px;min-width:0}
+.page-heading-inline h1{font-size:24px;line-height:1;margin:0;letter-spacing:-.02em}
+.page-heading-inline span{font-size:14px;color:var(--muted);white-space:nowrap}
+.userbox-inline{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.userbox-inline b{color:var(--text);font-weight:700}
+.userbox-inline .sep{color:#aab8b2}
+.userbox-inline .icon-btn{width:32px;height:32px;border-radius:9px}
+.content{padding-top:20px}
+
+.login-shell{padding:32px;background:radial-gradient(circle at 10% 12%,#edf9f4 0 12%,transparent 12.2%),radial-gradient(circle at 92% 88%,#eaf8f2 0 17%,transparent 17.2%),linear-gradient(145deg,#fbfdfc,#f2f7f4)}
+.login-card.refined{width:min(430px,92vw);padding:32px 34px 28px;border-radius:22px;box-shadow:0 24px 64px rgba(19,59,45,.11)}
+.login-card.refined .login-card-head{text-align:center;margin-bottom:24px}
+.login-card.refined .brand-image{width:66px;height:66px;margin:0 auto 13px;border-radius:18px}
+.login-card.refined h1{font-size:28px;line-height:1.15;margin:0 0 5px;letter-spacing:-.025em}
+.login-card.refined p{margin:0;color:var(--muted);font-size:13px}
+.login-card.refined .field{margin-bottom:16px}
+.login-card.refined .field label{font-size:13px;margin-bottom:7px}
+.login-card.refined .input{height:48px;border-radius:11px}
+.login-card.refined .btn-lg{height:50px;margin-top:3px}
+.login-card.refined .security-note{margin-top:14px;font-size:12px}
+
+.dashboard-resources{margin-top:18px;width:100%}
+.dashboard-resources .resources{grid-template-columns:repeat(4,minmax(0,1fr))}
+.dashboard-bottom{margin-top:18px}
+
+.page-stack{display:grid;gap:18px;width:100%}
+.node-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:0}
+.node-toolbar .search{flex:1;max-width:none;height:44px}
+.icon-add{width:44px;height:44px;flex:0 0 44px;border:0;border-radius:11px;background:linear-gradient(135deg,#12bf84,#00a970);color:#fff;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(0,177,118,.18);transition:.15s}
+.icon-add:hover{transform:translateY(-1px);filter:brightness(.98)}
+.icon-add .icon{width:20px;height:20px}
+.node-table-card,.node-guide{width:100%}
+.node-guide{margin-top:0}
+.node-guide h3,.subscription-guide h3{font-size:16px;margin:0 0 10px}
+.guide-inline{display:flex;flex-wrap:wrap;gap:8px 20px;color:var(--muted);font-size:13px}
+.guide-inline span{display:inline-flex;align-items:center;gap:7px}
+.guide-inline span:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--primary)}
+.subscription-guide{margin-bottom:18px;width:100%}
+.subscription-steps{line-height:1.6}
+.subs-table{margin-top:0}
+
+.card{border-radius:14px}
+.section-card,.settings-card,.subs-table{padding:20px}
+.section-title{margin-bottom:16px}
+.section-title h2{font-size:18px}
+.table th{font-size:13px;padding:12px 12px}
+.table td{padding:12px 12px}
+.actions{gap:6px}
+.icon-btn{width:33px;height:33px;border-radius:9px}
+.icon-btn .icon{width:16px;height:16px}
+.operation-head,.operation-cell{min-width:158px}
+
+@media(max-width:760px){
+  .topbar{height:auto;min-height:52px;padding:11px 14px;gap:8px;flex-wrap:wrap}
+  .page-heading-inline{gap:7px;flex-wrap:wrap}
+  .page-heading-inline h1{font-size:21px}
+  .page-heading-inline span{font-size:12px}
+  .userbox-inline{font-size:12px}
+  .dashboard-resources .resources{grid-template-columns:1fr}
+  .node-toolbar{gap:8px}
+  .guide-inline{display:grid;gap:6px}
+}

@@ -17,6 +17,25 @@ import (
 
 const stateVersion = 3
 
+func defaultCertHome() string {
+	if v := strings.TrimSpace(os.Getenv("MUI_CERT_HOME")); v != "" {
+		return filepath.Clean(v)
+	}
+	if v, err := os.UserHomeDir(); err == nil && strings.TrimSpace(v) != "" {
+		return filepath.Clean(v)
+	}
+	return "/root"
+}
+
+func defaultCertFile() string {
+	return filepath.Join(defaultCertHome(), "minijet", "ssh", "m-ui", "fullchain.pem")
+}
+
+func defaultKeyFile() string {
+	return filepath.Join(defaultCertHome(), "minijet", "ssh", "m-ui", "privkey.pem")
+}
+
+
 type Settings struct {
 	PanelName         string `json:"panel_name"`
 	PanelPath         string `json:"panel_path"`
@@ -99,13 +118,15 @@ func (s *Store) load() error {
 	}
 	if s.data.Settings.CertFile == "" ||
 		s.data.Settings.CertFile == "/maicai/ssh/fullchain.pem" ||
-		s.data.Settings.CertFile == "/maicai/ssh/m-ui/fullchain.pem" {
-		s.data.Settings.CertFile = "/root/minijet/ssh/m-ui/fullchain.pem"
+		s.data.Settings.CertFile == "/maicai/ssh/m-ui/fullchain.pem" ||
+		s.data.Settings.CertFile == "/root/minijet/ssh/m-ui/fullchain.pem" {
+		s.data.Settings.CertFile = defaultCertFile()
 	}
 	if s.data.Settings.KeyFile == "" ||
 		s.data.Settings.KeyFile == "/maicai/ssh/privkey.pem" ||
-		s.data.Settings.KeyFile == "/maicai/ssh/m-ui/privkey.pem" {
-		s.data.Settings.KeyFile = "/root/minijet/ssh/m-ui/privkey.pem"
+		s.data.Settings.KeyFile == "/maicai/ssh/m-ui/privkey.pem" ||
+		s.data.Settings.KeyFile == "/root/minijet/ssh/m-ui/privkey.pem" {
+		s.data.Settings.KeyFile = defaultKeyFile()
 	}
 	if s.data.Settings.DefaultProtocol == "" || strings.Contains(s.data.Settings.DefaultProtocol, "TLS") {
 		s.data.Settings.DefaultProtocol = "VLESS + RAW + REALITY + XTLS Vision"
@@ -136,8 +157,8 @@ func defaultState() AppState {
 		Settings: Settings{
 			PanelName:         "m-ui",
 			PanelPath:         "",
-			CertFile:          "/root/minijet/ssh/m-ui/fullchain.pem",
-			KeyFile:           "/root/minijet/ssh/m-ui/privkey.pem",
+			CertFile:          defaultCertFile(),
+			KeyFile:           defaultKeyFile(),
 			DefaultProtocol:   "VLESS + RAW + REALITY + XTLS Vision",
 			RealityTarget:     "www.apple.com:443",
 			RealityServerName: "www.apple.com",

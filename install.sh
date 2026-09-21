@@ -17,6 +17,15 @@ DATA_FILE="${DATA_DIR}/state.json"
 SERVICE="/etc/systemd/system/m-ui.service"
 XRAY_CONFIG="/usr/local/etc/xray/config.json"
 
+SSH_USER="${SUDO_USER:-}"
+if [[ -z "$SSH_USER" || "$SSH_USER" == "root" ]]; then
+  SSH_USER="$(logname 2>/dev/null || true)"
+fi
+[[ -n "$SSH_USER" ]] || SSH_USER="root"
+SSH_HOME="$(getent passwd "$SSH_USER" 2>/dev/null | cut -d: -f6)"
+[[ -n "$SSH_HOME" ]] || SSH_HOME="/root"
+CERT_DIR="$SSH_HOME/minijet/ssh/m-ui"
+
 if [[ -z "${MUI_PORT:-}" && -f "$SERVICE" ]]; then
   EXISTING_ADDR="$(sed -n 's/^Environment=MUI_ADDR=//p' "$SERVICE" | tail -n1)"
   EXISTING_PORT="${EXISTING_ADDR##*:}"
@@ -53,19 +62,19 @@ info "检查基础环境…"
 install_packages
 command -v go >/dev/null 2>&1 || die "Go 安装失败。"
 
-mkdir -p "$DATA_DIR" /root/minijet/ssh/m-ui /var/log/m-ui
+mkdir -p "$DATA_DIR" "$CERT_DIR" /var/log/m-ui
 chmod 700 "$DATA_DIR"
-chmod 700 /root/minijet /root/minijet/ssh /root/minijet/ssh/m-ui 2>/dev/null || true
+chmod 700 "$SSH_HOME/minijet" "$SSH_HOME/minijet/ssh" "$CERT_DIR" 2>/dev/null || true
 
-# Upgrade compatibility: copy previous default certificate files into the new root-only directory.
-if [[ ! -f /root/minijet/ssh/m-ui/fullchain.pem ]]; then
-  for src in /maicai/ssh/m-ui/fullchain.pem /maicai/ssh/fullchain.pem; do
-    [[ -f "$src" ]] && { cp -a "$src" /root/minijet/ssh/m-ui/fullchain.pem; break; }
+# Upgrade compatibility: copy previous default certificate files into the SSH user's m-ui directory.
+if [[ ! -f "$CERT_DIR/fullchain.pem" ]]; then
+  for src in /root/minijet/ssh/m-ui/fullchain.pem /maicai/ssh/m-ui/fullchain.pem /maicai/ssh/fullchain.pem; do
+    [[ -f "$src" ]] && { cp -a "$src" "$CERT_DIR/fullchain.pem"; break; }
   done
 fi
-if [[ ! -f /root/minijet/ssh/m-ui/privkey.pem ]]; then
-  for src in /maicai/ssh/m-ui/privkey.pem /maicai/ssh/privkey.pem; do
-    [[ -f "$src" ]] && { cp -a "$src" /root/minijet/ssh/m-ui/privkey.pem; break; }
+if [[ ! -f "$CERT_DIR/privkey.pem" ]]; then
+  for src in /root/minijet/ssh/m-ui/privkey.pem /maicai/ssh/m-ui/privkey.pem /maicai/ssh/privkey.pem; do
+    [[ -f "$src" ]] && { cp -a "$src" "$CERT_DIR/privkey.pem"; break; }
   done
 fi
 
@@ -93,7 +102,7 @@ git clone --depth 1 --branch "$BRANCH" "$REPO" "$INSTALL_SRC" >/dev/null 2>&1 ||
 info "编译 m-ui…"
 cd "$INSTALL_SRC"
 APP_VERSION="$(tr -d '[:space:]' < VERSION)"
-[[ -n "$APP_VERSION" ]] || APP_VERSION="1.4.0"
+[[ -n "$APP_VERSION" ]] || APP_VERSION="1.4.1"
 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${APP_VERSION}" -o /tmp/m-ui-server-build .
 install -m 0755 /tmp/m-ui-server-build "$SERVER_BIN"
 rm -f /tmp/m-ui-server-build
@@ -120,6 +129,7 @@ Environment=MUI_DATA=$DATA_FILE
 Environment=MUI_ADDR=0.0.0.0:$PANEL_PORT
 Environment=MUI_XRAY_BIN=/usr/local/bin/xray
 Environment=MUI_XRAY_CONFIG=$XRAY_CONFIG
+Environment=MUI_CERT_HOME=$SSH_HOME
 ExecStart=$SERVER_BIN
 Restart=on-failure
 RestartSec=3
@@ -160,7 +170,7 @@ echo "  面板地址: http://${SERVER_IP}:${PANEL_PORT}${PANEL_PATH}"
 echo "  程序名称: m-ui"
 echo "  作者:     MiniJet"
 echo "  数据文件: $DATA_FILE"
-echo "  证书目录: /root/minijet/ssh/m-ui/"
+echo "  证书目录: $CERT_DIR/"
 if [[ -n "$NEW_PASSWORD" ]]; then
   echo
 echo "  管理员账号: $ADMIN_USER"

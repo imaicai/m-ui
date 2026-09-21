@@ -317,8 +317,8 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		next.Settings.Domain = domain
 	}
-	next.Settings.CertFile = cleanPath(in.CertFile, "/root/minijet/ssh/m-ui/fullchain.pem")
-	next.Settings.KeyFile = cleanPath(in.KeyFile, "/root/minijet/ssh/m-ui/privkey.pem")
+	next.Settings.CertFile = cleanPath(in.CertFile, defaultCertFile())
+	next.Settings.KeyFile = cleanPath(in.KeyFile, defaultKeyFile())
 	next.Settings.AdminUser = cleanText(in.AdminUser, old.Settings.AdminUser, 60)
 
 	accountChanged := next.Settings.AdminUser != old.Settings.AdminUser || in.NewPassword != ""
