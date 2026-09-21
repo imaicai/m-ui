@@ -113,14 +113,14 @@ async function restartPanel(){
 function render(){document.title=brandName()+' · MiniJet';const app=$('#app');if(!state.loggedIn){app.innerHTML=login();bindLogin();return}if(!state.boot){app.innerHTML=`<div class="loading">正在载入 m-ui…</div>`;return}let html=state.route==='nodes'?nodes():state.route==='subscriptions'?subscriptions():state.route==='settings'?settings():dashboard();app.innerHTML=html;bindCommon();if(state.route==='nodes')bindNodes();if(state.route==='subscriptions')bindSubs();if(state.route==='settings')bindSettings()}
 
 function bindLogin(){$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const fd=new FormData(e.target);try{await api('/api/login',{method:'POST',body:JSON.stringify({username:fd.get('user'),password:fd.get('pass')})});state.loggedIn=true;await loadBootstrap();startPolling();render()}catch(err){toast(err.message,false)}})}
-function bindCommon(){$('[data-route]').forEach(b=>b.onclick=()=>{state.route=b.dataset.route;location.hash='#/'+state.route;render()});$('#restartPanelSidebar')?.addEventListener('click',restartPanel);$('#logout')?.addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;clearInterval(state.timer);render()});$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'))}
+function bindCommon(){$$('[data-route]').forEach(b=>b.onclick=()=>{state.route=b.dataset.route;location.hash='#/'+state.route;render()});$('#restartPanelSidebar')?.addEventListener('click',restartPanel);$('#logout')?.addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;clearInterval(state.timer);render()});$$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'))}
 function openNodeModal(){document.body.insertAdjacentHTML('beforeend',nodeModal());const close=()=>$('.modal-backdrop')?.remove();$('#closeModal').onclick=close;$('#cancelModal').onclick=close;$('.modal-backdrop').addEventListener('click',e=>{if(e.target.classList.contains('modal-backdrop'))close()});$('#createNode').onclick=async()=>{const btn=$('#createNode');btn.disabled=true;btn.textContent='正在识别并创建…';try{const out=await api('/api/nodes/default',{method:'POST'});close();await loadBootstrap();render();toast(out.warning?`${out.node.name} 已创建；${out.warning}`:`${out.node.name} 已创建并生效`)}catch(err){btn.disabled=false;btn.textContent='立即创建';toast(err.message,false)}}}
 function bindNodes(){
   $('#addNode')?.addEventListener('click',openNodeModal);
   $('#resetAllTraffic')?.addEventListener('click',()=>confirmBox('确认清空全部节点累计流量？该操作无法恢复。',async()=>{
     try{state.boot=await api('/api/nodes/reset-traffic',{method:'POST'});render();toast('全部节点流量已清空')}catch(e){toast(e.message,false)}
   }));
-  $$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'));
+  $$$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'));
   $$('.edit-node').forEach(b=>b.onclick=()=>openEditNodeModal(b.dataset.id));
   $$('.reset-node-traffic').forEach(b=>b.onclick=async()=>{
     b.disabled=true;
