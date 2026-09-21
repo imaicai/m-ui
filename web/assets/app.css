@@ -315,3 +315,9 @@ button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!impo
   .sub-node-option em{grid-column:2;justify-self:start}
 }
 
+/* v1.4.10 stable runtime clock and interaction fixes */
+.stable-runtime{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.stable-runtime>.icon{width:16px;height:16px;color:var(--primary);flex:0 0 16px}
+.stable-runtime span{font-weight:700}
+.stable-runtime b{font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.02em;color:var(--text)}
+
