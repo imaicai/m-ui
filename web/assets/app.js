@@ -33,7 +33,7 @@ const icons={
  pulse:`<svg viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>`,
  serverStack:`<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6"/></svg>`,
  shieldCheck:`<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.6-2.8 8-7 10-4.2-2-7-5.4-7-10V6z"/><path d="m9 12 2 2 4-4"/></svg>`,
- network:`<svg viewBox="0 0 24 24"><path d="M12 3v18M7 8l5-5 5 5M17 16l-5 5-5-5"/></svg>`
+ network:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.2 2.2 3.5 5 3.5 8S14.2 17.8 12 20c-2.2-2.2-3.5-5-3.5-8S9.8 6.2 12 4"/><path d="m17.5 7.5 2-2 2 2M19.5 5.5v4M6.5 16.5l-2 2-2-2M4.5 18.5v-4"/></svg>`
 };
 function icon(name){return `<span class="icon">${icons[name]}</span>`}
 
@@ -59,12 +59,12 @@ function protocolLabel(n){return n?.security==='reality'?'VLESS · REALITY · Vi
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
 function brandIcon(){return `<img src="${panelURL('assets/app-icon.png?v=1.4.6')}" alt="${esc(brandName())}" class="brand-image">`}
 
-function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon()}<div><strong>${esc(brandName())}</strong><small>MiniJet · Xray 管理</small></div></div><nav class="nav">
+function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon()}<div><strong>${esc(brandName())}</strong><small>最简单的代理面板</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
-</nav><div class="sidebar-bottom"><div class="system-pill"><div class="statusline"><span class="dot"></span>稳定运行中</div><div class="service-copy"><div class="service-copyright">© 2026 <a href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer">M-Ui</a> v${ver}</div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer" title="打开 M-Ui GitHub 源码" aria-label="打开 M-Ui GitHub 源码">${icon('github')}</a><span>M-Ui：最简单的代理面板</span></div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/MiniJet" target="_blank" rel="noopener noreferrer" title="打开 MiniJet GitHub 源码" aria-label="打开 MiniJet GitHub 源码">${icon('github')}</a><span>MiniJet | 小飞机：最简单的代理客户端</span></div></div><button class="sidebar-restart" id="restartPanelSidebar" type="button"><span class="restart-mark">${icon('restart')}</span><span>重启面板</span></button></div></div></aside>`}
+</nav><div class="sidebar-bottom"><div class="system-pill"><div class="statusline"><span class="dot"></span>稳定运行中</div><div class="service-copy"><div class="service-copyright">© 2026 <a href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer">M-Ui</a> v${ver}</div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer" title="打开 M-Ui GitHub 源码" aria-label="打开 M-Ui GitHub 源码">${icon('github')}</a><span>M-Ui：最简单的代理面板</span></div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/MiniJet" target="_blank" rel="noopener noreferrer" title="打开 MiniJet GitHub 源码" aria-label="打开 MiniJet GitHub 源码">${icon('github')}</a><span>小飞机：最简单的代理客户端</span></div></div></div><button class="sidebar-restart" id="restartPanelSidebar" type="button"><span class="restart-mark">${icon('restart')}</span><span>重启面板</span></button></div></aside>`}
 function layout(content){const [title,sub]=routeTitle(state.route), user=state.boot?.settings?.admin_user||'admin', runtime=fmtPanelUptime(state.stats?.panel_uptime_seconds||0);return `<div class="shell">${nav()}<main class="main"><header class="topbar"><div class="page-heading-inline"><h1>${title}</h1><span>${sub}</span></div><div class="userbox-inline"><span class="panel-runtime" title="距离上次重启面板后的运行时间">${icon('clock')}<span id="panelUptime">${runtime}</span></span><span class="sep">·</span><span>管理员账号：<b>${esc(user)}</b></span><span class="sep">·</span><button class="icon-btn subtle" id="logout" title="退出" aria-label="退出">${icon('power')}</button></div></header><div class="content">${content}</div></main></div>`}
 
-function login(){return `<div class="login-shell"><form class="login-card refined" id="loginForm"><div class="login-card-head">${brandIcon()}<h1>${esc(brandName())}</h1><p>MiniJet · Xray 管理</p></div><div class="field"><label>用户名</label><input class="input" name="user" autocomplete="username" autofocus></div><div class="field"><label>密码</label><input class="input" name="pass" type="password" autocomplete="current-password"></div><button class="btn btn-primary btn-lg" type="submit">登录面板</button><div class="security-note">仅限管理员访问</div></form></div>`}
+function login(){return `<div class="login-shell"><form class="login-card refined" id="loginForm"><div class="login-card-head">${brandIcon()}<h1>${esc(brandName())}</h1><p>最简单的代理面板</p></div><div class="field"><label>用户名</label><input class="input" name="user" autocomplete="username" autofocus></div><div class="field"><label>密码</label><input class="input" name="pass" type="password" autocomplete="current-password"></div><button class="btn btn-primary btn-lg" type="submit">登录面板</button><div class="security-note">仅限管理员访问</div></form></div>`}
 
 function stat(label,value,sub,cls,symbol){return `<div class="card stat"><div><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div><div class="badgeicon ${cls}">${symbol}</div></div>`}
 function ring(label,pct,sub,color='var(--blue)'){pct=Math.max(0,Math.min(100,Number(pct)||0));return `<div class="resource"><b>${label}</b><div class="ring" style="--p:${pct.toFixed(0)};--c:${color}"><b>${pct.toFixed(0)}%</b></div><small>${sub}</small></div>`}
@@ -80,13 +80,92 @@ function editNodeModal(n){const reality=n.security==='reality';return `<div clas
 function openEditNodeModal(id){const n=(state.boot?.nodes||[]).find(x=>x.id===id);if(!n){toast('节点不存在',false);return}document.body.insertAdjacentHTML('beforeend',editNodeModal(n));const close=()=>$('#editNodeBackdrop')?.remove();$('#closeEditNode').onclick=close;$('#cancelEditNode').onclick=close;$('#editNodeBackdrop').addEventListener('click',e=>{if(e.target.id==='editNodeBackdrop')close()});$('#saveEditNode').onclick=async()=>{const btn=$('#saveEditNode');const payload={name:$('#editNodeName').value,address:$('#editNodeAddress').value,port:Number($('#editNodePort').value)};if(n.security==='reality')payload.reality_server_name=$('#editRealityServerName').value;btn.disabled=true;btn.textContent='正在校验并保存…';try{state.boot=await api('/api/nodes/'+n.id,{method:'PATCH',body:JSON.stringify(payload)});close();render();toast('节点已更新并重新加载 Xray')}catch(e){btn.disabled=false;btn.textContent='保存并重载';toast(e.message,false)}}}
 
 function nodes(){const rows=(state.boot?.nodes||[]).map(n=>`<tr><td><b>${esc(n.name)}</b></td><td>${protocolLabel(n)}</td><td class="traffic-cell"><span>↑ ${fmtTrafficBytes(n.uplink_bytes)}</span><span>↓ ${fmtTrafficBytes(n.downlink_bytes)}</span></td><td>${esc(n.address||state.boot.settings.domain||'—')}</td><td>${n.port}</td><td>${n.enabled?'<span class="dot"></span> <span class="online">启用</span>':'<span class="muted">停用</span>'}</td><td class="operation-cell"><div class="actions"><button class="icon-btn copy-uri" data-uri="${esc(n.uri)}" title="复制" aria-label="复制">${icon('copy')}</button><button class="icon-btn edit-node" data-id="${n.id}" title="编辑" aria-label="编辑">${icon('edit')}</button><button class="icon-btn reset-node-traffic" data-id="${n.id}" title="清空流量" aria-label="清空流量">${icon('trafficReset')}</button><button class="icon-btn toggle-node ${n.enabled?'stop':''}" data-id="${n.id}" data-enabled="${n.enabled}" title="${n.enabled?'停止':'启用'}" aria-label="${n.enabled?'停止':'启用'}">${icon('power')}</button><button class="icon-btn danger delete-node" data-id="${n.id}" data-name="${esc(n.name)}" title="删除" aria-label="删除">${icon('trash')}</button></div></td></tr>`).join('')||`<tr><td colspan="7" class="empty">暂无节点</td></tr>`;return layout(`<div class="page-stack"><section class="card info-card node-guide"><h3>新手说明</h3><div class="guide-inline"><span>默认 REALITY + Vision</span><span>填写节点域名后优先使用域名</span><span>创建与编辑前自动执行 Xray 校验</span><span>流量为节点累计上传/下载，可单独或全部清空</span></div></section><div class="toolbar node-toolbar"><input class="input search" id="nodeSearch" placeholder="搜索节点"><button class="btn btn-outline clear-all-traffic-btn" id="resetAllTraffic">${icon('trafficReset')}<span>清空全部节点流量</span></button><button class="btn btn-primary new-node-btn" id="addNode">+新建节点</button></div><section class="card table-card node-table-card"><div class="table-wrap"><table class="table"><thead><tr><th>名称</th><th>协议</th><th>流量</th><th>地址</th><th>端口</th><th>状态</th><th>操作</th></tr></thead><tbody id="nodeRows">${rows}</tbody></table></div><div class="table-footer"><span>共 ${state.boot?.nodes?.length||0} 个节点</span><span>REALITY + Vision</span></div></section></div>`)}
-function subscriptionURL(s){return `${location.origin}/sub/${encodeURIComponent(s.slug||s.token)}`}
 
-function editSubscriptionModal(s){const u=subscriptionURL(s);return `<div class="modal-backdrop" id="editSubBackdrop"><div class="modal modal-compact"><div class="modal-head"><div class="modal-title"><div class="badgeicon i-blue">${icon('edit')}</div><div><h2>编辑订阅</h2><p>修改名称与订阅地址</p></div></div><button class="close" id="closeEditSub">×</button></div><div class="form-grid"><label>订阅名称</label><input class="input" id="editSubName" value="${esc(s.name)}"><label>订阅地址</label><input class="input" id="editSubURL" value="${esc(u)}"><div class="helper">地址格式保持为 /sub/自定义后缀</div></div><div class="modal-actions"><button class="btn btn-outline" id="cancelEditSub">取消</button><button class="btn btn-primary" id="saveEditSub">保存</button></div></div></div>`}
+function subscriptionURL(s){return location.origin+'/sub/'+encodeURIComponent(s.slug||s.token)}
+function randomSubscriptionSlug(){
+  const chars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', bytes=new Uint8Array(28);
+  if(globalThis.crypto&&crypto.getRandomValues){crypto.getRandomValues(bytes)}else{for(let i=0;i<bytes.length;i++)bytes[i]=Math.floor(Math.random()*256)}
+  let out='';for(let i=0;i<bytes.length;i++)out+=chars[bytes[i]%chars.length];return out
+}
+function parseSubscriptionSlug(value){
+  const parsed=new URL(value,location.origin);
+  if(parsed.origin!==location.origin)throw new Error('订阅地址需使用当前面板域名');
+  const m=parsed.pathname.match(/^\/sub\/([^/]+)\/?$/);
+  if(!m)throw new Error('订阅地址必须使用 /sub/自定义后缀');
+  return decodeURIComponent(m[1])
+}
+function subscriptionNodeIDs(s){
+  const nodes=state.boot?.nodes||[], known=new Set(nodes.map(n=>n.id));
+  if(s?.is_default)return nodes.map(n=>n.id);
+  return (Array.isArray(s?.node_ids)?s.node_ids:[]).filter(id=>known.has(id))
+}
+function subscriptionNodePicker(selected,locked){
+  const nodes=state.boot?.nodes||[], picked=new Set(selected||[]);
+  if(!nodes.length)return '<div class="sub-node-empty">暂无节点；可以先保存订阅，创建节点后再编辑加入。</div>';
+  const tools=locked?'<small>默认订阅自动包含全部节点，后续新建节点也会自动加入</small>':'<div class="sub-node-tools"><button class="mini-link select-all-sub-nodes" type="button">全选</button><button class="mini-link clear-sub-nodes" type="button">清空</button></div>';
+  const rows=nodes.map(function(n){
+    const checked=picked.has(n.id)?' checked':'', disabled=locked?' disabled':'', status=n.enabled?'启用':'停用';
+    const addr=esc(n.address||state.boot?.settings?.domain||'—');
+    return '<label class="sub-node-option'+(locked?' locked':'')+'"><input class="sub-node-check" type="checkbox" value="'+esc(n.id)+'"'+checked+disabled+'><span><b>'+esc(n.name)+'</b><small>'+esc(protocolLabel(n))+' · '+addr+':'+n.port+'</small></span><em class="'+(n.enabled?'online':'muted')+'">'+status+'</em></label>'
+  }).join('');
+  return '<div class="sub-node-picker"><div class="sub-node-picker-head"><span>选择节点</span>'+tools+'</div><div class="sub-node-list">'+rows+'</div></div>'
+}
+function bindSubscriptionNodePicker(root){
+  root.querySelector('.select-all-sub-nodes')?.addEventListener('click',()=>root.querySelectorAll('.sub-node-check').forEach(x=>x.checked=true));
+  root.querySelector('.clear-sub-nodes')?.addEventListener('click',()=>root.querySelectorAll('.sub-node-check').forEach(x=>x.checked=false))
+}
+function selectedSubscriptionNodeIDs(root){return [...root.querySelectorAll('.sub-node-check:checked')].map(x=>x.value)}
 
-function openEditSubscription(id){const s=(state.boot?.subscriptions||[]).find(x=>x.id===id);if(!s){toast('订阅不存在',false);return}document.body.insertAdjacentHTML('beforeend',editSubscriptionModal(s));const close=()=>$('#editSubBackdrop')?.remove();$('#closeEditSub').onclick=close;$('#cancelEditSub').onclick=close;$('#editSubBackdrop').addEventListener('click',e=>{if(e.target.id==='editSubBackdrop')close()});$('#saveEditSub').onclick=async()=>{const btn=$('#saveEditSub');let slug='';try{const parsed=new URL($('#editSubURL').value,location.origin);const m=parsed.pathname.match(/^\/sub\/([^/]+)\/?$/);if(!m)throw new Error('订阅地址必须使用 /sub/自定义后缀');slug=decodeURIComponent(m[1])}catch(e){toast(e.message||'订阅地址格式不正确',false);return}btn.disabled=true;try{state.boot=await api('/api/subscriptions/'+s.id,{method:'PATCH',body:JSON.stringify({name:$('#editSubName').value,slug})});close();render();toast('订阅已更新')}catch(e){btn.disabled=false;toast(e.message,false)}}}
+function newSubscriptionModal(){
+  const slug=randomSubscriptionSlug(), u=location.origin+'/sub/'+slug;
+  const picked=(state.boot?.nodes||[]).filter(n=>n.enabled).map(n=>n.id);
+  const name='订阅 '+((state.boot?.subscriptions?.length||0)+1);
+  return '<div class="modal-backdrop" id="newSubBackdrop"><div class="modal subscription-modal"><div class="modal-head"><div class="modal-title"><div class="badgeicon i-blue">'+icon('plus')+'</div><div><h2>新建订阅</h2><p>先编辑订阅地址并选择节点，保存后才会真正创建</p></div></div><button class="close" id="closeNewSub">×</button></div><div class="form-grid"><label>订阅名称</label><input class="input" id="newSubName" value="'+esc(name)+'"><label>订阅地址</label><input class="input" id="newSubURL" value="'+esc(u)+'"><div class="helper">系统已随机生成地址后缀，可直接修改；格式保持为 /sub/自定义后缀</div></div>'+subscriptionNodePicker(picked,false)+'<div class="modal-actions"><button class="btn btn-outline" id="cancelNewSub">取消</button><button class="btn btn-primary" id="saveNewSub">保存并创建</button></div></div></div>'
+}
+function openNewSubscription(){
+  document.body.insertAdjacentHTML('beforeend',newSubscriptionModal());
+  const root=$('#newSubBackdrop'), close=()=>root?.remove();
+  $('#closeNewSub').onclick=close;$('#cancelNewSub').onclick=close;root.addEventListener('click',e=>{if(e.target===root)close()});bindSubscriptionNodePicker(root);
+  $('#saveNewSub').onclick=async()=>{
+    const btn=$('#saveNewSub');let slug='';
+    try{slug=parseSubscriptionSlug($('#newSubURL').value)}catch(e){toast(e.message||'订阅地址格式不正确',false);return}
+    btn.disabled=true;btn.textContent='正在创建…';
+    try{
+      await api('/api/subscriptions',{method:'POST',body:JSON.stringify({name:$('#newSubName').value,slug,node_ids:selectedSubscriptionNodeIDs(root)})});
+      close();await loadBootstrap();render();toast('订阅已创建')
+    }catch(e){btn.disabled=false;btn.textContent='保存并创建';toast(e.message,false)}
+  }
+}
 
-function subscriptions(){const subs=state.boot?.subscriptions||[], nodes=state.boot?.nodes||[];const rows=subs.map(s=>{const u=subscriptionURL(s);return `<tr><td><b>${esc(s.name)}</b></td><td><span class="urlpill">${esc(u)}</span></td><td>${nodes.filter(n=>n.enabled).length}</td><td>${s.enabled?'<span class="dot"></span> <span class="online">启用</span>':'停用'}</td><td class="operation-cell sub-actions"><div class="actions"><button class="icon-btn copy-sub" data-url="${esc(u)}" title="复制" aria-label="复制">${icon('copy')}</button><button class="icon-btn edit-sub" data-id="${s.id}" title="编辑" aria-label="编辑">${icon('edit')}</button>${subs.length>1?`<button class="icon-btn danger delete-sub" data-id="${s.id}" data-name="${esc(s.name)}" title="删除" aria-label="删除">${icon('trash')}</button>`:''}</div></td></tr>`}).join('');return layout(`<section class="card info-card subscription-guide"><h3>如何使用订阅地址</h3><div class="guide-inline subscription-steps"><span>复制下方订阅地址</span><span>导入 v2rayN、Shadowrocket、Stash 等兼容客户端</span><span>节点变化后订阅内容会自动同步</span></div></section><section class="card subs-table"><div class="section-title"><h2>订阅列表</h2><button class="btn btn-primary" id="newSub">＋ 新建订阅</button></div><div class="table-wrap"><table class="table"><thead><tr><th>名称</th><th>订阅地址</th><th>节点数</th><th>状态</th><th class="operation-head">操作</th></tr></thead><tbody>${rows}</tbody></table></div></section>`)}
+function editSubscriptionModal(s){
+  const u=subscriptionURL(s), locked=!!s.is_default;
+  const hint=locked?'默认订阅固定排在第一位、不可删除，并自动包含全部节点':'可修改订阅地址，并自由调整该订阅包含的节点';
+  return '<div class="modal-backdrop" id="editSubBackdrop"><div class="modal subscription-modal"><div class="modal-head"><div class="modal-title"><div class="badgeicon i-blue">'+icon('edit')+'</div><div><h2>编辑订阅</h2><p>'+hint+'</p></div></div><button class="close" id="closeEditSub">×</button></div><div class="form-grid"><label>订阅名称</label><input class="input" id="editSubName" value="'+esc(s.name)+'"><label>订阅地址</label><input class="input" id="editSubURL" value="'+esc(u)+'"><div class="helper">地址格式保持为 /sub/自定义后缀</div></div>'+subscriptionNodePicker(subscriptionNodeIDs(s),locked)+'<div class="modal-actions"><button class="btn btn-outline" id="cancelEditSub">取消</button><button class="btn btn-primary" id="saveEditSub">保存</button></div></div></div>'
+}
+function openEditSubscription(id){
+  const s=(state.boot?.subscriptions||[]).find(x=>x.id===id);if(!s){toast('订阅不存在',false);return}
+  document.body.insertAdjacentHTML('beforeend',editSubscriptionModal(s));
+  const root=$('#editSubBackdrop'), close=()=>root?.remove();
+  $('#closeEditSub').onclick=close;$('#cancelEditSub').onclick=close;root.addEventListener('click',e=>{if(e.target===root)close()});bindSubscriptionNodePicker(root);
+  $('#saveEditSub').onclick=async()=>{
+    const btn=$('#saveEditSub');let slug='';
+    try{slug=parseSubscriptionSlug($('#editSubURL').value)}catch(e){toast(e.message||'订阅地址格式不正确',false);return}
+    const payload={name:$('#editSubName').value,slug};
+    if(!s.is_default)payload.node_ids=selectedSubscriptionNodeIDs(root);
+    btn.disabled=true;
+    try{state.boot=await api('/api/subscriptions/'+s.id,{method:'PATCH',body:JSON.stringify(payload)});close();render();toast('订阅已更新')}catch(e){btn.disabled=false;toast(e.message,false)}
+  }
+}
+
+function subscriptions(){
+  const subs=state.boot?.subscriptions||[];
+  const rows=subs.map(s=>{
+    const u=subscriptionURL(s), count=subscriptionNodeIDs(s).length, defaultTag=s.is_default?'<span class="default-sub-tag">默认</span>':'';
+    const del=s.is_default?'':'<button class="icon-btn danger delete-sub" data-id="'+esc(s.id)+'" data-name="'+esc(s.name)+'" title="删除" aria-label="删除">'+icon('trash')+'</button>';
+    return '<tr><td><b>'+esc(s.name)+'</b>'+defaultTag+'</td><td><span class="urlpill">'+esc(u)+'</span></td><td>'+count+'</td><td>'+(s.enabled?'<span class="dot"></span> <span class="online">启用</span>':'停用')+'</td><td class="operation-cell sub-actions"><div class="actions"><button class="icon-btn copy-sub" data-url="'+esc(u)+'" title="复制" aria-label="复制">'+icon('copy')+'</button><button class="icon-btn edit-sub" data-id="'+esc(s.id)+'" title="编辑" aria-label="编辑">'+icon('edit')+'</button>'+del+'</div></td></tr>'
+  }).join('');
+  return layout('<section class="card info-card subscription-guide"><h3>如何使用订阅地址</h3><div class="guide-inline subscription-steps"><span>默认订阅固定第一并自动包含全部节点</span><span>自定义订阅可单独选择需要分发的节点</span><span>节点变化后订阅内容会自动同步</span></div></section><section class="card subs-table"><div class="section-title"><h2>订阅列表</h2><button class="btn btn-primary" id="newSub">＋ 新建订阅</button></div><div class="table-wrap"><table class="table"><thead><tr><th>名称</th><th>订阅地址</th><th>节点数</th><th>状态</th><th class="operation-head">操作</th></tr></thead><tbody>'+rows+'</tbody></table></div></section>')
+}
 function settings(){const s=state.boot?.settings||{};return layout(`<section class="card info-card settings-advice"><h3>使用建议</h3><p>新建节点默认使用 <b>VLESS + RAW + REALITY + XTLS Vision</b>。如果填写“节点域名”，新建节点会优先使用该域名作为连接地址；未填写时才使用服务器公网 IP。TLS 证书路径主要用于兼容已有 TLS 节点。建议使用独立根路径保护管理入口。证书有效且匹配节点域名时，HTTP 会自动切换到 HTTPS。</p></section><div class="settings-stack"><section class="card settings-card"><h2>基础设置</h2><p>管理入口与节点域名设置。</p><div class="setting-row"><label>面板名称</label><input class="input" id="setName" value="${esc(s.panel_name||'m-ui')}"><small>显示在页面标题中</small></div><div class="setting-row"><label>面板端口</label><input class="input" id="setPort" type="number" min="1024" max="65535" value="${Number(s.panel_port||location.port||16800)}"><small>修改端口后会自动重启面板，并需要重新登录</small></div><div class="setting-row"><label>面板 URL 根路径</label><input class="input" id="setPath" value="${esc(s.panel_path||'/')}" placeholder="/a8f3k2m9/"><small>修改根路径后直接切换到新入口，不需要重启面板</small></div><div class="setting-row"><label>默认协议</label><input class="input readonly" value="VLESS + RAW + REALITY + XTLS Vision" readonly><small>新建节点固定使用当前推荐配置</small></div><div class="setting-row"><label>节点域名</label><input class="input" id="setDomain" value="${esc(s.domain||'')}" placeholder="vpn.example.com（可留空）"><small>可留空；填写后新建 REALITY 节点的分享地址也会优先使用该域名</small></div></section><section class="card settings-card"><h2>证书路径</h2><p>面板 HTTPS 与 TLS 节点共用证书文件。</p><div class="setting-row"><label>证书文件</label><input class="input" id="setCert" value="${esc(s.cert_file||'~/minijet/ssh/m-ui/fullchain.pem')}"><span class="cert-status">${s.cert_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div><div class="setting-row"><label>私钥文件</label><input class="input" id="setKey" value="${esc(s.key_file||'~/minijet/ssh/m-ui/privkey.pem')}"><span class="cert-status">${s.key_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div></section><section class="card settings-card"><h2>登录账号</h2><p>修改登录名或密码时必须输入当前密码，保存后需要重新登录。</p><div class="setting-row"><label>登录名</label><input class="input" id="setUser" value="${esc(s.admin_user||'admin')}"><small>仅修改时需要重新登录</small></div><div class="setting-row"><label>当前密码</label><input class="input" id="setCurrentPass" type="password" autocomplete="current-password"><small>仅修改账号信息时需要填写</small></div><div class="setting-row"><label>新密码</label><input class="input" id="setPass" type="password" autocomplete="new-password" placeholder="至少 8 位"><small>不修改密码可留空</small></div><div class="setting-row"><label>确认新密码</label><input class="input" id="setPass2" type="password" autocomplete="new-password"><small>与新密码保持一致</small></div></section><div class="settings-restart-note">只有修改设置后才可保存。修改面板端口会自动重启并重新登录；修改登录名或密码只需重新登录；其他设置保存后直接生效。</div><div class="savebar"><button class="btn btn-primary" id="saveSettings" disabled>保存设置</button></div></div>`)}
 function confirmBox(message, yes){state.modal='confirm';document.body.insertAdjacentHTML('beforeend',`<div class="modal-backdrop" id="confirmBackdrop"><div class="modal" style="max-width:460px"><div class="modal-head"><div><h2 style="margin:0 0 6px">请确认</h2><p style="margin:0;color:var(--muted)">${esc(message)}</p></div><button class="close" id="confirmNo">×</button></div><div class="modal-actions"><button class="btn btn-outline" id="confirmCancel">取消</button><button class="btn btn-danger" id="confirmYes">确认</button></div></div></div>`);const close=()=>$('#confirmBackdrop')?.remove();$('#confirmNo').onclick=close;$('#confirmCancel').onclick=close;$('#confirmBackdrop').addEventListener('click',e=>{if(e.target.id==='confirmBackdrop')close()});$('#confirmYes').onclick=async()=>{close();await yes()}}
 
@@ -120,7 +199,7 @@ function bindNodes(){
   $('#resetAllTraffic')?.addEventListener('click',()=>confirmBox('确认清空全部节点累计流量？该操作无法恢复。',async()=>{
     try{state.boot=await api('/api/nodes/reset-traffic',{method:'POST'});render();toast('全部节点流量已清空')}catch(e){toast(e.message,false)}
   }));
-  $$$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'));
+  $('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'));
   $$('.edit-node').forEach(b=>b.onclick=()=>openEditNodeModal(b.dataset.id));
   $$('.reset-node-traffic').forEach(b=>b.onclick=async()=>{
     b.disabled=true;
@@ -130,7 +209,12 @@ function bindNodes(){
   $$('.delete-node').forEach(b=>b.onclick=()=>confirmBox(`删除节点“${b.dataset.name}”？删除后 Xray 会立即重载。`,async()=>{try{await api('/api/nodes/'+b.dataset.id,{method:'DELETE'});await loadBootstrap();render();toast('节点已删除')}catch(e){toast(e.message,false)}}));
   $('#nodeSearch')?.addEventListener('input',e=>{const q=e.target.value.toLowerCase();$$('#nodeRows tr').forEach(tr=>tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none')});
 }
-function bindSubs(){$$('.copy-sub').forEach(b=>b.onclick=()=>copyText(b.dataset.url,'订阅链接已复制'));$$('.edit-sub').forEach(b=>b.onclick=()=>openEditSubscription(b.dataset.id));$('#newSub')?.addEventListener('click',async()=>{try{await api('/api/subscriptions',{method:'POST',body:JSON.stringify({name:`订阅 ${(state.boot.subscriptions?.length||0)+1}`})});await loadBootstrap();render();toast('订阅已创建')}catch(e){toast(e.message,false)}});$$('.delete-sub').forEach(b=>b.onclick=()=>confirmBox(`删除订阅“${b.dataset.name}”？`,async()=>{try{await api('/api/subscriptions/'+b.dataset.id,{method:'DELETE'});await loadBootstrap();render();toast('订阅已删除')}catch(e){toast(e.message,false)}}))}
+function bindSubs(){
+  $$('.copy-sub').forEach(b=>b.onclick=()=>copyText(b.dataset.url,'订阅链接已复制'));
+  $$('.edit-sub').forEach(b=>b.onclick=()=>openEditSubscription(b.dataset.id));
+  $('#newSub')?.addEventListener('click',openNewSubscription);
+  $$('.delete-sub').forEach(b=>b.onclick=()=>confirmBox('删除订阅“'+b.dataset.name+'”？',async()=>{try{await api('/api/subscriptions/'+b.dataset.id,{method:'DELETE'});await loadBootstrap();render();toast('订阅已删除')}catch(e){toast(e.message,false)}}))
+}
 function bindSettings(){
   const s=state.boot?.settings||{};
   const original={
