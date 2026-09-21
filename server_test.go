@@ -115,3 +115,24 @@ func TestReplaceServicePanelPort(t *testing.T) {
 		t.Fatal("expected low panel port rejection")
 	}
 }
+
+func TestTrafficDeltasMapByStableNodeID(t *testing.T) {
+	st := defaultState()
+	st.Nodes = []Node{
+		{ID: "node-a", Name: "Renamed-US01", UplinkBytes: 100, DownlinkBytes: 200},
+		{ID: "node-b", Name: "JP01", UplinkBytes: 300, DownlinkBytes: 400},
+	}
+	raw := map[string]TrafficDelta{
+		"node-a@m-ui": {Uplink: 11, Downlink: 22},
+		"node-b@m-ui": {Uplink: 33, Downlink: 44},
+	}
+	deltas := trafficDeltasByNodeID(st, raw)
+	applyNodeTrafficDeltas(&st, deltas)
+
+	if st.Nodes[0].UplinkBytes != 111 || st.Nodes[0].DownlinkBytes != 222 {
+		t.Fatalf("node-a traffic mismatch: %#v", st.Nodes[0])
+	}
+	if st.Nodes[1].UplinkBytes != 333 || st.Nodes[1].DownlinkBytes != 444 {
+		t.Fatalf("node-b traffic mismatch: %#v", st.Nodes[1])
+	}
+}
