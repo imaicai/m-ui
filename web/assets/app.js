@@ -1,5 +1,5 @@
 const $ = (s, r=document) => r.querySelector(s);
-const $ = (s, r=document) => [...r.querySelectorAll(s)];
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
 const PANEL_BASE = (() => { const p=location.pathname||'/'; return p.endsWith('/')?p:(p.slice(0,p.lastIndexOf('/')+1)||'/'); })();
 const panelURL = path => PANEL_BASE + String(path||'').replace(/^\/+/, '');
 
