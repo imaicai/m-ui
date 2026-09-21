@@ -48,19 +48,94 @@ install_packages(){
   if command -v apt-get >/dev/null 2>&1; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -y >/dev/null
-    apt-get install -y ca-certificates curl wget git unzip golang-go >/dev/null
+    apt-get install -y ca-certificates curl wget git unzip golang-go jq >/dev/null
   elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y ca-certificates curl wget git unzip golang >/dev/null
+    dnf install -y ca-certificates curl wget git unzip golang jq >/dev/null
   elif command -v yum >/dev/null 2>&1; then
-    yum install -y ca-certificates curl wget git unzip golang >/dev/null
+    yum install -y ca-certificates curl wget git unzip golang jq >/dev/null
   else
     die "暂不支持当前包管理器。建议使用 Ubuntu / Debian / Rocky / AlmaLinux。"
   fi
 }
 
+ensure_xray_user(){
+  if ! getent group xray >/dev/null 2>&1; then groupadd --system xray; fi
+  if ! id xray >/dev/null 2>&1; then
+    local shell
+    shell="$(command -v nologin 2>/dev/null || true)"
+    [[ -n "$shell" ]] || shell="/usr/sbin/nologin"
+    useradd --system --gid xray --no-create-home --home-dir /nonexistent --shell "$shell" xray
+  fi
+}
+
+detect_xray_run_user(){
+  if [[ -n "${MUI_XRAY_USER:-}" ]]; then printf '%s' "$MUI_XRAY_USER"; return; fi
+  if [[ -f "$DATA_FILE" ]]; then
+    if ! jq -e . "$DATA_FILE" >/dev/null 2>&1; then printf 'root'; return; fi
+    if jq -e '.nodes[]? | select((.security // "tls") != "reality")' "$DATA_FILE" >/dev/null 2>&1; then
+      printf 'root'; return
+    fi
+  fi
+  printf 'xray'
+}
+
+apply_network_profile(){
+  info "应用安全稳定网络参数…"
+  mkdir -p /etc/sysctl.d /etc/modules-load.d
+  local bbr=0 available
+  modprobe tcp_bbr 2>/dev/null || true
+  available="$(sysctl -n net.ipv4.tcp_available_congestion_control 2>/dev/null || true)"
+  if [[ " $available " == *" bbr "* ]]; then
+    bbr=1
+    sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1 || bbr=0
+    (( bbr == 1 )) && sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1 || true
+  fi
+  sysctl -w net.ipv4.tcp_mtu_probing=1 >/dev/null 2>&1 || true
+  {
+    echo '# m-ui v1.5.0: conservative network performance profile'
+    echo 'net.ipv4.tcp_mtu_probing=1'
+    if (( bbr == 1 )); then
+      echo 'net.core.default_qdisc=fq'
+      echo 'net.ipv4.tcp_congestion_control=bbr'
+      printf 'tcp_bbr\n' > /etc/modules-load.d/m-ui-bbr.conf
+    fi
+  } > /etc/sysctl.d/99-m-ui-network.conf
+  if (( bbr == 1 )); then
+    ok "已启用 BBR + FQ，并开启 PMTU 黑洞自动探测。"
+  else
+    warn "当前内核未提供 BBR；已保留现有拥塞控制并开启 PMTU 黑洞自动探测。"
+  fi
+}
+
+harden_xray_service(){
+  mkdir -p /etc/systemd/system/xray.service.d
+  cat > /etc/systemd/system/xray.service.d/20-m-ui-hardening.conf <<'EOF'
+[Service]
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+UMask=0027
+LimitNOFILE=1048576
+EOF
+  systemctl daemon-reload
+}
+
+xray_version(){
+  [[ -x /usr/local/bin/xray ]] || return 0
+  /usr/local/bin/xray version 2>/dev/null | awk 'NR==1{v=$2; sub(/^v/,"",v); print "v" v}'
+}
+
 info "检查基础环境…"
 install_packages
 command -v go >/dev/null 2>&1 || die "Go 安装失败。"
+
+apply_network_profile
 
 mkdir -p "$DATA_DIR" "$CERT_DIR" /var/log/m-ui
 chmod 700 "$DATA_DIR"
@@ -88,12 +163,69 @@ if [[ -f "$XRAY_CONFIG" ]]; then
   cp -a "$XRAY_CONFIG" "$DATA_DIR/backup/xray-config.before-m-ui.$(date +%Y%m%d-%H%M%S).json" || true
 fi
 
-info "安装/更新 Xray Core…"
+info "安装/校验 Xray Core…"
+ensure_xray_user
+XRAY_RUN_USER="$(detect_xray_run_user)"
+XRAY_LOCK_FILE="$DATA_DIR/xray-version.lock"
+XRAY_REFRESH="${MUI_XRAY_REFRESH:-0}"
 XRAY_SCRIPT="$(mktemp)"
+XRAY_BACKUP_DIR="$(mktemp -d)"
+[[ -x /usr/local/bin/xray ]] && cp -a /usr/local/bin/xray "$XRAY_BACKUP_DIR/xray" || true
+[[ -f /etc/systemd/system/xray.service ]] && cp -a /etc/systemd/system/xray.service "$XRAY_BACKUP_DIR/xray.service" || true
+restore_xray(){
+  warn "Xray 更新或健康检查失败，正在恢复上一版本…"
+  [[ -f "$XRAY_BACKUP_DIR/xray" ]] && install -m 0755 "$XRAY_BACKUP_DIR/xray" /usr/local/bin/xray || true
+  [[ -f "$XRAY_BACKUP_DIR/xray.service" ]] && cp -a "$XRAY_BACKUP_DIR/xray.service" /etc/systemd/system/xray.service || true
+  systemctl daemon-reload || true
+  systemctl restart xray || true
+}
 curl -fsSL --retry 3 "https://github.com/XTLS/Xray-install/raw/main/install-release.sh" -o "$XRAY_SCRIPT" || die "无法下载 Xray 官方安装脚本。"
-bash "$XRAY_SCRIPT" install -u root >/dev/null
+
+CURRENT_XRAY="$(xray_version || true)"
+LOCKED_XRAY=""
+[[ -f "$XRAY_LOCK_FILE" ]] && LOCKED_XRAY="$(tr -d '[:space:]' < "$XRAY_LOCK_FILE")"
+CURRENT_XRAY_USER="$(sed -n 's/^[[:space:]]*User[[:space:]]*=[[:space:]]*//p' /etc/systemd/system/xray.service 2>/dev/null | tail -n1 | awk '{print $1}')"
+XRAY_INSTALL_ARGS=(install -u "$XRAY_RUN_USER")
+NEED_XRAY_INSTALL=1
+if [[ "$XRAY_REFRESH" != "1" && -n "$LOCKED_XRAY" && "$CURRENT_XRAY" == "$LOCKED_XRAY" && "$CURRENT_XRAY_USER" == "$XRAY_RUN_USER" ]]; then
+  NEED_XRAY_INSTALL=0
+elif [[ "$XRAY_REFRESH" != "1" && -n "$LOCKED_XRAY" ]]; then
+  XRAY_INSTALL_ARGS+=(--version "$LOCKED_XRAY" --force)
+else
+  XRAY_INSTALL_ARGS+=(--force)
+fi
+
+if (( NEED_XRAY_INSTALL == 1 )); then
+  info "Xray 运行用户: $XRAY_RUN_USER"
+  if ! bash "$XRAY_SCRIPT" "${XRAY_INSTALL_ARGS[@]}" >/dev/null; then
+    restore_xray
+    rm -f "$XRAY_SCRIPT"; rm -rf "$XRAY_BACKUP_DIR"
+    die "Xray 安装失败，已尝试恢复上一版本。"
+  fi
+else
+  info "Xray 已处于锁定稳定版本 $CURRENT_XRAY，本次不追新。"
+fi
 rm -f "$XRAY_SCRIPT"
-[[ -x /usr/local/bin/xray ]] || die "Xray 安装失败。"
+[[ -x /usr/local/bin/xray ]] || { restore_xray; rm -rf "$XRAY_BACKUP_DIR"; die "Xray 安装失败。"; }
+
+harden_xray_service
+if [[ -f "$XRAY_CONFIG" ]]; then
+  if [[ "$XRAY_RUN_USER" == "xray" ]]; then
+    chown root:xray "$XRAY_CONFIG" 2>/dev/null || true
+    chmod 0640 "$XRAY_CONFIG" 2>/dev/null || true
+  else
+    chmod 0600 "$XRAY_CONFIG" 2>/dev/null || true
+  fi
+  if ! /usr/local/bin/xray run -test -config "$XRAY_CONFIG" >/dev/null 2>&1; then
+    restore_xray; rm -rf "$XRAY_BACKUP_DIR"; die "新 Xray 无法通过现有节点配置校验，已回滚。"
+  fi
+  if ! systemctl restart xray >/dev/null 2>&1 || ! systemctl is-active --quiet xray; then
+    restore_xray; rm -rf "$XRAY_BACKUP_DIR"; die "新 Xray 启动健康检查失败，已回滚。"
+  fi
+fi
+INSTALLED_XRAY="$(xray_version || true)"
+[[ -n "$INSTALLED_XRAY" ]] && { printf '%s\n' "$INSTALLED_XRAY" > "$XRAY_LOCK_FILE"; chmod 0600 "$XRAY_LOCK_FILE"; }
+rm -rf "$XRAY_BACKUP_DIR"
 
 info "获取 m-ui 最新源码…"
 rm -rf "$INSTALL_SRC"
@@ -111,7 +243,7 @@ install -m 0755 "$INSTALL_SRC/m-ui-ctl" "$CTL"
 
 NEW_PASSWORD=""
 if [[ ! -f "$DATA_FILE" ]]; then
-  NEW_PASSWORD="${MUI_ADMIN_PASS:-minijet}"
+  NEW_PASSWORD="${MUI_ADMIN_PASS:-$(od -An -N18 -tx1 /dev/urandom | tr -d ' \\n')}"
   "$SERVER_BIN" --init --user "$ADMIN_USER" --password "$NEW_PASSWORD"
   chmod 600 "$DATA_FILE"
 fi
@@ -175,7 +307,7 @@ if [[ -n "$NEW_PASSWORD" ]]; then
   echo
 echo "  管理员账号: $ADMIN_USER"
   echo "  管理员密码: $NEW_PASSWORD"
-  warn "首次安装默认用户名和密码均为 minijet；建议登录后按需修改。"
+  warn "首次安装已生成高强度随机密码；请妥善保存上方密码，登录后也可自行修改。"
 else
   echo
   info "这是升级安装，原管理员账号和密码保持不变。"
