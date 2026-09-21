@@ -1,0 +1,51 @@
+name: m-ui CI
+
+on:
+  push:
+    branches:
+      - main
+      - fix-20260921-settings-reality
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Install current Xray
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 https://github.com/XTLS/Xray-install/raw/main/install-release.sh -o /tmp/install-xray.sh
+          sudo bash /tmp/install-xray.sh install -u root
+
+      - name: Go tests with real Xray config validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          XRAY_INTEGRATION=1 go test ./...
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Frontend syntax
+        run: node --check web/assets/app.js
+
+      - name: Shell syntax
+        shell: bash
+        run: |
+          bash -n install.sh
+          bash -n m-ui-ctl
+          bash -n uninstall.sh
