@@ -37,7 +37,8 @@ type Server struct {
 	lastNet   netSample
 	startedAt time.Time
 	loginMu  sync.Mutex
-	failures map[string]*loginFailure
+	failures   map[string]*loginFailure
+	loginSlots chan struct{}
 }
 
 type loginFailure struct {
@@ -80,7 +81,7 @@ type Bootstrap struct {
 }
 
 func NewServer(store *Store, cfg ServerConfig) *Server {
-	return &Server{store: store, xray: NewXrayManager(cfg.XrayBin, cfg.XrayConfig), cfg: cfg, startedAt: time.Now(), failures: map[string]*loginFailure{}}
+	return &Server{store: store, xray: NewXrayManager(cfg.XrayBin, cfg.XrayConfig), cfg: cfg, startedAt: time.Now(), failures: map[string]*loginFailure{}, loginSlots: make(chan struct{}, 2)}
 }
 
 func (s *Server) panelPath() string {
@@ -351,6 +352,15 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if remain := s.loginBlocked(ip); remain > 0 {
 		writeError(w, 429, fmt.Sprintf("登录失败次数过多，请 %d 分钟后再试", int(remain.Minutes())+1))
 		return
+	}
+	if s.loginSlots != nil {
+		select {
+		case s.loginSlots <- struct{}{}:
+			defer func() { <-s.loginSlots }()
+		default:
+			writeError(w, http.StatusTooManyRequests, "登录请求过多，请稍后重试")
+			return
+		}
 	}
 	var in struct{ Username, Password string }
 	if !decodeJSON(w, r, &in) {
