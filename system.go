@@ -204,35 +204,79 @@ type serverIdentity struct {
 
 func detectServerIdentity() serverIdentity {
 	client := &http.Client{Timeout: 4 * time.Second}
+	if id := detectCountryIS(client); validServerIdentity(id) {
+		return id
+	}
+	if id := detectCloudflareTrace(client); validServerIdentity(id) {
+		return id
+	}
+	return serverIdentity{}
+}
+
+func detectCountryIS(client *http.Client) serverIdentity {
 	req, _ := http.NewRequest(http.MethodGet, "https://api.country.is/", nil)
 	req.Header.Set("User-Agent", "m-ui/"+version)
-	if resp, err := client.Do(req); err == nil {
-		defer resp.Body.Close()
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			var v struct {
-				IP      string `json:"ip"`
-				Country string `json:"country"`
-			}
-			if json.NewDecoder(resp.Body).Decode(&v) == nil {
-				v.IP = strings.TrimSpace(v.IP)
-				v.Country = strings.ToUpper(strings.TrimSpace(v.Country))
-				if net.ParseIP(v.IP) != nil && len(v.Country) == 2 {
-					return serverIdentity{IP: v.IP, Country: v.Country}
-				}
-			}
-		}
+	resp, err := client.Do(req)
+	if err != nil {
+		return serverIdentity{}
 	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return serverIdentity{}
+	}
+	var v struct {
+		IP      string `json:"ip"`
+		Country string `json:"country"`
+	}
+	if json.NewDecoder(resp.Body).Decode(&v) != nil {
+		return serverIdentity{}
+	}
+	return serverIdentity{
+		IP:      strings.TrimSpace(v.IP),
+		Country: strings.ToUpper(strings.TrimSpace(v.Country)),
+	}
+}
 
-	ip := ""
-	if out, err := exec.Command("hostname", "-I").Output(); err == nil {
-		for _, field := range strings.Fields(string(out)) {
-			if p := net.ParseIP(field); p != nil && !p.IsLoopback() {
-				ip = field
-				break
-			}
+func detectCloudflareTrace(client *http.Client) serverIdentity {
+	req, _ := http.NewRequest(http.MethodGet, "https://www.cloudflare.com/cdn-cgi/trace", nil)
+	req.Header.Set("User-Agent", "m-ui/"+version)
+	resp, err := client.Do(req)
+	if err != nil {
+		return serverIdentity{}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return serverIdentity{}
+	}
+	var id serverIdentity
+	sc := bufio.NewScanner(resp.Body)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		switch {
+		case strings.HasPrefix(line, "ip="):
+			id.IP = strings.TrimSpace(strings.TrimPrefix(line, "ip="))
+		case strings.HasPrefix(line, "loc="):
+			id.Country = strings.ToUpper(strings.TrimSpace(strings.TrimPrefix(line, "loc=")))
 		}
 	}
-	return serverIdentity{IP: ip, Country: "NODE"}
+	return id
+}
+
+func validServerIdentity(id serverIdentity) bool {
+	p := net.ParseIP(strings.TrimSpace(id.IP))
+	if p == nil || p.IsLoopback() || p.IsPrivate() || p.IsUnspecified() || p.IsLinkLocalUnicast() || p.IsLinkLocalMulticast() {
+		return false
+	}
+	country := strings.ToUpper(strings.TrimSpace(id.Country))
+	if len(country) != 2 || country == "XX" {
+		return false
+	}
+	for _, r := range country {
+		if r < 'A' || r > 'Z' {
+			return false
+		}
+	}
+	return true
 }
 
 func nextCountryNodeName(country string, nodes []Node) string {

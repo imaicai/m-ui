@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - fix-20260921-settings-reality
+      - 'fix-*'
   pull_request:
     branches:
       - main
