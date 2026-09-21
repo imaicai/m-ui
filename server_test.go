@@ -58,7 +58,7 @@ func TestNormalizeSubscriptionSlug(t *testing.T) {
 			t.Fatalf("normalizeSubscriptionSlug(%q) = %q, %v; want %q", in, got, err, want)
 		}
 	}
-	for _, bad := range []string{"a", "abcd", "bad/path", "含中文"} {
+	for _, bad := range []string{"a", "abcd", "aaaaaaaaaaaaaaaaaaaa", "abababababababababab", "bad/path", "含中文"} {
 		if _, err := normalizeSubscriptionSlug(bad); err == nil {
 			t.Fatalf("expected invalid subscription slug: %q", bad)
 		}
@@ -252,8 +252,27 @@ func TestRequestSameOriginRejectsCrossSite(t *testing.T) {
 	if requestSameOrigin(req) {
 		t.Fatal("cross-origin request must be rejected")
 	}
+	req.RemoteAddr = "127.0.0.1:32123"
+	req.Header.Set("X-Forwarded-Proto", "https")
 	req.Header.Set("Origin", "https://panel.example.com")
 	if !requestSameOrigin(req) {
-		t.Fatal("same host through a TLS reverse proxy should be accepted")
+		t.Fatal("same host through a trusted TLS reverse proxy should be accepted")
+	}
+}
+
+
+func TestRequestSecureTrustsOnlyLocalProxyHeaders(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "http://panel.example.com/", nil)
+	req.RemoteAddr = "127.0.0.1:12345"
+	req.Header.Set("X-Forwarded-Proto", "https")
+	if !requestSecure(req) {
+		t.Fatal("loopback reverse proxy HTTPS header should be trusted")
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "http://panel.example.com/", nil)
+	req.RemoteAddr = "203.0.113.8:12345"
+	req.Header.Set("X-Forwarded-Proto", "https")
+	if requestSecure(req) {
+		t.Fatal("public clients must not be able to spoof HTTPS with forwarding headers")
 	}
 }
