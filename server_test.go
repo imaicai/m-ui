@@ -252,8 +252,10 @@ func TestRequestSameOriginRejectsCrossSite(t *testing.T) {
 	if requestSameOrigin(req) {
 		t.Fatal("cross-origin request must be rejected")
 	}
+	req.RemoteAddr = "127.0.0.1:32123"
+	req.Header.Set("X-Forwarded-Proto", "https")
 	req.Header.Set("Origin", "https://panel.example.com")
 	if !requestSameOrigin(req) {
-		t.Fatal("same host through a TLS reverse proxy should be accepted")
+		t.Fatal("same host through a trusted TLS reverse proxy should be accepted")
 	}
 }
