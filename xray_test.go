@@ -40,7 +40,7 @@ func TestBuildTLSConfigAndURI(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(b)
-	if !strings.Contains(s, "xtls-rprx-vision") || !strings.Contains(s, cert) || !strings.Contains(s, ""method": "raw"") {
+	if !strings.Contains(s, "xtls-rprx-vision") || !strings.Contains(s, cert) || !strings.Contains(s, `"method": "raw"`) {
 		t.Fatalf("unexpected TLS config: %s", s)
 	}
 	uri := nodeURI(st, st.Nodes[0])
@@ -71,7 +71,7 @@ func TestBuildRealityConfigWithoutDomainOrCertificate(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(b)
-	for _, want := range []string{""method": "raw"", ""security": "reality"", ""target": "www.microsoft.com:443"", ""shortIds""} {
+	for _, want := range []string{`"method": "raw"`, `"security": "reality"`, `"target": "www.microsoft.com:443"`, `"shortIds"`} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("Reality config missing %s: %s", want, s)
 		}
