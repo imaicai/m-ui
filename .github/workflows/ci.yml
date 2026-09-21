@@ -54,6 +54,7 @@ jobs:
           assert "$$('.copy-uri').forEach" in s
           assert re.search(r"(?<!\$)\$\('\[data-route\]'\)\.forEach", s) is None
           assert re.search(r"(?<!\$)\$\('\.copy-uri'\)\.forEach", s) is None
+          assert "$$$(" not in s
           PY
 
       - name: Panel port and brand assertions
@@ -88,7 +89,8 @@ jobs:
           assert '<th>流量</th>' in app
           assert '稳定运行中' in app
           assert 'M-Ui：最简单的代理面板' in app
-          assert '小飞机：最简单的代理客户端' in app\n          assert 'MiniJet | 小飞机：最简单的代理客户端' not in app
+          assert '小飞机：最简单的代理客户端' in app
+          assert 'MiniJet | 小飞机：最简单的代理客户端' not in app
           assert 'id="restartPanelSidebar"' in app
           assert 'id="panelUptime"' in app and 'panel_uptime_seconds' in app
           assert 'system-meta' not in app and 'minijet-link' not in app
@@ -101,11 +103,19 @@ jobs:
           assert 'handleResetNodeTraffic' in server
           assert 'QueryUserTraffic' in xray
           assert 'StatsService' in xray
-          assert 'v1.4.7 service card, runtime and conditional settings save' in css\n          assert 'v1.4.8 subscription workflow and interaction polish' in css
+          assert 'v1.4.7 service card, runtime and conditional settings save' in css
+          assert 'v1.4.8 subscription workflow and interaction polish' in css
           assert '.repo-icon-link' in css
           assert '.restart-mark' in css
           assert '#saveSettings:disabled' in css
-          assert '.panel-runtime' in css\n          assert '#logout:hover' in css\n          assert '.default-sub-tag' in css\n          assert 'openNewSubscription' in app\n          assert 'node_ids' in app\n          assert '默认订阅不能删除' in server\n          assert 'subscriptionHasNode(sub, n.ID)' in server\n          assert 'normalizeSubscriptions(&data, false)' in Path("store.go").read_text(encoding="utf-8")
+          assert '.panel-runtime' in css
+          assert '#logout:hover' in css
+          assert '.default-sub-tag' in css
+          assert 'openNewSubscription' in app
+          assert 'node_ids' in app
+          assert '默认订阅不能删除' in server
+          assert 'subscriptionHasNode(sub, n.ID)' in server
+          assert 'normalizeSubscriptions(&data, false)' in Path("store.go").read_text(encoding="utf-8")
           PY
 
       - name: Shell syntax
@@ -140,7 +150,11 @@ jobs:
           ! grep -q 'icon-add' web/assets/app.js
           grep -q 'new-node-btn' web/assets/app.js
           grep -q 'v1.4.1 refined UI' web/assets/app.css
-          grep -q 'v1.4.2 toolbar and restart refinement' web/assets/app.css\n          grep -q 'v1.4.8 subscription workflow and interaction polish' web/assets/app.css\n          grep -q '最简单的代理面板' web/assets/app.js\n          grep -q '默认订阅不能删除' server.go\n          grep -q 'stateVersion = 5' store.go
+          grep -q 'v1.4.2 toolbar and restart refinement' web/assets/app.css
+          grep -q 'v1.4.8 subscription workflow and interaction polish' web/assets/app.css
+          grep -q '最简单的代理面板' web/assets/app.js
+          grep -q '默认订阅不能删除' server.go
+          grep -q 'stateVersion = 5' store.go
           grep -q '管理员账号：' web/assets/app.js
           ! grep -q 'restartPanelTop' web/assets/app.js
           ! grep -q 'restartPanelSettings' web/assets/app.js
