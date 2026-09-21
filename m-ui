@@ -158,6 +158,31 @@ restart_panel(){
   fi
 }
 
+run_offline_setting(){
+  local was_active=0 rc=0
+  if systemctl is-active --quiet m-ui 2>/dev/null; then
+    was_active=1
+    systemctl stop m-ui
+  fi
+
+  if "$SERVER_BIN" "$@"; then
+    rc=0
+  else
+    rc=$?
+  fi
+
+  if (( was_active == 1 )); then
+    systemctl start m-ui || true
+    sleep 1
+    if ! systemctl is-active --quiet m-ui; then
+      err "配置已写入，但 m-ui 恢复启动失败。"
+      journalctl -u m-ui --no-pager -n 30
+      return 1
+    fi
+  fi
+  return "$rc"
+}
+
 install_panel(){
   info "开始一键安装/升级 m-ui..."
   bash <(curl -fsSL --retry 3 "$RAW/install.sh")
@@ -216,9 +241,11 @@ settings_menu(){
       1)
         read -r -p "请输入新的登录用户名: " user
         [[ -n "$user" ]] || { err "用户名不能为空。"; pause; continue; }
-        "$SERVER_BIN" --set-admin-user "$user"
-        restart_panel
-        ok "登录用户名已修改为: $user"
+        if run_offline_setting --set-admin-user "$user"; then
+          ok "登录用户名已修改为: $user"
+        else
+          err "登录用户名修改失败。"
+        fi
         pause
         ;;
       2)
@@ -226,9 +253,11 @@ settings_menu(){
         read -r -s -p "请输入新密码（至少8位）: " p1; echo
         read -r -s -p "请再次输入新密码: " p2; echo
         [[ "$p1" == "$p2" ]] || { err "两次输入的密码不一致。"; pause; continue; }
-        "$SERVER_BIN" --set-admin-password "$p1"
-        restart_panel
-        ok "登录密码已修改。"
+        if run_offline_setting --set-admin-password "$p1"; then
+          ok "登录密码已修改。"
+        else
+          err "登录密码修改失败，请检查密码长度。"
+        fi
         pause
         ;;
       3)
@@ -244,9 +273,11 @@ settings_menu(){
         local path
         read -r -p "请输入新的根路径（例如 /a8f3k2m9/）: " path
         [[ -n "$path" ]] || { err "根路径不能为空。"; pause; continue; }
-        "$SERVER_BIN" --set-panel-path "$path"
-        restart_panel
-        ok "面板根路径已修改为: $(panel_path)"
+        if run_offline_setting --set-panel-path "$path"; then
+          ok "面板根路径已修改为: $(panel_path)"
+        else
+          err "面板根路径修改失败。"
+        fi
         pause
         ;;
       5)
@@ -254,11 +285,14 @@ settings_menu(){
         read -r -p "确认还原请输入 YES: " yes
         if [[ "$yes" == "YES" ]]; then
           echo
-          "$SERVER_BIN" --reset-panel-access
-          set_port 54321
-          restart_panel
-          echo
-          warn "请保存上方新的管理员密码。"
+          if run_offline_setting --reset-panel-access; then
+            set_port 54321
+            restart_panel
+            echo
+            warn "请保存上方新的管理员密码。"
+          else
+            err "还原面板失败。"
+          fi
         else
           warn "已取消。"
         fi
