@@ -184,4 +184,5 @@ jobs:
           grep -q 'sub-select-circle' web/assets/app.js
           grep -q 'Country           string' store.go
           grep -q '//go:embed VERSION' main.go
-          grep -q '^1.4.9 VERSION
+          grep -q '^1\.4\.9
+ VERSION
