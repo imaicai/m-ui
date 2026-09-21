@@ -797,6 +797,9 @@ func normalizeDNSName(v string) (string, error) {
 }
 
 func validateEditedPort(port int, currentID string, nodes []Node) error {
+	if strings.Contains(strconv.Itoa(port), "4") {
+		return errors.New("节点端口不能包含数字 4")
+	}
 	for _, n := range nodes {
 		if n.ID != currentID && n.Port == port {
 			return fmt.Errorf("端口 %d 已被其他节点使用", port)
