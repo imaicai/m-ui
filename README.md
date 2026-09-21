@@ -4,6 +4,15 @@
 
 目标：**简单、稳定、易用**。普通用户不需要理解大量底层参数；新建节点默认使用 **VLESS + RAW + REALITY + XTLS Vision**，旧版已经创建的 TLS 节点会继续保留，不会在升级时强制转换。
 
+## v1.4.0
+
+- 默认面板端口改为 `16800`（已有安装升级保留当前端口）。
+- 默认证书路径改为 `/root/minijet/ssh/m-ui/fullchain.pem` 与 `/root/minijet/ssh/m-ui/privkey.pem`。
+- 面板同端口支持 HTTP/HTTPS；证书有效且匹配节点域名时 HTTP 自动跳转 HTTPS，证书失效时 HTTP 仍可访问。
+- 订阅名称和订阅地址后缀支持编辑。
+- 节点自动生成参数尽量避免数字 `4`（真实 IP/手工域名不做篡改）。
+- UI 主色统一为 `#00B176`，操作按钮图标化并统一版式。
+
 ## v1.3.1
 
 - 修正 SSH 菜单第 3 项：由“只更新 SSH 脚本”改为“完整更新 m-ui”。
@@ -46,8 +55,8 @@
 - 自动识别服务器公网 IP 与国家代码，节点名自动生成，例如 `US01`、`US02`。
 - 新增 **面板 URL 根路径**；新安装自动生成随机路径，已有安装升级后先保持 `/`，可在系统设置中修改。
 - TLS 兼容模式默认证书路径改为：
-  - `/maicai/ssh/m-ui/fullchain.pem`
-  - `/maicai/ssh/m-ui/privkey.pem`
+  - `/root/minijet/ssh/m-ui/fullchain.pem`
+  - `/root/minijet/ssh/m-ui/privkey.pem`
 - 登录名与密码均可在系统设置中修改；账号信息变化要求输入当前密码。
 - 系统设置的“使用建议”移动到页面顶部，不再使用右侧独立边栏。
 - 增加针对当前官方 Xray 的 REALITY 配置集成测试。
@@ -67,7 +76,7 @@
 - 自动生成 VLESS 分享链接
 - 订阅链接自动同步已启用节点
 - 旧 TLS 节点向后兼容
-- 适合与 1Panel 共存；默认面板端口为 `54321`
+- 适合与 1Panel 共存；默认面板端口为 `16800`
 - 数据存放于 `/etc/m-ui/state.json`，重复运行安装脚本会保留数据
 
 ## 一键安装 / 更新
@@ -104,7 +113,7 @@ MUI_PORT=3001 MUI_ADMIN_USER=customuser MUI_ADMIN_PASS='YourStrongPassword' \
 因此安装结束后地址可能是：
 
 ```text
-http://1.2.3.4:54321/a8f3k2m9x7qz/
+http://1.2.3.4:16800/a8f3k2m9x7qz/
 ```
 
 已有 v1.0.0 安装升级到 v1.1.0 时，为避免升级后突然找不到登录页，初始仍保持 `/`；登录后可在 **系统设置 → 面板 URL 根路径** 修改。
@@ -139,8 +148,8 @@ VLESS + RAW + REALITY + XTLS Vision
 升级不会强制转换已有节点。TLS 节点仍使用系统设置中的域名与证书：
 
 ```text
-/maicai/ssh/m-ui/fullchain.pem
-/maicai/ssh/m-ui/privkey.pem
+/root/minijet/ssh/m-ui/fullchain.pem
+/root/minijet/ssh/m-ui/privkey.pem
 ```
 
 如果服务器没有旧 TLS 节点，节点域名可以留空。
@@ -180,7 +189,7 @@ m-ui
 其中：
 
 - **删除卸载**：删除 m-ui 程序、节点、订阅、登录数据、m-ui 专属证书目录和 m-ui 生成的 Xray 配置；Xray Core 二进制本身保留，但 Xray 服务会停止。
-- **还原面板**：保留节点和订阅，重置为用户名 `admin`、随机新密码、端口 `54321`、随机新根路径。
+- **还原面板**：保留节点和订阅，重置为用户名 `admin`、随机新密码、端口 `16800`、随机新根路径。
 - **BBR + FQ**：写入 `/etc/sysctl.d/99-m-ui-bbr.conf`，只启用当前内核已经支持的原版 BBR 和 FQ，不自动替换 Linux 内核。
 - **刷新IP配置及参数显示**：刷新公网 IP、国家、面板地址、用户名、端口、根路径和 BBR/FQ 状态，仅用于显示，不修改已有节点。
 
@@ -211,8 +220,8 @@ m-ui-ctl xray
 /etc/systemd/system/m-ui.service         # systemd 服务
 /usr/local/bin/xray                      # Xray Core
 /usr/local/etc/xray/config.json          # m-ui 生成的 Xray 配置
-/maicai/ssh/m-ui/fullchain.pem           # TLS 兼容节点证书
-/maicai/ssh/m-ui/privkey.pem             # TLS 兼容节点私钥
+/root/minijet/ssh/m-ui/fullchain.pem           # TLS 兼容节点证书
+/root/minijet/ssh/m-ui/privkey.pem             # TLS 兼容节点私钥
 ```
 
 ## 开发与测试
