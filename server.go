@@ -701,7 +701,7 @@ func normalizeNodeAddress(v string) (string, error) {
 
 func normalizeDNSName(v string) (string, error) {
 	v = strings.ToLower(strings.TrimSpace(strings.TrimSuffix(v, ".")))
-	if v == "" || len(v) > 253 || strings.ContainsAny(v, "/?#@: \\t\\r\\n") {
+	if v == "" || len(v) > 253 || strings.ContainsAny(v, "/?#@: \t\r\n") {
 		return "", errors.New("域名格式不正确")
 	}
 	labels := strings.Split(v, ".")
