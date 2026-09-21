@@ -1,6 +1,7 @@
 name: m-ui CI
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -81,7 +82,7 @@ jobs:
           assert 'replaceServicePanelPort' in server
           PY
 
-      - name: v1.4.10 feature assertions
+      - name: v1.5.0 security and performance assertions
         shell: bash
         run: |
 
@@ -143,6 +144,20 @@ jobs:
           assert 'writeJSONAndFlush' in server
           assert 'func (x *XrayManager) Validate(st AppState) error' in xray
           assert 'v1.4.10 stable runtime clock and interaction fixes' in css
+          assert 'HandlerService' in xray
+          assert 'tcpKeepAliveIdle' in xray and 'tcpKeepAliveInterval' in xray
+          assert 'HotApply(old, next AppState)' in xray
+          assert 'EnsureRunningConfig' in xray
+          assert 'secureXrayConfig' in xray and '0640' in xray
+          assert 'X-MUI-CSRF' in server and 'requestSameOrigin' in server
+          assert 'passwordNeedsUpgrade' in server
+          assert '$argon2id$' in store
+          assert 'realityFallbackLimit' in xray
+          assert 'golang.org/x/crypto/argon2' in store
+          assert 'loginSlots' in server
+          assert 'Cache-Control' in server and 'no-store' in server
+          panel_tls = Path("panel_tls.go").read_text(encoding="utf-8")
+          assert 'MaxHeaderBytes' in panel_tls
           PY
 
       - name: Shell syntax
@@ -158,7 +173,13 @@ jobs:
           grep -q '完整更新 m-ui 【前端、后端、脚本、Xray】' m-ui
           grep -q 'update_program()' m-ui
           grep -q 'ADMIN_USER="${MUI_ADMIN_USER:-minijet}"' install.sh
-          grep -q 'NEW_PASSWORD="${MUI_ADMIN_PASS:-minijet}"' install.sh
+          grep -q 'od -An -N18 -tx1 /dev/urandom' install.sh
+          grep -q 'MUI_INIT_PASS="$NEW_PASSWORD"' install.sh
+          ! grep -q -- '--password "$NEW_PASSWORD"' install.sh
+          grep -q 'MUI_XRAY_REFRESH' install.sh
+          grep -q 'xray-version.lock' install.sh
+          grep -q 'tcp_mtu_probing=1' install.sh
+          grep -q 'NoNewPrivileges=true' install.sh
           grep -q 'PANEL_PORT="${MUI_PORT:-16800}"' install.sh
           grep -q 'MUI_CERT_HOME' install.sh
           grep -q 'defaultCertFile()' store.go
@@ -201,4 +222,6 @@ jobs:
           grep -q 'sub-select-circle' web/assets/app.js
           grep -q 'Country           string' store.go
           grep -q '//go:embed VERSION' main.go
-          grep -q '^1\.4\.10$' VERSION
+          test -s go.sum
+          ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
+          grep -q '^1\.5\.0$' VERSION

@@ -22,7 +22,9 @@ if $PURGE; then
   rm -rf /etc/m-ui
   rm -rf "$CERT_DIR"
   rm -f /usr/local/etc/xray/config.json
-  rm -f /etc/sysctl.d/99-m-ui-bbr.conf /etc/modules-load.d/m-ui-bbr.conf
+  rm -f /etc/sysctl.d/99-m-ui-bbr.conf /etc/sysctl.d/99-m-ui-network.conf /etc/modules-load.d/m-ui-bbr.conf
+  rm -f /etc/systemd/system/xray.service.d/20-m-ui-hardening.conf
+  systemctl daemon-reload 2>/dev/null || true
   echo "m-ui 程序及所有 m-ui 配置已彻底删除。"
   echo "Xray 服务已停止；Xray Core 本体仍保留，未删除二进制文件。"
 else

@@ -2,12 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func TestValidationTempPathIsJSON(t *testing.T) {
@@ -194,6 +196,9 @@ func TestBuildConfigEnablesPerNodeTrafficStats(t *testing.T) {
 	s := string(b)
 	for _, want := range []string{
 		`"StatsService"`,
+		`"HandlerService"`,
+		`"tcpKeepAliveIdle": 60`,
+		`"tcpKeepAliveInterval": 15`,
 		`"statsUserUplink": true`,
 		`"statsUserDownlink": true`,
 		`"email": "node-stats-1@m-ui"`,
@@ -203,5 +208,150 @@ func TestBuildConfigEnablesPerNodeTrafficStats(t *testing.T) {
 		if !strings.Contains(s, want) {
 			t.Fatalf("traffic stats config missing %s: %s", want, s)
 		}
+	}
+}
+
+
+func TestRuntimeDiffIgnoresShareMetadataButTracksInboundChanges(t *testing.T) {
+	st := defaultState()
+	base := Node{
+		ID: "node-a", Name: "US01", UUID: "9e7c8e21-026e-51a6-a8f1-168a7e20d819",
+		Port: 16888, Enabled: true, Security: "reality", Address: "203.0.113.10",
+		RealityPrivateKey: "private", RealityPassword: "public", RealityShortID: "012356789abcdef0",
+		RealityServerName: "www.apple.com", RealityTarget: "www.apple.com:443",
+	}
+	old := st
+	old.Nodes = []Node{base}
+	next := st
+	renamed := base
+	renamed.Name = "Renamed"
+	renamed.Address = "vpn.example.com"
+	next.Nodes = []Node{renamed}
+	remove, add := changedRuntimeNodes(old, next)
+	if len(remove) != 0 || len(add) != 0 {
+		t.Fatalf("name/address-only changes must not reload Xray: remove=%d add=%d", len(remove), len(add))
+	}
+
+	changed := renamed
+	changed.Port = 16889
+	next.Nodes = []Node{changed}
+	remove, add = changedRuntimeNodes(old, next)
+	if len(remove) != 1 || len(add) != 1 {
+		t.Fatalf("port change must hot-replace one inbound: remove=%d add=%d", len(remove), len(add))
+	}
+}
+
+func TestRealityFallbackLimitsAreStableAndNodeSpecific(t *testing.T) {
+	a1 := realityFallbackLimit("node-a-shortid", "upload")
+	a2 := realityFallbackLimit("node-a-shortid", "upload")
+	b := realityFallbackLimit("node-b-shortid", "upload")
+	ja1, _ := json.Marshal(a1)
+	ja2, _ := json.Marshal(a2)
+	jb, _ := json.Marshal(b)
+	if string(ja1) != string(ja2) {
+		t.Fatal("fallback limits must remain stable across config rebuilds")
+	}
+	if string(ja1) == string(jb) {
+		t.Fatal("different nodes should not share one fallback fingerprint")
+	}
+}
+
+
+func waitTCPState(addr string, wantOpen bool, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 150*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+		}
+		if (err == nil) == wantOpen {
+			return true
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return false
+}
+
+func TestHandlerServiceRuntimeWithInstalledXray(t *testing.T) {
+	if os.Getenv("XRAY_INTEGRATION") != "1" {
+		t.Skip("set XRAY_INTEGRATION=1 to exercise HandlerService runtime API")
+	}
+	xrayBin := "/usr/local/bin/xray"
+	if _, err := os.Stat(xrayBin); err != nil {
+		t.Fatalf("Xray integration requested but binary missing: %v", err)
+	}
+
+	// The M-Ui runtime API is deliberately loopback-only. A concurrently running
+	// external Xray using the same API port would make this isolated test unsafe.
+	if c, err := net.DialTimeout("tcp", xrayStatsAPIAddr, 150*time.Millisecond); err == nil {
+		_ = c.Close()
+		t.Skip("127.0.0.1:10085 is already in use")
+	}
+
+	x := NewXrayManager(xrayBin, filepath.Join(t.TempDir(), "runtime-config.json"))
+	privateKey, password, shortID, err := x.GenerateRealityMaterial()
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstPort, err := availablePort(map[int]bool{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	used := map[int]bool{firstPort: true}
+	secondPort, err := availablePort(used)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	st := defaultState()
+	node := Node{
+		ID: "runtime-ci", Name: "CI01", UUID: "9e7c8e21-026e-51a6-a8f1-168a7e20d819",
+		Port: firstPort, Enabled: true, Security: "reality", Address: "203.0.113.10",
+		RealityPrivateKey: privateKey, RealityPassword: password, RealityShortID: shortID,
+		RealityServerName: st.Settings.RealityServerName, RealityTarget: st.Settings.RealityTarget,
+	}
+	st.Nodes = []Node{node}
+	cfg, err := x.BuildConfig(st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(x.configPath, cfg, 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := exec.Command(xrayBin, "run", "-config", x.configPath)
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		_ = cmd.Wait()
+	}()
+
+	if !waitTCPState(xrayStatsAPIAddr, true, 5*time.Second) {
+		t.Fatal("Xray HandlerService API did not start")
+	}
+	if !waitTCPState(net.JoinHostPort("127.0.0.1", strconv.Itoa(firstPort)), true, 5*time.Second) {
+		t.Fatalf("initial inbound port %d did not start", firstPort)
+	}
+
+	if err := x.removeInbound("m-ui-" + node.ID); err != nil {
+		t.Fatalf("HandlerService rmi failed: %v", err)
+	}
+	if !waitTCPState(net.JoinHostPort("127.0.0.1", strconv.Itoa(firstPort)), false, 3*time.Second) {
+		t.Fatalf("removed inbound port %d is still open", firstPort)
+	}
+
+	next := st
+	nextNode := node
+	nextNode.Port = secondPort
+	next.Nodes = []Node{nextNode}
+	if err := x.addInbound(next, nextNode); err != nil {
+		t.Fatalf("HandlerService adi failed: %v", err)
+	}
+	if !waitTCPState(net.JoinHostPort("127.0.0.1", strconv.Itoa(secondPort)), true, 3*time.Second) {
+		t.Fatalf("hot-added inbound port %d did not open", secondPort)
 	}
 }

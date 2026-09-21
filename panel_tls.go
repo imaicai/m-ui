@@ -147,6 +147,7 @@ func (s *Server) servePanel(handler http.Handler) error {
 			ReadTimeout:       20 * time.Second,
 			WriteTimeout:      30 * time.Second,
 			IdleTimeout:       60 * time.Second,
+			MaxHeaderBytes:    64 << 10,
 		}
 	}
 

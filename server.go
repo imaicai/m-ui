@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,7 +37,8 @@ type Server struct {
 	lastNet   netSample
 	startedAt time.Time
 	loginMu  sync.Mutex
-	failures map[string]*loginFailure
+	failures   map[string]*loginFailure
+	loginSlots chan struct{}
 }
 
 type loginFailure struct {
@@ -45,6 +48,7 @@ type loginFailure struct {
 
 type session struct {
 	Expires time.Time
+	CSRF    string
 }
 
 type PublicSettings struct {
@@ -77,7 +81,7 @@ type Bootstrap struct {
 }
 
 func NewServer(store *Store, cfg ServerConfig) *Server {
-	return &Server{store: store, xray: NewXrayManager(cfg.XrayBin, cfg.XrayConfig), cfg: cfg, startedAt: time.Now(), failures: map[string]*loginFailure{}}
+	return &Server{store: store, xray: NewXrayManager(cfg.XrayBin, cfg.XrayConfig), cfg: cfg, startedAt: time.Now(), failures: map[string]*loginFailure{}, loginSlots: make(chan struct{}, 2)}
 }
 
 func (s *Server) panelPath() string {
@@ -237,7 +241,7 @@ func (s *Server) Run() error {
 
 	rootMux := http.NewServeMux()
 	rootMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, 200, map[string]any{"ok": true, "name": "m-ui", "version": version})
+		writeJSON(w, 200, map[string]any{"ok": true})
 	})
 	rootMux.HandleFunc("/sub/", s.handleSubscriptionFeed)
 	rootMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -275,8 +279,42 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("Referrer-Policy", "same-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
+		if r.TLS != nil {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func isMutatingMethod(method string) bool {
+	switch method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		return true
+	default:
+		return false
+	}
+}
+
+func requestSameOrigin(r *http.Request) bool {
+	if site := strings.TrimSpace(r.Header.Get("Sec-Fetch-Site")); site != "" && site != "same-origin" && site != "none" {
+		return false
+	}
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil || !strings.EqualFold(u.Host, r.Host) {
+		return false
+	}
+	return strings.EqualFold(u.Scheme, "https") || strings.EqualFold(u.Scheme, "http")
+}
+
+func constantTokenEqual(a, b string) bool {
+	if len(a) != len(b) || len(a) == 0 {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
 func (s *Server) auth(next http.HandlerFunc) http.HandlerFunc {
@@ -294,6 +332,13 @@ func (s *Server) auth(next http.HandlerFunc) http.HandlerFunc {
 			writeError(w, 401, "登录状态已过期")
 			return
 		}
+		sess := v.(session)
+		if isMutatingMethod(r.Method) {
+			if !requestSameOrigin(r) || !constantTokenEqual(strings.TrimSpace(r.Header.Get("X-MUI-CSRF")), sess.CSRF) {
+				writeError(w, http.StatusForbidden, "安全校验失败，请刷新页面后重试")
+				return
+			}
+		}
 		next(w, r)
 	}
 }
@@ -308,6 +353,15 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 429, fmt.Sprintf("登录失败次数过多，请 %d 分钟后再试", int(remain.Minutes())+1))
 		return
 	}
+	if s.loginSlots != nil {
+		select {
+		case s.loginSlots <- struct{}{}:
+			defer func() { <-s.loginSlots }()
+		default:
+			writeError(w, http.StatusTooManyRequests, "登录请求过多，请稍后重试")
+			return
+		}
+	}
 	var in struct{ Username, Password string }
 	if !decodeJSON(w, r, &in) {
 		return
@@ -320,10 +374,18 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.clearLoginFailure(ip)
+	if passwordNeedsUpgrade(st.Settings.PasswordHash) {
+		_ = s.store.Update(func(next *AppState) error {
+			return setPassword(next, in.Password)
+		})
+	}
 	token := randomSessionToken()
+	csrf := randomSessionToken()
 	exp := time.Now().Add(7 * 24 * time.Hour)
-	s.sessions.Store(token, session{Expires: exp})
-	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: token, Path: s.panelPath(), HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, Expires: exp, MaxAge: int((7 * 24 * time.Hour).Seconds())})
+	s.sessions.Store(token, session{Expires: exp, CSRF: csrf})
+	cookiePath := s.panelPath()
+	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: token, Path: cookiePath, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, Expires: exp, MaxAge: int((7 * 24 * time.Hour).Seconds())})
+	http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: csrf, Path: cookiePath, HttpOnly: false, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, Expires: exp, MaxAge: int((7 * 24 * time.Hour).Seconds())})
 	writeJSON(w, 200, map[string]any{"ok": true, "username": st.Settings.AdminUser})
 }
 
@@ -342,7 +404,9 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie("mui_session"); err == nil {
 		s.sessions.Delete(c.Value)
 	}
-	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: "", Path: s.panelPath(), HttpOnly: true, MaxAge: -1, SameSite: http.SameSiteStrictMode})
+	path := s.panelPath()
+	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: "", Path: path, HttpOnly: true, Secure: r.TLS != nil, MaxAge: -1, SameSite: http.SameSiteStrictMode})
+	http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: "", Path: path, HttpOnly: false, Secure: r.TLS != nil, MaxAge: -1, SameSite: http.SameSiteStrictMode})
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -529,21 +593,19 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	restartRequired := portChanged
 	reloginRequired := accountChanged || restartRequired
 
-	expireSessionCookie := func(cookiePath string) {
+	expireAuthCookies := func(cookiePath string) {
 		p, err := normalizePanelPath(cookiePath)
 		if err != nil || p == "" {
 			p = "/"
 		}
-		http.SetCookie(w, &http.Cookie{
-			Name: "mui_session", Value: "", Path: p, HttpOnly: true,
-			SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: -1,
-		})
+		http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: "", Path: p, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: -1})
+		http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: "", Path: p, HttpOnly: false, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: -1})
 	}
 
 	if reloginRequired {
-		expireSessionCookie(old.Settings.PanelPath)
+		expireAuthCookies(old.Settings.PanelPath)
 		if next.Settings.PanelPath != old.Settings.PanelPath {
-			expireSessionCookie(next.Settings.PanelPath)
+			expireAuthCookies(next.Settings.PanelPath)
 		}
 		s.sessions.Range(func(k, v any) bool { s.sessions.Delete(k); return true })
 	} else if pathChanged {
@@ -561,7 +623,10 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 					SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil,
 					Expires: exp, MaxAge: int(time.Until(exp).Seconds()),
 				})
-				expireSessionCookie(old.Settings.PanelPath)
+				if sess, ok := v.(session); ok && sess.CSRF != "" {
+					http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: sess.CSRF, Path: p, HttpOnly: false, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, Expires: exp, MaxAge: int(time.Until(exp).Seconds())})
+				}
+				expireAuthCookies(old.Settings.PanelPath)
 			}
 		}
 	}
@@ -674,6 +739,7 @@ func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 404, "节点不存在")
 		return
 	}
+	oldNode := old.Nodes[idx]
 
 	switch r.Method {
 	case http.MethodDelete:
@@ -744,8 +810,12 @@ func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, err.Error())
 		return
 	}
-	if r.Method == http.MethodPatch && next.Nodes[idx].Port != old.Nodes[idx].Port {
+	if r.Method == http.MethodDelete {
+		_ = tryCloseFirewall(oldNode.Port)
+	}
+	if r.Method == http.MethodPatch && next.Nodes[idx].Port != oldNode.Port {
 		_ = tryOpenFirewall(next.Nodes[idx].Port)
+		_ = tryCloseFirewall(oldNode.Port)
 	}
 	writeJSON(w, 200, makeBootstrap(next))
 }
@@ -754,8 +824,8 @@ func normalizeSubscriptionSlug(v string) (string, error) {
 	v = strings.TrimSpace(v)
 	v = strings.TrimPrefix(v, "/sub/")
 	v = strings.Trim(v, "/")
-	if len(v) < 4 || len(v) > 80 {
-		return "", errors.New("订阅地址后缀长度应为 4-80 位")
+	if len(v) < 20 || len(v) > 80 {
+		return "", errors.New("订阅地址后缀长度应为 20-80 位")
 	}
 	for _, r := range v {
 		ok := r == '-' || r == '_' ||
@@ -895,14 +965,18 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 				st.Subscriptions[idx].Name = cleanText(*in.Name, st.Subscriptions[idx].Name, 60)
 			}
 			if in.Slug != nil {
-				slug, err := normalizeSubscriptionSlug(*in.Slug)
-				if err != nil {
-					return err
+				rawSlug := strings.Trim(strings.TrimSpace(*in.Slug), "/")
+				currentSlug := st.Subscriptions[idx].Slug
+				if rawSlug != currentSlug && rawSlug != "sub/"+currentSlug {
+					slug, err := normalizeSubscriptionSlug(*in.Slug)
+					if err != nil {
+						return err
+					}
+					if subscriptionSlugExists(*st, slug, id) {
+						return errors.New("该订阅地址已被使用")
+					}
+					st.Subscriptions[idx].Slug = slug
 				}
-				if subscriptionSlugExists(*st, slug, id) {
-					return errors.New("该订阅地址已被使用")
-				}
-				st.Subscriptions[idx].Slug = slug
 			}
 			if in.Enabled != nil {
 				st.Subscriptions[idx].Enabled = *in.Enabled
@@ -1104,8 +1178,8 @@ func (s *Server) commitNodeToggleWithEarlyResponse(w http.ResponseWriter, old, n
 	// the very node that is being stopped.
 	time.Sleep(250 * time.Millisecond)
 
-	if err := s.xray.Apply(next); err != nil {
-		log.Printf("m-ui: 节点状态切换后重载 Xray 失败，正在回滚: %v", err)
+	if err := s.xray.HotApply(old, next); err != nil {
+		log.Printf("m-ui: 节点状态切换失败，正在回滚: %v", err)
 		_ = s.store.Replace(old)
 		_ = s.xray.Apply(old)
 	}
@@ -1124,7 +1198,7 @@ func (s *Server) commitXrayState(old, next AppState) error {
 	if err := s.store.Replace(next); err != nil {
 		return err
 	}
-	if err := s.xray.Apply(next); err != nil {
+	if err := s.xray.HotApply(old, next); err != nil {
 		_ = s.store.Replace(old)
 		_ = s.xray.Apply(old)
 		return err
@@ -1152,6 +1226,17 @@ func (s *Server) recordLoginFailure(ip string) {
 	defer s.loginMu.Unlock()
 	f := s.failures[ip]
 	if f == nil {
+		if len(s.failures) >= 4096 {
+			now := time.Now()
+			for key, item := range s.failures {
+				if item.Until.IsZero() || item.Until.Before(now) {
+					delete(s.failures, key)
+				}
+				if len(s.failures) < 3072 {
+					break
+				}
+			}
+		}
 		f = &loginFailure{}
 		s.failures[ip] = f
 	}
@@ -1168,14 +1253,27 @@ func (s *Server) clearLoginFailure(ip string) {
 }
 
 func clientIP(r *http.Request) string {
-	if x := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0]); x != "" {
-		return x
-	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil {
-		return host
+	if err != nil {
+		host = r.RemoteAddr
 	}
-	return r.RemoteAddr
+	peer := net.ParseIP(strings.TrimSpace(host))
+	if peer != nil && (peer.IsLoopback() || peer.IsPrivate()) {
+		if x := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0]); x != "" {
+			if forwarded := net.ParseIP(x); forwarded != nil {
+				return forwarded.String()
+			}
+		}
+		if x := strings.TrimSpace(r.Header.Get("X-Real-IP")); x != "" {
+			if forwarded := net.ParseIP(x); forwarded != nil {
+				return forwarded.String()
+			}
+		}
+	}
+	if peer != nil {
+		return peer.String()
+	}
+	return host
 }
 
 func cleanText(v, fallback string, max int) string {
@@ -1268,6 +1366,7 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 }
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
