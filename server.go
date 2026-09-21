@@ -958,14 +958,18 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 				st.Subscriptions[idx].Name = cleanText(*in.Name, st.Subscriptions[idx].Name, 60)
 			}
 			if in.Slug != nil {
-				slug, err := normalizeSubscriptionSlug(*in.Slug)
-				if err != nil {
-					return err
+				rawSlug := strings.Trim(strings.TrimSpace(*in.Slug), "/")
+				currentSlug := st.Subscriptions[idx].Slug
+				if rawSlug != currentSlug && rawSlug != "sub/"+currentSlug {
+					slug, err := normalizeSubscriptionSlug(*in.Slug)
+					if err != nil {
+						return err
+					}
+					if subscriptionSlugExists(*st, slug, id) {
+						return errors.New("该订阅地址已被使用")
+					}
+					st.Subscriptions[idx].Slug = slug
 				}
-				if subscriptionSlugExists(*st, slug, id) {
-					return errors.New("该订阅地址已被使用")
-				}
-				st.Subscriptions[idx].Slug = slug
 			}
 			if in.Enabled != nil {
 				st.Subscriptions[idx].Enabled = *in.Enabled
