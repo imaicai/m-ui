@@ -11,6 +11,7 @@
 - 新建 REALITY 节点默认伪装目标改为 `www.apple.com:443`，SNI 为 `www.apple.com`。
 - 已有微软伪装节点不会被强制改写；可通过“编辑节点”自行切换为苹果。
 - REALITY 服务端显式设置 `minClientVer: 1.8.2`，保持标准 REALITY + Vision，同时兼顾 Mihomo 客户端版本标识。
+- m-ui 服务每次启动都会用当前节点数据重新生成并校验 Xray 配置，确保升级后已有节点也立即获得新配置字段。
 - 节点支持编辑：名称、连接地址、端口、REALITY 伪装域名；UUID、密钥、Short ID、协议和 Vision 流控保持只读。
 - 订阅地址灰色显示区域加宽，长链接视觉上更完整。
 
