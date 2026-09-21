@@ -71,7 +71,7 @@ func TestBuildRealityConfigWithoutDomainOrCertificate(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(b)
-	for _, want := range []string{`"method": "raw"`, `"security": "reality"`, `"target": "www.microsoft.com:443"`, `"shortIds"`} {
+	for _, want := range []string{`"method": "raw"`, `"security": "reality"`, `"target": "www.microsoft.com:443"`, `"shortIds"`, `"minClientVer": "1.8.2"`} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("Reality config missing %s: %s", want, s)
 		}
@@ -81,6 +81,20 @@ func TestBuildRealityConfigWithoutDomainOrCertificate(t *testing.T) {
 		if !strings.Contains(uri, want) {
 			t.Fatalf("Reality uri missing %s: %s", want, uri)
 		}
+	}
+}
+
+func TestRealityURIUsesConfiguredDomainAddress(t *testing.T) {
+	st := defaultState()
+	n := Node{
+		Name: "US01", UUID: "9e7c8e21-026e-41a6-a8f1-168a7e20d819", Port: 33353,
+		Enabled: true, Security: "reality", Address: "vpn.example.com",
+		RealityPassword: "client-password", RealityShortID: "0123456789abcdef",
+		RealityServerName: "www.apple.com",
+	}
+	uri := nodeURI(st, n)
+	if !strings.Contains(uri, "@vpn.example.com:33353?") || !strings.Contains(uri, "sni=www.apple.com") {
+		t.Fatalf("domain address or Apple SNI missing from URI: %s", uri)
 	}
 }
 
