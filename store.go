@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const stateVersion = 4
+const stateVersion = 5
 
 func defaultCertHome() string {
 	if v := strings.TrimSpace(os.Getenv("MUI_CERT_HOME")); v != "" {
@@ -74,6 +74,8 @@ type Subscription struct {
 	Token     string    `json:"token"`
 	Slug      string    `json:"slug"`
 	Enabled   bool      `json:"enabled"`
+	IsDefault bool      `json:"is_default,omitempty"`
+	NodeIDs   []string  `json:"node_ids"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -88,6 +90,69 @@ type Store struct {
 	mu   sync.RWMutex
 	path string
 	data AppState
+}
+
+func allNodeIDs(nodes []Node) []string {
+	ids := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		if strings.TrimSpace(node.ID) != "" {
+			ids = append(ids, node.ID)
+		}
+	}
+	return ids
+}
+
+func normalizeSubscriptions(st *AppState, migrateLegacySelection bool) {
+	if st == nil || len(st.Subscriptions) == 0 {
+		return
+	}
+
+	defaultIdx := -1
+	for i := range st.Subscriptions {
+		if st.Subscriptions[i].IsDefault {
+			if defaultIdx < 0 {
+				defaultIdx = i
+			} else {
+				st.Subscriptions[i].IsDefault = false
+			}
+		}
+	}
+	if defaultIdx < 0 {
+		defaultIdx = 0
+		st.Subscriptions[0].IsDefault = true
+	}
+	if defaultIdx != 0 {
+		def := st.Subscriptions[defaultIdx]
+		copy(st.Subscriptions[1:defaultIdx+1], st.Subscriptions[0:defaultIdx])
+		st.Subscriptions[0] = def
+	}
+
+	allIDs := allNodeIDs(st.Nodes)
+	valid := make(map[string]bool, len(allIDs))
+	for _, id := range allIDs {
+		valid[id] = true
+	}
+	for i := range st.Subscriptions {
+		if i == 0 {
+			st.Subscriptions[i].IsDefault = true
+			st.Subscriptions[i].NodeIDs = append([]string{}, allIDs...)
+			continue
+		}
+		st.Subscriptions[i].IsDefault = false
+		ids := st.Subscriptions[i].NodeIDs
+		if migrateLegacySelection && ids == nil {
+			ids = allIDs
+		}
+		cleaned := make([]string, 0, len(ids))
+		seen := map[string]bool{}
+		for _, id := range ids {
+			if valid[id] && !seen[id] {
+				seen[id] = true
+				cleaned = append(cleaned, id)
+			}
+		}
+		st.Subscriptions[i].NodeIDs = cleaned
+	}
 }
 
 func NewStore(path string) (*Store, error) {
@@ -113,6 +178,7 @@ func (s *Store) load() error {
 	if err := json.Unmarshal(b, &s.data); err != nil {
 		return fmt.Errorf("读取数据文件失败: %w", err)
 	}
+	migrateSubscriptionNodeSelection := s.data.Version < 5
 
 	// Upgrade older state files without breaking existing nodes.
 	if s.data.Settings.PanelPath == "" {
@@ -149,6 +215,7 @@ func (s *Store) load() error {
 			s.data.Subscriptions[i].Slug = s.data.Subscriptions[i].Token
 		}
 	}
+	normalizeSubscriptions(&s.data, migrateSubscriptionNodeSelection)
 	s.data.Version = stateVersion
 	return nil
 }
@@ -187,6 +254,8 @@ func (s *Store) Update(fn func(*AppState) error) error {
 	if err := fn(&s.data); err != nil {
 		return err
 	}
+	normalizeSubscriptions(&s.data, false)
+	s.data.Version = stateVersion
 	if err := s.saveLocked(); err != nil {
 		_ = json.Unmarshal(before, &s.data)
 		return err
@@ -197,6 +266,8 @@ func (s *Store) Update(fn func(*AppState) error) error {
 func (s *Store) Replace(data AppState) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	normalizeSubscriptions(&data, false)
+	data.Version = stateVersion
 	s.data = data
 	return s.saveLocked()
 }
@@ -244,7 +315,7 @@ func (s *Store) EnsureInitialized(user, pass string) error {
 		if len(st.Subscriptions) == 0 {
 			token := randomToken(24)
 			st.Subscriptions = append(st.Subscriptions, Subscription{
-				ID: newID(), Name: "默认订阅", Token: token, Slug: token, Enabled: true, CreatedAt: time.Now(),
+				ID: newID(), Name: "默认订阅", Token: token, Slug: token, Enabled: true, IsDefault: true, NodeIDs: []string{}, CreatedAt: time.Now(),
 			})
 		}
 		return nil

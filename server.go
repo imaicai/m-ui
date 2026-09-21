@@ -768,6 +768,41 @@ func subscriptionSlugExists(st AppState, slug, exceptID string) bool {
 	return false
 }
 
+func normalizeSubscriptionNodeIDs(st AppState, ids []string) ([]string, error) {
+	known := make(map[string]bool, len(st.Nodes))
+	for _, node := range st.Nodes {
+		known[node.ID] = true
+	}
+	out := make([]string, 0, len(ids))
+	seen := map[string]bool{}
+	for _, raw := range ids {
+		id := strings.TrimSpace(raw)
+		if id == "" {
+			continue
+		}
+		if !known[id] {
+			return nil, fmt.Errorf("节点不存在: %s", id)
+		}
+		if !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	return out, nil
+}
+
+func subscriptionHasNode(sub Subscription, nodeID string) bool {
+	if sub.IsDefault {
+		return true
+	}
+	for _, id := range sub.NodeIDs {
+		if id == nodeID {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		writeJSON(w, 200, s.store.Snapshot().Subscriptions)
@@ -778,10 +813,13 @@ func (s *Server) handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Name string `json:"name"`
-		Slug string `json:"slug"`
+		Name    string   `json:"name"`
+		Slug    string   `json:"slug"`
+		NodeIDs []string `json:"node_ids"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&in)
+	if !decodeJSON(w, r, &in) {
+		return
+	}
 	var sub Subscription
 	err := s.store.Update(func(st *AppState) error {
 		token := randomToken(28)
@@ -798,7 +836,14 @@ func (s *Server) handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 		if subscriptionSlugExists(*st, slug, "") {
 			return errors.New("该订阅地址已被使用")
 		}
-		sub = Subscription{ID: newID(), Name: cleanText(in.Name, "新订阅", 60), Token: token, Slug: slug, Enabled: true, CreatedAt: time.Now()}
+		nodeIDs, err := normalizeSubscriptionNodeIDs(*st, in.NodeIDs)
+		if err != nil {
+			return err
+		}
+		sub = Subscription{
+			ID: newID(), Name: cleanText(in.Name, "新订阅", 60), Token: token, Slug: slug,
+			Enabled: true, IsDefault: false, NodeIDs: nodeIDs, CreatedAt: time.Now(),
+		}
 		st.Subscriptions = append(st.Subscriptions, sub)
 		return nil
 	})
@@ -819,8 +864,9 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPatch:
 		var in struct {
-			Name string `json:"name"`
-			Slug string `json:"slug"`
+			Name    string    `json:"name"`
+			Slug    string    `json:"slug"`
+			NodeIDs *[]string `json:"node_ids"`
 		}
 		if !decodeJSON(w, r, &in) {
 			return
@@ -845,6 +891,13 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 			}
 			st.Subscriptions[idx].Name = cleanText(in.Name, st.Subscriptions[idx].Name, 60)
 			st.Subscriptions[idx].Slug = slug
+			if !st.Subscriptions[idx].IsDefault && in.NodeIDs != nil {
+				nodeIDs, err := normalizeSubscriptionNodeIDs(*st, *in.NodeIDs)
+				if err != nil {
+					return err
+				}
+				st.Subscriptions[idx].NodeIDs = nodeIDs
+			}
 			return nil
 		})
 		if err != nil {
@@ -854,9 +907,6 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, makeBootstrap(s.store.Snapshot()))
 	case http.MethodDelete:
 		err := s.store.Update(func(st *AppState) error {
-			if len(st.Subscriptions) <= 1 {
-				return errors.New("至少保留一个订阅")
-			}
 			idx := -1
 			for i := range st.Subscriptions {
 				if st.Subscriptions[i].ID == id {
@@ -866,6 +916,9 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 			}
 			if idx < 0 {
 				return errors.New("订阅不存在")
+			}
+			if st.Subscriptions[idx].IsDefault {
+				return errors.New("默认订阅不能删除")
 			}
 			st.Subscriptions = append(st.Subscriptions[:idx], st.Subscriptions[idx+1:]...)
 			return nil
@@ -887,20 +940,21 @@ func (s *Server) handleSubscriptionFeed(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	st := s.store.Snapshot()
-	found := false
-	for _, sub := range st.Subscriptions {
-		if sub.Slug == token && sub.Enabled {
-			found = true
+	idx := -1
+	for i := range st.Subscriptions {
+		if st.Subscriptions[i].Slug == token && st.Subscriptions[i].Enabled {
+			idx = i
 			break
 		}
 	}
-	if !found {
+	if idx < 0 {
 		http.NotFound(w, r)
 		return
 	}
+	sub := st.Subscriptions[idx]
 	var lines []string
 	for _, n := range st.Nodes {
-		if n.Enabled {
+		if n.Enabled && subscriptionHasNode(sub, n.ID) {
 			lines = append(lines, nodeURI(st, n))
 		}
 	}

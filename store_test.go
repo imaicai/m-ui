@@ -157,3 +157,56 @@ func TestDefaultCertHomeUsesInstallerEnvironment(t *testing.T) {
 		t.Fatalf("unexpected key path: %s", got)
 	}
 }
+
+func TestDefaultSubscriptionStaysFirstAndTracksAllNodes(t *testing.T) {
+	st := defaultState()
+	st.Nodes = []Node{{ID: "n1", Name: "US01"}, {ID: "n2", Name: "US02"}}
+	st.Subscriptions = []Subscription{
+		{ID: "custom", Name: "自定义订阅", Slug: "custom01", NodeIDs: []string{"n1"}},
+		{ID: "default", Name: "默认订阅", Slug: "default01", IsDefault: true},
+	}
+	normalizeSubscriptions(&st, false)
+	if len(st.Subscriptions) != 2 || !st.Subscriptions[0].IsDefault || st.Subscriptions[0].ID != "default" {
+		t.Fatalf("default subscription must stay first: %#v", st.Subscriptions)
+	}
+	if got := strings.Join(st.Subscriptions[0].NodeIDs, ","); got != "n1,n2" {
+		t.Fatalf("default subscription did not track all nodes: %s", got)
+	}
+	st.Nodes = append(st.Nodes, Node{ID: "n3", Name: "US03"})
+	normalizeSubscriptions(&st, false)
+	if got := strings.Join(st.Subscriptions[0].NodeIDs, ","); got != "n1,n2,n3" {
+		t.Fatalf("new node was not added to default subscription: %s", got)
+	}
+	if got := strings.Join(st.Subscriptions[1].NodeIDs, ","); got != "n1" {
+		t.Fatalf("custom subscription selection changed unexpectedly: %s", got)
+	}
+}
+
+func TestLegacyCustomSubscriptionSelectionMigratesToAllNodes(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "state.json")
+	old := AppState{
+		Version: 4,
+		Settings: defaultState().Settings,
+		Nodes: []Node{{ID: "n1", Name: "US01"}, {ID: "n2", Name: "US02"}},
+		Subscriptions: []Subscription{
+			{ID: "s1", Name: "默认订阅", Token: "DefaultToken", Slug: "DefaultToken", Enabled: true},
+			{ID: "s2", Name: "旧自定义订阅", Token: "CustomToken", Slug: "CustomToken", Enabled: true},
+		},
+	}
+	b, _ := json.Marshal(old)
+	if err := os.WriteFile(p, b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := NewStore(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := s.Snapshot()
+	if !got.Subscriptions[0].IsDefault {
+		t.Fatalf("first legacy subscription was not promoted to default: %#v", got.Subscriptions)
+	}
+	if strings.Join(got.Subscriptions[1].NodeIDs, ",") != "n1,n2" {
+		t.Fatalf("legacy custom subscription should keep previous all-node behavior: %#v", got.Subscriptions[1])
+	}
+}
+
