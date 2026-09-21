@@ -6,9 +6,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
-var version = "1.4.7"
+//go:embed VERSION
+var versionFile string
+
+var version = strings.TrimSpace(versionFile)
 
 //go:embed web/* web/assets/*
 var webFiles embed.FS
@@ -107,6 +111,10 @@ func main() {
 		if err := store.EnsureInitialized(user, pass); err != nil {
 			log.Fatalf("自动初始化失败: %v", err)
 		}
+	}
+
+	if err := backfillNodeCountries(store); err != nil {
+		log.Printf("m-ui: 节点国家信息补齐失败: %v", err)
 	}
 
 	srv := NewServer(store, ServerConfig{
