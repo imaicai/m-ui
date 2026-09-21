@@ -43,6 +43,18 @@ jobs:
       - name: Frontend syntax
         run: node --check web/assets/app.js
 
+      - name: Frontend event binding assertions
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path("web/assets/app.js").read_text(encoding="utf-8")
+          assert "$('[data-route]').forEach" in s
+          assert "$('.copy-uri').forEach" in s
+          assert "$('[data-route]').forEach" not in s
+          assert "$('.copy-uri').forEach" not in s
+          PY
+
       - name: Shell syntax
         shell: bash
         run: |
@@ -80,7 +92,7 @@ jobs:
           grep -q 'restartPanelTop' web/assets/app.js
           grep -q 'restartPanelSettings' web/assets/app.js
           grep -Fq "$('[data-route]').forEach" web/assets/app.js
-          grep -Fq "$('.copy-uri').forEach" web/assets/app.js
+
           ! grep -Fq "\$('[data-route]').forEach" web/assets/app.js
           grep -q '+新建节点' web/assets/app.js
           grep -q 'github-link' web/assets/app.js
