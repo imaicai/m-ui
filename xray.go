@@ -108,7 +108,7 @@ func (x *XrayManager) BuildConfig(st AppState) ([]byte, error) {
 				"clients": []any{map[string]any{
 					"id":    n.UUID,
 					"flow":  "xtls-rprx-vision",
-					"email": n.Name + "@m-ui",
+					"email": n.ID + "@m-ui",
 				}},
 				"decryption": "none",
 			},
