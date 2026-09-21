@@ -36,8 +36,9 @@ type Server struct {
 	trafficMu sync.Mutex
 	lastNet   netSample
 	startedAt time.Time
-	loginMu  sync.Mutex
-	failures map[string]*loginFailure
+	loginMu    sync.Mutex
+	failures   map[string]*loginFailure
+	loginSlots chan struct{}
 }
 
 type loginFailure struct {
@@ -80,7 +81,10 @@ type Bootstrap struct {
 }
 
 func NewServer(store *Store, cfg ServerConfig) *Server {
-	return &Server{store: store, xray: NewXrayManager(cfg.XrayBin, cfg.XrayConfig), cfg: cfg, startedAt: time.Now(), failures: map[string]*loginFailure{}}
+	return &Server{
+		store: store, xray: NewXrayManager(cfg.XrayBin, cfg.XrayConfig), cfg: cfg,
+		startedAt: time.Now(), failures: map[string]*loginFailure{}, loginSlots: make(chan struct{}, 4),
+	}
 }
 
 func (s *Server) panelPath() string {
@@ -306,7 +310,10 @@ func requestSameOrigin(r *http.Request) bool {
 	if err != nil || !strings.EqualFold(u.Host, r.Host) {
 		return false
 	}
-	return strings.EqualFold(u.Scheme, "https") || strings.EqualFold(u.Scheme, "http")
+	if r.TLS != nil {
+		return strings.EqualFold(u.Scheme, "https")
+	}
+	return strings.EqualFold(u.Scheme, "http")
 }
 
 func constantTokenEqual(a, b string) bool {
@@ -357,6 +364,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	st := s.store.Snapshot()
+	select {
+	case s.loginSlots <- struct{}{}:
+		defer func() { <-s.loginSlots }()
+	case <-time.After(2 * time.Second):
+		writeError(w, http.StatusTooManyRequests, "登录请求过多，请稍后再试")
+		return
+	}
 	if subtleUserCompare(strings.TrimSpace(in.Username), st.Settings.AdminUser) == false || !verifyPassword(in.Password, st.Settings.PasswordSalt, st.Settings.PasswordHash) {
 		s.recordLoginFailure(ip)
 		time.Sleep(250 * time.Millisecond)
@@ -364,6 +378,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.clearLoginFailure(ip)
+	now := time.Now()
+	s.sessions.Range(func(k, v any) bool {
+		if sess, ok := v.(session); !ok || now.After(sess.Expires) {
+			s.sessions.Delete(k)
+		}
+		return true
+	})
 	if passwordNeedsUpgrade(st.Settings.PasswordHash) {
 		_ = s.store.Update(func(next *AppState) error {
 			return setPassword(next, in.Password)
@@ -428,7 +449,6 @@ func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w)
 		return
 	}
-	_ = s.syncTraffic()
 	st := s.store.Snapshot()
 	out := makeBootstrap(st)
 	out.Settings.PanelPort = s.configuredPanelPort()
@@ -1248,7 +1268,7 @@ func clientIP(r *http.Request) string {
 		host = r.RemoteAddr
 	}
 	peer := net.ParseIP(strings.TrimSpace(host))
-	if peer != nil && (peer.IsLoopback() || peer.IsPrivate()) {
+	if peer != nil && peer.IsLoopback() {
 		if x := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0]); x != "" {
 			if forwarded := net.ParseIP(x); forwarded != nil {
 				return forwarded.String()
