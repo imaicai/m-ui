@@ -46,6 +46,7 @@ type session struct {
 
 type PublicSettings struct {
 	PanelName       string `json:"panel_name"`
+	PanelPath       string `json:"panel_path"`
 	Domain          string `json:"domain"`
 	CertFile        string `json:"cert_file"`
 	KeyFile         string `json:"key_file"`
@@ -72,30 +73,34 @@ func NewServer(store *Store, cfg ServerConfig) *Server {
 	return &Server{store: store, xray: NewXrayManager(cfg.XrayBin, cfg.XrayConfig), cfg: cfg, failures: map[string]*loginFailure{}}
 }
 
+func (s *Server) panelPath() string {
+	p, err := normalizePanelPath(s.store.Snapshot().Settings.PanelPath)
+	if err != nil || p == "" {
+		return "/"
+	}
+	return p
+}
+
 func (s *Server) Run() error {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, 200, map[string]any{"ok": true, "name": "m-ui", "version": version})
-	})
-	mux.HandleFunc("/api/login", s.handleLogin)
-	mux.HandleFunc("/api/logout", s.auth(s.handleLogout))
-	mux.HandleFunc("/api/me", s.auth(s.handleMe))
-	mux.HandleFunc("/api/bootstrap", s.auth(s.handleBootstrap))
-	mux.HandleFunc("/api/system/stats", s.auth(s.handleStats))
-	mux.HandleFunc("/api/settings", s.auth(s.handleSettings))
-	mux.HandleFunc("/api/nodes/default", s.auth(s.handleCreateDefaultNode))
-	mux.HandleFunc("/api/nodes/", s.auth(s.handleNode))
-	mux.HandleFunc("/api/subscriptions", s.auth(s.handleSubscriptions))
-	mux.HandleFunc("/api/subscriptions/", s.auth(s.handleSubscription))
-	mux.HandleFunc("/sub/", s.handleSubscriptionFeed)
+	panelMux := http.NewServeMux()
+	panelMux.HandleFunc("/api/login", s.handleLogin)
+	panelMux.HandleFunc("/api/logout", s.auth(s.handleLogout))
+	panelMux.HandleFunc("/api/me", s.auth(s.handleMe))
+	panelMux.HandleFunc("/api/bootstrap", s.auth(s.handleBootstrap))
+	panelMux.HandleFunc("/api/system/stats", s.auth(s.handleStats))
+	panelMux.HandleFunc("/api/settings", s.auth(s.handleSettings))
+	panelMux.HandleFunc("/api/nodes/default", s.auth(s.handleCreateDefaultNode))
+	panelMux.HandleFunc("/api/nodes/", s.auth(s.handleNode))
+	panelMux.HandleFunc("/api/subscriptions", s.auth(s.handleSubscriptions))
+	panelMux.HandleFunc("/api/subscriptions/", s.auth(s.handleSubscription))
 
 	sub, err := fs.Sub(webFiles, "web")
 	if err != nil {
 		return err
 	}
 	fileServer := http.FileServer(http.FS(sub))
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/sub/") {
+	panelMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
 			http.NotFound(w, r)
 			return
 		}
@@ -112,8 +117,36 @@ func (s *Server) Run() error {
 		fileServer.ServeHTTP(w, r2)
 	})
 
+	rootMux := http.NewServeMux()
+	rootMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, 200, map[string]any{"ok": true, "name": "m-ui", "version": version})
+	})
+	rootMux.HandleFunc("/sub/", s.handleSubscriptionFeed)
+	rootMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		base := s.panelPath()
+		if base == "/" {
+			panelMux.ServeHTTP(w, r)
+			return
+		}
+		if r.URL.Path == strings.TrimSuffix(base, "/") {
+			http.Redirect(w, r, base, http.StatusTemporaryRedirect)
+			return
+		}
+		if !strings.HasPrefix(r.URL.Path, base) {
+			http.NotFound(w, r)
+			return
+		}
+		r2 := r.Clone(r.Context())
+		rest := strings.TrimPrefix(r.URL.Path, base)
+		r2.URL.Path = "/" + strings.TrimPrefix(rest, "/")
+		if r2.URL.Path == "/" {
+			r2.URL.Path = "/"
+		}
+		panelMux.ServeHTTP(w, r2)
+	})
+
 	srv := &http.Server{
-		Addr: s.cfg.Addr, Handler: securityHeaders(mux), ReadHeaderTimeout: 8 * time.Second,
+		Addr: s.cfg.Addr, Handler: securityHeaders(rootMux), ReadHeaderTimeout: 8 * time.Second,
 		ReadTimeout: 20 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second,
 	}
 	return srv.ListenAndServe()
@@ -174,7 +207,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	token := randomSessionToken()
 	exp := time.Now().Add(7 * 24 * time.Hour)
 	s.sessions.Store(token, session{Expires: exp})
-	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, Expires: exp, MaxAge: int((7 * 24 * time.Hour).Seconds())})
+	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: token, Path: s.panelPath(), HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, Expires: exp, MaxAge: int((7 * 24 * time.Hour).Seconds())})
 	writeJSON(w, 200, map[string]any{"ok": true, "username": st.Settings.AdminUser})
 }
 
@@ -193,7 +226,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie("mui_session"); err == nil {
 		s.sessions.Delete(c.Value)
 	}
-	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: "", Path: "/", HttpOnly: true, MaxAge: -1, SameSite: http.SameSiteStrictMode})
+	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: "", Path: s.panelPath(), HttpOnly: true, MaxAge: -1, SameSite: http.SameSiteStrictMode})
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -225,7 +258,7 @@ func makeBootstrap(st AppState) Bootstrap {
 	return Bootstrap{
 		Version: version, Author: "MiniJet",
 		Settings: PublicSettings{
-			PanelName: st.Settings.PanelName, Domain: st.Settings.Domain, CertFile: st.Settings.CertFile,
+			PanelName: st.Settings.PanelName, PanelPath: st.Settings.PanelPath, Domain: st.Settings.Domain, CertFile: st.Settings.CertFile,
 			KeyFile: st.Settings.KeyFile, DefaultProtocol: st.Settings.DefaultProtocol, AdminUser: st.Settings.AdminUser,
 			CertExists: ce == nil, KeyExists: ke == nil,
 		},
@@ -255,34 +288,71 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		PanelName   string `json:"panel_name"`
-		Domain      string `json:"domain"`
-		CertFile    string `json:"cert_file"`
-		KeyFile     string `json:"key_file"`
-		AdminUser   string `json:"admin_user"`
-		NewPassword string `json:"new_password"`
+		PanelName       string `json:"panel_name"`
+		PanelPath       string `json:"panel_path"`
+		Domain          string `json:"domain"`
+		CertFile        string `json:"cert_file"`
+		KeyFile         string `json:"key_file"`
+		AdminUser       string `json:"admin_user"`
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+		ConfirmPassword string `json:"confirm_password"`
 	}
 	if !decodeJSON(w, r, &in) {
 		return
 	}
+
 	old := s.store.Snapshot()
 	next := old
+	panelPath, err := normalizePanelPath(in.PanelPath)
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
+	}
 	next.Settings.PanelName = cleanText(in.PanelName, "m-ui", 60)
+	next.Settings.PanelPath = panelPath
 	next.Settings.Domain = strings.TrimSpace(in.Domain)
-	next.Settings.CertFile = cleanPath(in.CertFile, "/maicai/ssh/fullchain.pem")
-	next.Settings.KeyFile = cleanPath(in.KeyFile, "/maicai/ssh/privkey.pem")
+	next.Settings.CertFile = cleanPath(in.CertFile, "/maicai/ssh/m-ui/fullchain.pem")
+	next.Settings.KeyFile = cleanPath(in.KeyFile, "/maicai/ssh/m-ui/privkey.pem")
 	next.Settings.AdminUser = cleanText(in.AdminUser, old.Settings.AdminUser, 60)
+
+	accountChanged := next.Settings.AdminUser != old.Settings.AdminUser || in.NewPassword != ""
+	if accountChanged {
+		if !verifyPassword(in.CurrentPassword, old.Settings.PasswordSalt, old.Settings.PasswordHash) {
+			writeError(w, 400, "当前密码不正确")
+			return
+		}
+	}
 	if in.NewPassword != "" {
+		if in.NewPassword != in.ConfirmPassword {
+			writeError(w, 400, "两次输入的新密码不一致")
+			return
+		}
 		if err := setPassword(&next, in.NewPassword); err != nil {
 			writeError(w, 400, err.Error())
 			return
 		}
 	}
+
 	if err := s.commitXrayState(old, next); err != nil {
 		writeError(w, 400, err.Error())
 		return
 	}
-	if in.NewPassword != "" || next.Settings.AdminUser != old.Settings.AdminUser {
+
+	if old.Settings.PanelPath != next.Settings.PanelPath {
+		if ck, err := r.Cookie("mui_session"); err == nil {
+			if v, ok := s.sessions.Load(ck.Value); ok {
+				exp := v.(session).Expires
+				http.SetCookie(w, &http.Cookie{
+					Name: "mui_session", Value: ck.Value, Path: next.Settings.PanelPath,
+					HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil,
+					Expires: exp, MaxAge: int(time.Until(exp).Seconds()),
+				})
+			}
+		}
+	}
+
+	if accountChanged {
 		s.sessions.Range(func(k, v any) bool { s.sessions.Delete(k); return true })
 	}
 	writeJSON(w, 200, makeBootstrap(next))
@@ -293,10 +363,7 @@ func (s *Server) handleCreateDefaultNode(w http.ResponseWriter, r *http.Request)
 		methodNotAllowed(w)
 		return
 	}
-	var in struct {
-		Name string `json:"name"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&in)
+
 	old := s.store.Snapshot()
 	next := old
 	used := map[int]bool{}
@@ -313,15 +380,37 @@ func (s *Server) handleCreateDefaultNode(w http.ResponseWriter, r *http.Request)
 		writeError(w, 500, "UUID 生成失败")
 		return
 	}
-	name := cleanText(in.Name, fmt.Sprintf("NODE%02d", len(next.Nodes)+1), 60)
-	node := Node{ID: newID(), Name: name, UUID: uuid, Port: port, Enabled: true, CreatedAt: time.Now()}
+	identity := detectServerIdentity()
+	if net.ParseIP(identity.IP) == nil {
+		writeError(w, 502, "无法自动识别服务器公网 IP，请检查服务器是否可以访问公网后重试")
+		return
+	}
+	privateKey, password, shortID, err := s.xray.GenerateRealityMaterial()
+	if err != nil {
+		writeError(w, 500, err.Error())
+		return
+	}
+
+	name := nextCountryNodeName(identity.Country, next.Nodes)
+	node := Node{
+		ID: newID(), Name: name, UUID: uuid, Port: port, Enabled: true,
+		Security: "reality", Address: identity.IP,
+		RealityPrivateKey: privateKey, RealityPassword: password, RealityShortID: shortID,
+		RealityServerName: next.Settings.RealityServerName, RealityTarget: next.Settings.RealityTarget,
+		CreatedAt: time.Now(),
+	}
 	next.Nodes = append(next.Nodes, node)
 	if err := s.commitXrayState(old, next); err != nil {
 		writeError(w, 400, err.Error())
 		return
 	}
 	warning := tryOpenFirewall(port)
-	writeJSON(w, 201, map[string]any{"node": NodeView{Node: node, URI: nodeURI(next, node)}, "warning": warning})
+	writeJSON(w, 201, map[string]any{
+		"node": NodeView{Node: node, URI: nodeURI(next, node)},
+		"warning": warning,
+		"country": identity.Country,
+		"address": identity.IP,
+	})
 }
 
 func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {

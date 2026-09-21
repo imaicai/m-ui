@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-var version = "1.0.0"
+var version = "1.1.0"
 
 //go:embed web/* web/assets/*
 var webFiles embed.FS
@@ -18,6 +18,7 @@ func main() {
 	initUser := flag.String("user", "admin", "initial admin username")
 	initPass := flag.String("password", "", "initial admin password")
 	showVersion := flag.Bool("version", false, "print version")
+	printPanelPath := flag.Bool("print-panel-path", false, "print configured panel base path")
 	flag.Parse()
 
 	if *showVersion {
@@ -36,6 +37,15 @@ func main() {
 			log.Fatalf("初始化失败: %v", err)
 		}
 		fmt.Println("m-ui 初始化完成")
+		return
+	}
+
+	if *printPanelPath {
+		p, err := normalizePanelPath(store.Snapshot().Settings.PanelPath)
+		if err != nil || p == "" {
+			p = "/"
+		}
+		fmt.Println(p)
 		return
 	}
 
