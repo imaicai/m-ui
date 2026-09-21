@@ -49,8 +49,8 @@ func TestValidateEditedPortRejectsOtherNode(t *testing.T) {
 
 func TestNormalizeSubscriptionSlug(t *testing.T) {
 	tests := map[string]string{
-		"abcd": "abcd",
-		"/sub/my-sub_01/": "my-sub_01",
+		"abcdefghijklmnopqrst": "abcdefghijklmnopqrst",
+		"/sub/my-subscription_012345/": "my-subscription_012345",
 	}
 	for in, want := range tests {
 		got, err := normalizeSubscriptionSlug(in)
@@ -58,7 +58,7 @@ func TestNormalizeSubscriptionSlug(t *testing.T) {
 			t.Fatalf("normalizeSubscriptionSlug(%q) = %q, %v; want %q", in, got, err, want)
 		}
 	}
-	for _, bad := range []string{"a", "bad/path", "含中文"} {
+	for _, bad := range []string{"a", "abcd", "bad/path", "含中文"} {
 		if _, err := normalizeSubscriptionSlug(bad); err == nil {
 			t.Fatalf("expected invalid subscription slug: %q", bad)
 		}
@@ -212,3 +212,48 @@ func TestWriteJSONAndFlush(t *testing.T) {
 	}
 }
 
+
+
+func TestAuthRequiresCSRFForMutatingRequests(t *testing.T) {
+	s := &Server{}
+	token := "session-token"
+	csrf := "csrf-token-1234567890"
+	s.sessions.Store(token, session{Expires: time.Now().Add(time.Hour), CSRF: csrf})
+	handler := s.auth(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/test", strings.NewReader("{}"))
+	req.AddCookie(&http.Cookie{Name: "mui_session", Value: token})
+	req.Header.Set("Origin", "http://example.com")
+	req.Host = "example.com"
+	w := httptest.NewRecorder()
+	handler(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("missing CSRF should be forbidden, got %d", w.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/test", strings.NewReader("{}"))
+	req.AddCookie(&http.Cookie{Name: "mui_session", Value: token})
+	req.Header.Set("Origin", "http://example.com")
+	req.Header.Set("X-MUI-CSRF", csrf)
+	req.Host = "example.com"
+	w = httptest.NewRecorder()
+	handler(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("valid CSRF should pass, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRequestSameOriginRejectsCrossSite(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "http://panel.example.com/api/test", nil)
+	req.Host = "panel.example.com"
+	req.Header.Set("Origin", "https://evil.example")
+	if requestSameOrigin(req) {
+		t.Fatal("cross-origin request must be rejected")
+	}
+	req.Header.Set("Origin", "https://panel.example.com")
+	if !requestSameOrigin(req) {
+		t.Fatal("same host through a TLS reverse proxy should be accepted")
+	}
+}
