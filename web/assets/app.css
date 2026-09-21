@@ -198,3 +198,37 @@ button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!impo
   .clear-all-traffic-btn span{display:none}
   .traffic-cell{min-width:160px}
 }
+
+
+/* v1.4.7 service card, runtime and conditional settings save */
+.system-pill{padding:14px 12px 12px}
+.system-pill .statusline{font-weight:700;color:var(--text);font-size:13px}
+.service-copy{display:grid;gap:7px;margin-top:10px;color:var(--muted);font-size:10.5px;line-height:1.45}
+.service-copyright{font-weight:400}
+.service-copyright a{color:inherit;text-decoration:none;font-weight:400}
+.service-copyright a:hover{color:var(--primary);text-decoration:underline}
+.service-project{display:grid;grid-template-columns:17px minmax(0,1fr);gap:6px;align-items:start}
+.repo-icon-link{width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:0;background:transparent;color:#52665e;text-decoration:none;box-shadow:none}
+.repo-icon-link:hover{color:var(--primary);background:transparent;transform:none}
+.repo-icon-link .icon{width:15px;height:15px}
+.sidebar-restart{width:100%;height:38px;margin-top:11px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:#41564e;display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;font-weight:700;cursor:pointer;transition:.15s}
+.sidebar-restart:hover{border-color:#efc9c9;background:#fff8f8;color:#a94444}
+.restart-mark{width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#ff6a6a,#d9363e);color:#fff;box-shadow:0 5px 12px rgba(217,54,62,.2)}
+.restart-mark .icon{width:14px;height:14px}
+
+.panel-runtime{display:inline-flex;align-items:center;gap:6px;color:var(--muted);white-space:nowrap}
+.panel-runtime>.icon{width:16px;height:16px;color:var(--primary)}
+.panel-runtime #panelUptime{color:var(--text);font-variant-numeric:tabular-nums}
+
+.stat .badgeicon .icon{width:23px;height:23px}
+.stat .badgeicon svg{stroke-width:1.8}
+
+#saveSettings:disabled{opacity:1;background:#d9dfdc!important;border-color:#d9dfdc!important;color:#8a9792!important;box-shadow:none!important;cursor:not-allowed}
+#saveSettings:not(:disabled){transition:.15s}
+
+@media(max-width:760px){
+  .system-pill{display:block}
+  .service-copy{font-size:10px}
+  .sidebar-restart{height:40px}
+  .panel-runtime{font-size:12px}
+}
