@@ -194,6 +194,9 @@ func TestBuildConfigEnablesPerNodeTrafficStats(t *testing.T) {
 	s := string(b)
 	for _, want := range []string{
 		`"StatsService"`,
+		`"HandlerService"`,
+		`"tcpKeepAliveIdle": 60`,
+		`"tcpKeepAliveInterval": 15`,
 		`"statsUserUplink": true`,
 		`"statsUserDownlink": true`,
 		`"email": "node-stats-1@m-ui"`,
@@ -203,5 +206,50 @@ func TestBuildConfigEnablesPerNodeTrafficStats(t *testing.T) {
 		if !strings.Contains(s, want) {
 			t.Fatalf("traffic stats config missing %s: %s", want, s)
 		}
+	}
+}
+
+
+func TestRuntimeDiffIgnoresShareMetadataButTracksInboundChanges(t *testing.T) {
+	st := defaultState()
+	base := Node{
+		ID: "node-a", Name: "US01", UUID: "9e7c8e21-026e-51a6-a8f1-168a7e20d819",
+		Port: 16888, Enabled: true, Security: "reality", Address: "203.0.113.10",
+		RealityPrivateKey: "private", RealityPassword: "public", RealityShortID: "012356789abcdef0",
+		RealityServerName: "www.apple.com", RealityTarget: "www.apple.com:443",
+	}
+	old := st
+	old.Nodes = []Node{base}
+	next := st
+	renamed := base
+	renamed.Name = "Renamed"
+	renamed.Address = "vpn.example.com"
+	next.Nodes = []Node{renamed}
+	remove, add := changedRuntimeNodes(old, next)
+	if len(remove) != 0 || len(add) != 0 {
+		t.Fatalf("name/address-only changes must not reload Xray: remove=%d add=%d", len(remove), len(add))
+	}
+
+	changed := renamed
+	changed.Port = 16889
+	next.Nodes = []Node{changed}
+	remove, add = changedRuntimeNodes(old, next)
+	if len(remove) != 1 || len(add) != 1 {
+		t.Fatalf("port change must hot-replace one inbound: remove=%d add=%d", len(remove), len(add))
+	}
+}
+
+func TestRealityFallbackLimitsAreStableAndNodeSpecific(t *testing.T) {
+	a1 := realityFallbackLimit("node-a-shortid", "upload")
+	a2 := realityFallbackLimit("node-a-shortid", "upload")
+	b := realityFallbackLimit("node-b-shortid", "upload")
+	ja1, _ := json.Marshal(a1)
+	ja2, _ := json.Marshal(a2)
+	jb, _ := json.Marshal(b)
+	if string(ja1) != string(ja2) {
+		t.Fatal("fallback limits must remain stable across config rebuilds")
+	}
+	if string(ja1) == string(jb) {
+		t.Fatal("different nodes should not share one fallback fingerprint")
 	}
 }
