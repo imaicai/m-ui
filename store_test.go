@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -20,6 +21,12 @@ func TestInitPasswordAndNewDefaults(t *testing.T) {
 	st := s.Snapshot()
 	if st.Settings.AdminUser != "admin" {
 		t.Fatalf("unexpected user: %s", st.Settings.AdminUser)
+	}
+	if !strings.HasPrefix(st.Settings.PasswordHash, "$argon2id$") {
+		t.Fatalf("new password must use Argon2id, got %q", st.Settings.PasswordHash)
+	}
+	if passwordNeedsUpgrade(st.Settings.PasswordHash) {
+		t.Fatal("Argon2id password must not require upgrade")
 	}
 	if !verifyPassword("strong-pass-123", st.Settings.PasswordSalt, st.Settings.PasswordHash) {
 		t.Fatal("password verification failed")
@@ -210,3 +217,17 @@ func TestLegacyCustomSubscriptionSelectionMigratesToAllNodes(t *testing.T) {
 	}
 }
 
+
+
+func TestLegacyPasswordStillVerifiesForTransparentMigration(t *testing.T) {
+	salt := []byte("0123456789abcdef")
+	legacy := legacyPasswordKDF("legacy-pass", salt)
+	saltHex := hex.EncodeToString(salt)
+	hashHex := hex.EncodeToString(legacy)
+	if !verifyPassword("legacy-pass", saltHex, hashHex) {
+		t.Fatal("legacy password must remain verifiable")
+	}
+	if !passwordNeedsUpgrade(hashHex) {
+		t.Fatal("legacy password must be marked for upgrade")
+	}
+}
