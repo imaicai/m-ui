@@ -28,7 +28,12 @@ const icons={
  plus:`<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>`,
  github:`<svg viewBox="0 0 24 24"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3.3-.4 6.8-1.6 6.8-7A5.4 5.4 0 0 0 19.4 4 5 5 0 0 0 19.3.5S18.2.1 15 2a13.4 13.4 0 0 0-7 0C4.8.1 3.7.5 3.7.5A5 5 0 0 0 3.6 4a5.4 5.4 0 0 0-1.4 3.7c0 5.4 3.5 6.6 6.8 7A4.8 4.8 0 0 0 8 18v4"/><path d="M8 19c-3 .9-3-1.5-4.2-2"/></svg>`,
  restart:`<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>`,
- trafficReset:`<svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></svg>`
+ trafficReset:`<svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></svg>`,
+ clock:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
+ pulse:`<svg viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>`,
+ serverStack:`<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6"/></svg>`,
+ shieldCheck:`<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.6-2.8 8-7 10-4.2-2-7-5.4-7-10V6z"/><path d="m9 12 2 2 4-4"/></svg>`,
+ network:`<svg viewBox="0 0 24 24"><path d="M12 3v18M7 8l5-5 5 5M17 16l-5 5-5-5"/></svg>`
 };
 function icon(name){return `<span class="icon">${icons[name]}</span>`}
 
@@ -47,16 +52,17 @@ function fmtBytes(v=0){if(!Number.isFinite(v))return '0 B';const u=['B','KB','MB
 function fmtRate(v=0){return `${fmtBytes(v)}/s`}
 function fmtTrafficBytes(v=0){v=Number(v)||0;const u=['B','KB','MB','GB','TB'];let i=0;while(v>=1024&&i<u.length-1){v/=1024;i++}const digits=v>=100||i===0?0:v>=10?1:2;return `${v.toFixed(digits).replace(/\.0+$|(?<=\.[0-9])0+$/,'')}${u[i]}`}
 function fmtUptime(s=0){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);return d?`${d} 天 ${h} 小时`:h?`${h} 小时 ${m} 分钟`:`${m} 分钟`}
+function fmtPanelUptime(s=0){s=Math.max(0,Math.floor(Number(s)||0));const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60),sec=s%60;if(d)return `${d}天 ${h}小时 ${m}分`;if(h)return `${h}小时 ${m}分 ${sec}秒`;if(m)return `${m}分 ${sec}秒`;return `${sec}秒`}
 function routeTitle(r){return {dashboard:['仪表盘','服务器状态与资源'],nodes:['节点管理','创建、编辑与维护节点'],subscriptions:['订阅管理','管理订阅入口'],settings:['系统设置','面板、安全与证书']}[r]||['仪表盘','']}
 function protocolLabel(n){return n?.security==='reality'?'VLESS · REALITY · Vision':'VLESS · TLS · Vision'}
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
 function brandIcon(){return `<img src="${panelURL('assets/app-icon.png?v=1.4.6')}" alt="${esc(brandName())}" class="brand-image">`}
 
-function nav(){return `<aside class="sidebar"><div class="brand">${brandIcon()}<div><strong>${esc(brandName())}</strong><small>MiniJet · Xray 管理</small></div></div><nav class="nav">
+function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon()}<div><strong>${esc(brandName())}</strong><small>MiniJet · Xray 管理</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
-</nav><div class="sidebar-bottom"><div class="system-pill"><div class="statusline"><span class="dot"></span>服务运行中</div><div class="system-meta"><span>© 2026</span><a class="system-repo-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer">M-Ui · v${esc(state.boot?.version||state.publicInfo?.version||'1.0.0')}</a><span>·</span><a class="minijet-link" href="https://github.com/imaicai/MiniJet" target="_blank" rel="noopener noreferrer">MiniJet</a><span>·</span><a class="github-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer" title="打开 m-ui GitHub 源码" aria-label="打开 m-ui GitHub 源码">${icon('github')}</a></div><div class="system-tagline">让代理管理更简单</div></div></div></aside>`}
-function layout(content){const [title,sub]=routeTitle(state.route), user=state.boot?.settings?.admin_user||'admin';return `<div class="shell">${nav()}<main class="main"><header class="topbar"><div class="page-heading-inline"><h1>${title}</h1><span>${sub}</span></div><div class="userbox-inline"><button class="btn btn-outline topbar-restart" id="restartPanelTop">${icon('restart')}<span>重启面板</span></button><span>管理员账号：<b>${esc(user)}</b></span><span class="sep">·</span><button class="icon-btn subtle" id="logout" title="退出" aria-label="退出">${icon('power')}</button></div></header><div class="content">${content}</div></main></div>`}
+</nav><div class="sidebar-bottom"><div class="system-pill"><div class="statusline"><span class="dot"></span>稳定运行中</div><div class="service-copy"><div class="service-copyright">© 2026 <a href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer">M-Ui</a> v${ver}</div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer" title="打开 M-Ui GitHub 源码" aria-label="打开 M-Ui GitHub 源码">${icon('github')}</a><span>M-Ui：最简单的代理面板</span></div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/MiniJet" target="_blank" rel="noopener noreferrer" title="打开 MiniJet GitHub 源码" aria-label="打开 MiniJet GitHub 源码">${icon('github')}</a><span>MiniJet | 小飞机：最简单的代理客户端</span></div></div><button class="sidebar-restart" id="restartPanelSidebar" type="button"><span class="restart-mark">${icon('restart')}</span><span>重启面板</span></button></div></div></aside>`}
+function layout(content){const [title,sub]=routeTitle(state.route), user=state.boot?.settings?.admin_user||'admin', runtime=fmtPanelUptime(state.stats?.panel_uptime_seconds||0);return `<div class="shell">${nav()}<main class="main"><header class="topbar"><div class="page-heading-inline"><h1>${title}</h1><span>${sub}</span></div><div class="userbox-inline"><span class="panel-runtime" title="距离上次重启面板后的运行时间">${icon('clock')}<span id="panelUptime">${runtime}</span></span><span class="sep">·</span><span>管理员账号：<b>${esc(user)}</b></span><span class="sep">·</span><button class="icon-btn subtle" id="logout" title="退出" aria-label="退出">${icon('power')}</button></div></header><div class="content">${content}</div></main></div>`}
 
 function login(){return `<div class="login-shell"><form class="login-card refined" id="loginForm"><div class="login-card-head">${brandIcon()}<h1>${esc(brandName())}</h1><p>MiniJet · Xray 管理</p></div><div class="field"><label>用户名</label><input class="input" name="user" autocomplete="username" autofocus></div><div class="field"><label>密码</label><input class="input" name="pass" type="password" autocomplete="current-password"></div><button class="btn btn-primary btn-lg" type="submit">登录面板</button><div class="security-note">仅限管理员访问</div></form></div>`}
 
@@ -65,7 +71,7 @@ function ring(label,pct,sub,color='var(--blue)'){pct=Math.max(0,Math.min(100,Num
 function chart(){const hist=state.netHistory.slice(-30);if(hist.length<2)return `<div class="chart-empty">等待网络采样…</div>`;const max=Math.max(1,...hist.flatMap(x=>[x.rx,x.tx]));const pts=(key)=>hist.map((x,i)=>`${(i/(hist.length-1))*700},${220-(x[key]/max)*180}`).join(' ');return `<div class="chart"><svg viewBox="0 0 700 240" preserveAspectRatio="none"><polyline points="${pts('rx')}" fill="none" stroke="#00B176" stroke-width="4"/><polyline points="${pts('tx')}" fill="none" stroke="#67CFA9" stroke-width="3"/></svg><div class="chart-legend"><span><i class="legend blue"></i>下载 ${fmtRate(hist.at(-1).rx)}</span><span><i class="legend green"></i>上传 ${fmtRate(hist.at(-1).tx)}</span></div></div>`}
 
 function dashboard(){const st=state.stats||{}, nodes=state.boot?.nodes||[], enabled=nodes.filter(n=>n.enabled).length;const recent=nodes.slice(0,5).map(n=>`<tr><td>${esc(n.name)}</td><td>${protocolLabel(n)}</td><td>${n.port}</td><td>${n.enabled?'<span class="dot"></span> <span class="online">启用</span>':'<span class="muted">停用</span>'}</td><td><button class="icon-btn copy-uri" data-uri="${esc(n.uri)}" title="复制" aria-label="复制">${icon('copy')}</button></td></tr>`).join('')||`<tr><td colspan="5" class="empty">还没有节点，请到“节点管理”创建节点。</td></tr>`;
-return layout(`<div class="grid stats">${stat('Xray 运行状态',st.xray_running?'运行中':'未运行',st.xray_running?`服务器已运行 ${fmtUptime(st.uptime_seconds)}`:'请检查 Xray 服务',st.xray_running?'i-green':'i-orange','◆')}${stat('节点总数',nodes.length,`${enabled} 个已启用`,'i-blue','▤')}${stat('推荐配置','REALITY','VLESS · RAW · Vision','i-purple','✓')}${stat('系统网络',fmtBytes((st.rx_bytes||0)+(st.tx_bytes||0)),'自开机累计','i-orange','↕')}</div>
+return layout(`<div class="grid stats">${stat('Xray 运行状态',st.xray_running?'运行中':'未运行',st.xray_running?`服务器已运行 ${fmtUptime(st.uptime_seconds)}`:'请检查 Xray 服务',st.xray_running?'i-green':'i-orange',icon('pulse'))}${stat('节点总数',nodes.length,`${enabled} 个已启用`,'i-blue',icon('serverStack'))}${stat('推荐配置','REALITY','VLESS · RAW · Vision','i-purple',icon('shieldCheck'))}${stat('系统网络',fmtBytes((st.rx_bytes||0)+(st.tx_bytes||0)),'自开机累计','i-orange',icon('network'))}</div>
 <section class="card section-card dashboard-resources"><div class="section-title"><h2>服务器资源</h2><small>实时数据</small></div><div class="resources">${ring('CPU',st.cpu_percent,'系统处理器')}${ring('内存',st.memory_percent,`${fmtBytes(st.memory_used)} / ${fmtBytes(st.memory_total)}`,'var(--green)')}${ring('磁盘',st.disk_percent,`${fmtBytes(st.disk_used)} / ${fmtBytes(st.disk_total)}`,'var(--purple)')}<div class="resource"><b>网络</b><div class="ring" style="--p:0"><b>实时</b></div><small>↓${fmtRate(st.rx_rate)} ↑${fmtRate(st.tx_rate)}</small></div></div></section>
 <div class="grid dashboard-bottom"><section class="card section-card"><div class="section-title"><h2>实时网络</h2><small>最近采样</small></div>${chart()}</section><section class="card section-card"><div class="section-title"><h2>最近节点</h2><button class="link-btn" data-route="nodes">查看全部 →</button></div><div class="table-wrap"><table class="table"><thead><tr><th>名称</th><th>协议</th><th>端口</th><th>状态</th><th>操作</th></tr></thead><tbody>${recent}</tbody></table></div></section></div>`)}
 function nodeModal(){return `<div class="modal-backdrop"><div class="modal"><div class="modal-head"><div class="modal-title"><div class="badgeicon i-blue">◆</div><div><h2>一键添加节点</h2><p>系统自动完成国家识别和推荐配置</p></div></div><button class="close" id="closeModal">×</button></div><div class="form-grid"><label>节点名称</label><input class="input readonly" value="自动生成：国家代码 + 序号（如 US01）" readonly><div class="helper">同一服务器继续添加时自动递增为 US02、US03…</div><label>推荐配置</label><input class="input readonly" value="VLESS + RAW + REALITY + XTLS Vision" readonly><label>服务器地址</label><input class="input readonly" value="自动识别当前服务器公网 IP" readonly><label>监听端口</label><input class="input readonly" value="自动选择可用端口" readonly><label>UUID</label><input class="input readonly" value="自动生成" readonly><label>REALITY</label><input class="input readonly" value="密钥、Short ID、SNI 自动生成/配置" readonly></div><div class="tip"><b>新建节点不再要求先设置域名或 TLS 证书。</b><br><small>现有 TLS 节点仍会继续保留并使用系统设置中的域名和证书，不会被强制转换。</small></div><div class="modal-actions"><button class="btn btn-outline" id="cancelModal">取消</button><button class="btn btn-primary" id="createNode">立即创建</button></div></div></div>`}
@@ -81,12 +87,12 @@ function editSubscriptionModal(s){const u=subscriptionURL(s);return `<div class=
 function openEditSubscription(id){const s=(state.boot?.subscriptions||[]).find(x=>x.id===id);if(!s){toast('订阅不存在',false);return}document.body.insertAdjacentHTML('beforeend',editSubscriptionModal(s));const close=()=>$('#editSubBackdrop')?.remove();$('#closeEditSub').onclick=close;$('#cancelEditSub').onclick=close;$('#editSubBackdrop').addEventListener('click',e=>{if(e.target.id==='editSubBackdrop')close()});$('#saveEditSub').onclick=async()=>{const btn=$('#saveEditSub');let slug='';try{const parsed=new URL($('#editSubURL').value,location.origin);const m=parsed.pathname.match(/^\/sub\/([^/]+)\/?$/);if(!m)throw new Error('订阅地址必须使用 /sub/自定义后缀');slug=decodeURIComponent(m[1])}catch(e){toast(e.message||'订阅地址格式不正确',false);return}btn.disabled=true;try{state.boot=await api('/api/subscriptions/'+s.id,{method:'PATCH',body:JSON.stringify({name:$('#editSubName').value,slug})});close();render();toast('订阅已更新')}catch(e){btn.disabled=false;toast(e.message,false)}}}
 
 function subscriptions(){const subs=state.boot?.subscriptions||[], nodes=state.boot?.nodes||[];const rows=subs.map(s=>{const u=subscriptionURL(s);return `<tr><td><b>${esc(s.name)}</b></td><td><span class="urlpill">${esc(u)}</span></td><td>${nodes.filter(n=>n.enabled).length}</td><td>${s.enabled?'<span class="dot"></span> <span class="online">启用</span>':'停用'}</td><td class="operation-cell sub-actions"><div class="actions"><button class="icon-btn copy-sub" data-url="${esc(u)}" title="复制" aria-label="复制">${icon('copy')}</button><button class="icon-btn edit-sub" data-id="${s.id}" title="编辑" aria-label="编辑">${icon('edit')}</button>${subs.length>1?`<button class="icon-btn danger delete-sub" data-id="${s.id}" data-name="${esc(s.name)}" title="删除" aria-label="删除">${icon('trash')}</button>`:''}</div></td></tr>`}).join('');return layout(`<section class="card info-card subscription-guide"><h3>如何使用订阅地址</h3><div class="guide-inline subscription-steps"><span>复制下方订阅地址</span><span>导入 v2rayN、Shadowrocket、Stash 等兼容客户端</span><span>节点变化后订阅内容会自动同步</span></div></section><section class="card subs-table"><div class="section-title"><h2>订阅列表</h2><button class="btn btn-primary" id="newSub">＋ 新建订阅</button></div><div class="table-wrap"><table class="table"><thead><tr><th>名称</th><th>订阅地址</th><th>节点数</th><th>状态</th><th class="operation-head">操作</th></tr></thead><tbody>${rows}</tbody></table></div></section>`)}
-function settings(){const s=state.boot?.settings||{};return layout(`<section class="card info-card settings-advice"><h3>使用建议</h3><p>新建节点默认使用 <b>VLESS + RAW + REALITY + XTLS Vision</b>。如果填写“节点域名”，新建节点会优先使用该域名作为连接地址；未填写时才使用服务器公网 IP。TLS 证书路径主要用于兼容已有 TLS 节点。建议使用独立根路径保护管理入口。证书有效且匹配节点域名时，HTTP 会自动切换到 HTTPS。</p></section><div class="settings-stack"><section class="card settings-card"><h2>基础设置</h2><p>管理入口与节点域名设置。</p><div class="setting-row"><label>面板名称</label><input class="input" id="setName" value="${esc(s.panel_name||'m-ui')}"><small>显示在页面标题中</small></div><div class="setting-row"><label>面板端口</label><input class="input" id="setPort" type="number" min="1024" max="65535" value="${Number(s.panel_port||location.port||16800)}"><small>修改后需要重启面板，新端口才会生效</small></div><div class="setting-row"><label>面板 URL 根路径</label><input class="input" id="setPath" value="${esc(s.panel_path||'/')}" placeholder="/a8f3k2m9/"><small>建议使用随机路径；/ 表示不启用隐藏路径</small></div><div class="setting-row"><label>默认协议</label><input class="input readonly" value="VLESS + RAW + REALITY + XTLS Vision" readonly><small>新建节点固定使用当前推荐配置</small></div><div class="setting-row"><label>节点域名</label><input class="input" id="setDomain" value="${esc(s.domain||'')}" placeholder="vpn.example.com（可留空）"><small>可留空；填写后新建 REALITY 节点的分享地址也会优先使用该域名</small></div></section><section class="card settings-card"><h2>证书路径</h2><p>面板 HTTPS 与 TLS 节点共用证书文件。</p><div class="setting-row"><label>证书文件</label><input class="input" id="setCert" value="${esc(s.cert_file||'~/minijet/ssh/m-ui/fullchain.pem')}"><span class="cert-status">${s.cert_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div><div class="setting-row"><label>私钥文件</label><input class="input" id="setKey" value="${esc(s.key_file||'~/minijet/ssh/m-ui/privkey.pem')}"><span class="cert-status">${s.key_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div></section><section class="card settings-card"><h2>登录账号</h2><p>修改登录名或密码时必须输入当前密码。</p><div class="setting-row"><label>登录名</label><input class="input" id="setUser" value="${esc(s.admin_user||'admin')}"><small>修改后需要重新登录</small></div><div class="setting-row"><label>当前密码</label><input class="input" id="setCurrentPass" type="password" autocomplete="current-password"><small>仅修改账号信息时需要填写</small></div><div class="setting-row"><label>新密码</label><input class="input" id="setPass" type="password" autocomplete="new-password" placeholder="至少 8 位"><small>不修改密码可留空</small></div><div class="setting-row"><label>确认新密码</label><input class="input" id="setPass2" type="password" autocomplete="new-password"><small>与新密码保持一致</small></div></section><div class="settings-restart-note">点击“保存设置”后，系统会自动保存配置、重启面板并退出当前登录；重启完成后请使用当前账号重新登录。</div><div class="savebar"><button class="btn btn-outline" id="restartPanelSettings">${icon('restart')}<span>重启面板</span></button><button class="btn btn-primary" id="saveSettings">保存设置</button></div></div>`)}
+function settings(){const s=state.boot?.settings||{};return layout(`<section class="card info-card settings-advice"><h3>使用建议</h3><p>新建节点默认使用 <b>VLESS + RAW + REALITY + XTLS Vision</b>。如果填写“节点域名”，新建节点会优先使用该域名作为连接地址；未填写时才使用服务器公网 IP。TLS 证书路径主要用于兼容已有 TLS 节点。建议使用独立根路径保护管理入口。证书有效且匹配节点域名时，HTTP 会自动切换到 HTTPS。</p></section><div class="settings-stack"><section class="card settings-card"><h2>基础设置</h2><p>管理入口与节点域名设置。</p><div class="setting-row"><label>面板名称</label><input class="input" id="setName" value="${esc(s.panel_name||'m-ui')}"><small>显示在页面标题中</small></div><div class="setting-row"><label>面板端口</label><input class="input" id="setPort" type="number" min="1024" max="65535" value="${Number(s.panel_port||location.port||16800)}"><small>修改端口后会自动重启面板，并需要重新登录</small></div><div class="setting-row"><label>面板 URL 根路径</label><input class="input" id="setPath" value="${esc(s.panel_path||'/')}" placeholder="/a8f3k2m9/"><small>修改根路径后直接切换到新入口，不需要重启面板</small></div><div class="setting-row"><label>默认协议</label><input class="input readonly" value="VLESS + RAW + REALITY + XTLS Vision" readonly><small>新建节点固定使用当前推荐配置</small></div><div class="setting-row"><label>节点域名</label><input class="input" id="setDomain" value="${esc(s.domain||'')}" placeholder="vpn.example.com（可留空）"><small>可留空；填写后新建 REALITY 节点的分享地址也会优先使用该域名</small></div></section><section class="card settings-card"><h2>证书路径</h2><p>面板 HTTPS 与 TLS 节点共用证书文件。</p><div class="setting-row"><label>证书文件</label><input class="input" id="setCert" value="${esc(s.cert_file||'~/minijet/ssh/m-ui/fullchain.pem')}"><span class="cert-status">${s.cert_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div><div class="setting-row"><label>私钥文件</label><input class="input" id="setKey" value="${esc(s.key_file||'~/minijet/ssh/m-ui/privkey.pem')}"><span class="cert-status">${s.key_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div></section><section class="card settings-card"><h2>登录账号</h2><p>修改登录名或密码时必须输入当前密码，保存后需要重新登录。</p><div class="setting-row"><label>登录名</label><input class="input" id="setUser" value="${esc(s.admin_user||'admin')}"><small>仅修改时需要重新登录</small></div><div class="setting-row"><label>当前密码</label><input class="input" id="setCurrentPass" type="password" autocomplete="current-password"><small>仅修改账号信息时需要填写</small></div><div class="setting-row"><label>新密码</label><input class="input" id="setPass" type="password" autocomplete="new-password" placeholder="至少 8 位"><small>不修改密码可留空</small></div><div class="setting-row"><label>确认新密码</label><input class="input" id="setPass2" type="password" autocomplete="new-password"><small>与新密码保持一致</small></div></section><div class="settings-restart-note">只有修改设置后才可保存。修改面板端口会自动重启并重新登录；修改登录名或密码只需重新登录；其他设置保存后直接生效。</div><div class="savebar"><button class="btn btn-primary" id="saveSettings" disabled>保存设置</button></div></div>`)}
 function confirmBox(message, yes){state.modal='confirm';document.body.insertAdjacentHTML('beforeend',`<div class="modal-backdrop" id="confirmBackdrop"><div class="modal" style="max-width:460px"><div class="modal-head"><div><h2 style="margin:0 0 6px">请确认</h2><p style="margin:0;color:var(--muted)">${esc(message)}</p></div><button class="close" id="confirmNo">×</button></div><div class="modal-actions"><button class="btn btn-outline" id="confirmCancel">取消</button><button class="btn btn-danger" id="confirmYes">确认</button></div></div></div>`);const close=()=>$('#confirmBackdrop')?.remove();$('#confirmNo').onclick=close;$('#confirmCancel').onclick=close;$('#confirmBackdrop').addEventListener('click',e=>{if(e.target.id==='confirmBackdrop')close()});$('#confirmYes').onclick=async()=>{close();await yes()}}
 
 async function loadPanelInfo(){try{state.publicInfo=await api('/api/panel-info')}catch{}}
 async function loadBootstrap(){state.boot=await api('/api/bootstrap');state.publicInfo={name:state.boot?.settings?.panel_name||'m-ui',version:state.boot?.version||''};document.title=brandName()+' · MiniJet'}
-async function loadStats(){try{const st=await api('/api/system/stats');state.stats=st;state.netHistory.push({rx:st.rx_rate||0,tx:st.tx_rate||0});if(state.netHistory.length>30)state.netHistory.shift();if(state.route==='dashboard')render()}catch(e){console.warn(e)}}
+async function loadStats(){try{const st=await api('/api/system/stats');state.stats=st;state.netHistory.push({rx:st.rx_rate||0,tx:st.tx_rate||0});if(state.netHistory.length>30)state.netHistory.shift();const runtime=$('#panelUptime');if(runtime)runtime.textContent=fmtPanelUptime(st.panel_uptime_seconds||0);if(state.route==='dashboard')render()}catch(e){console.warn(e)}}
 function startPolling(){clearInterval(state.timer);loadStats();state.timer=setInterval(loadStats,5000)}
 
 async function restartPanel(){
@@ -107,7 +113,7 @@ async function restartPanel(){
 function render(){document.title=brandName()+' · MiniJet';const app=$('#app');if(!state.loggedIn){app.innerHTML=login();bindLogin();return}if(!state.boot){app.innerHTML=`<div class="loading">正在载入 m-ui…</div>`;return}let html=state.route==='nodes'?nodes():state.route==='subscriptions'?subscriptions():state.route==='settings'?settings():dashboard();app.innerHTML=html;bindCommon();if(state.route==='nodes')bindNodes();if(state.route==='subscriptions')bindSubs();if(state.route==='settings')bindSettings()}
 
 function bindLogin(){$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const fd=new FormData(e.target);try{await api('/api/login',{method:'POST',body:JSON.stringify({username:fd.get('user'),password:fd.get('pass')})});state.loggedIn=true;await loadBootstrap();startPolling();render()}catch(err){toast(err.message,false)}})}
-function bindCommon(){$$('[data-route]').forEach(b=>b.onclick=()=>{state.route=b.dataset.route;location.hash='#/'+state.route;render()});$('#restartPanelTop')?.addEventListener('click',restartPanel);$('#logout')?.addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;clearInterval(state.timer);render()});$$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'))}
+function bindCommon(){$('[data-route]').forEach(b=>b.onclick=()=>{state.route=b.dataset.route;location.hash='#/'+state.route;render()});$('#restartPanelSidebar')?.addEventListener('click',restartPanel);$('#logout')?.addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;clearInterval(state.timer);render()});$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'))}
 function openNodeModal(){document.body.insertAdjacentHTML('beforeend',nodeModal());const close=()=>$('.modal-backdrop')?.remove();$('#closeModal').onclick=close;$('#cancelModal').onclick=close;$('.modal-backdrop').addEventListener('click',e=>{if(e.target.classList.contains('modal-backdrop'))close()});$('#createNode').onclick=async()=>{const btn=$('#createNode');btn.disabled=true;btn.textContent='正在识别并创建…';try{const out=await api('/api/nodes/default',{method:'POST'});close();await loadBootstrap();render();toast(out.warning?`${out.node.name} 已创建；${out.warning}`:`${out.node.name} 已创建并生效`)}catch(err){btn.disabled=false;btn.textContent='立即创建';toast(err.message,false)}}}
 function bindNodes(){
   $('#addNode')?.addEventListener('click',openNodeModal);
@@ -126,23 +132,50 @@ function bindNodes(){
 }
 function bindSubs(){$$('.copy-sub').forEach(b=>b.onclick=()=>copyText(b.dataset.url,'订阅链接已复制'));$$('.edit-sub').forEach(b=>b.onclick=()=>openEditSubscription(b.dataset.id));$('#newSub')?.addEventListener('click',async()=>{try{await api('/api/subscriptions',{method:'POST',body:JSON.stringify({name:`订阅 ${(state.boot.subscriptions?.length||0)+1}`})});await loadBootstrap();render();toast('订阅已创建')}catch(e){toast(e.message,false)}});$$('.delete-sub').forEach(b=>b.onclick=()=>confirmBox(`删除订阅“${b.dataset.name}”？`,async()=>{try{await api('/api/subscriptions/'+b.dataset.id,{method:'DELETE'});await loadBootstrap();render();toast('订阅已删除')}catch(e){toast(e.message,false)}}))}
 function bindSettings(){
-  $('#restartPanelSettings')?.addEventListener('click',restartPanel);
-  $('#saveSettings')?.addEventListener('click',async()=>{
-    const payload={
-      panel_name:$('#setName').value,
-      panel_port:Number($('#setPort').value),
-      panel_path:$('#setPath').value,
-      domain:$('#setDomain').value,
-      cert_file:$('#setCert').value,
-      key_file:$('#setKey').value,
-      admin_user:$('#setUser').value,
-      current_password:$('#setCurrentPass').value,
-      new_password:$('#setPass').value,
-      confirm_password:$('#setPass2').value
-    };
-    const btn=$('#saveSettings');
-    btn.disabled=true;
-    btn.textContent='正在保存…';
+  const s=state.boot?.settings||{};
+  const original={
+    panel_name:String(s.panel_name||'m-ui').trim(),
+    panel_port:Number(s.panel_port||location.port||16800),
+    panel_path:String(s.panel_path||'/').trim(),
+    domain:String(s.domain||'').trim(),
+    cert_file:String(s.cert_file||'').trim(),
+    key_file:String(s.key_file||'').trim(),
+    admin_user:String(s.admin_user||'admin').trim()
+  };
+  const read=()=>({
+    panel_name:$('#setName').value.trim(),
+    panel_port:Number($('#setPort').value),
+    panel_path:$('#setPath').value.trim(),
+    domain:$('#setDomain').value.trim(),
+    cert_file:$('#setCert').value.trim(),
+    key_file:$('#setKey').value.trim(),
+    admin_user:$('#setUser').value.trim(),
+    current_password:$('#setCurrentPass').value,
+    new_password:$('#setPass').value,
+    confirm_password:$('#setPass2').value
+  });
+  const changed=()=>{
+    const p=read();
+    return p.panel_name!==original.panel_name ||
+      p.panel_port!==original.panel_port ||
+      p.panel_path!==original.panel_path ||
+      p.domain!==original.domain ||
+      p.cert_file!==original.cert_file ||
+      p.key_file!==original.key_file ||
+      p.admin_user!==original.admin_user ||
+      p.new_password!=='';
+  };
+  const save=$('#saveSettings');
+  const refreshSaveState=()=>{save.disabled=!changed()||state.busy};
+  ['setName','setPort','setPath','setDomain','setCert','setKey','setUser','setCurrentPass','setPass','setPass2'].forEach(id=>$('#'+id)?.addEventListener('input',refreshSaveState));
+  refreshSaveState();
+
+  save?.addEventListener('click',async()=>{
+    if(!changed()||state.busy)return;
+    const payload=read();
+    state.busy=true;
+    save.disabled=true;
+    save.textContent='正在保存…';
     try{
       const out=await api('/api/settings',{method:'PUT',body:JSON.stringify(payload)});
       const nextPort=Number(out.settings?.panel_port||location.port||16800);
@@ -150,19 +183,48 @@ function bindSettings(){
       const target=new URL(location.href);
       target.port=String(nextPort);
       target.pathname=nextPath;
-      target.hash='';
+      target.hash='#/settings';
       target.search='';
       state.publicInfo={name:out.settings?.panel_name||'m-ui',version:out.version||''};
-      state.loggedIn=false;
-      state.boot=null;
-      clearInterval(state.timer);
-      document.title=(state.publicInfo.name||'m-ui')+' · MiniJet';
-      $('#app').innerHTML=`<div class="loading restart-loading"><div><strong>设置已保存</strong><span>面板正在重启，稍后返回登录页面…</span></div></div>`;
-      setTimeout(()=>{location.href=target.toString()},4200);
+
+      if(out.restart_required){
+        state.loggedIn=false;
+        state.boot=null;
+        clearInterval(state.timer);
+        document.title=(state.publicInfo.name||'m-ui')+' · MiniJet';
+        $('#app').innerHTML=`<div class="loading restart-loading"><div><strong>设置已保存</strong><span>面板端口已修改，正在重启；稍后请重新登录…</span></div></div>`;
+        setTimeout(()=>{location.href=target.toString()},4200);
+        return;
+      }
+
+      if(out.relogin_required){
+        state.loggedIn=false;
+        state.boot=null;
+        clearInterval(state.timer);
+        document.title=(state.publicInfo.name||'m-ui')+' · MiniJet';
+        if(out.panel_path_changed){
+          setTimeout(()=>{location.href=target.toString()},300);
+        }else{
+          render();
+          toast('设置已保存，请使用新账号信息重新登录');
+        }
+        return;
+      }
+
+      state.boot=out;
+      document.title=brandName()+' · MiniJet';
+      if(out.panel_path_changed){
+        location.href=target.toString();
+        return;
+      }
+      state.busy=false;
+      render();
+      toast('设置已保存并生效');
     }catch(e){
-      btn.disabled=false;
-      btn.textContent='保存设置';
-      toast(e.message==='Failed to fetch'?'保存连接被中断，请稍后刷新确认设置':e.message,false);
+      state.busy=false;
+      save.disabled=!changed();
+      save.textContent='保存设置';
+      toast(e.message,false);
     }
   });
 }
