@@ -9,7 +9,8 @@ BRANCH="${MUI_BRANCH:-main}"
 PANEL_PORT="${MUI_PORT:-54321}"
 ADMIN_USER="${MUI_ADMIN_USER:-admin}"
 INSTALL_SRC="/opt/m-ui-src"
-BIN="/usr/local/bin/m-ui"
+SERVER_BIN="/usr/local/bin/m-ui-server"
+MENU_BIN="/usr/local/bin/m-ui"
 CTL="/usr/local/bin/m-ui-ctl"
 DATA_DIR="/etc/m-ui"
 DATA_FILE="${DATA_DIR}/state.json"
@@ -83,9 +84,10 @@ info "编译 m-ui…"
 cd "$INSTALL_SRC"
 APP_VERSION="$(tr -d '[:space:]' < VERSION)"
 [[ -n "$APP_VERSION" ]] || APP_VERSION="1.1.0"
-CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${APP_VERSION}" -o /tmp/m-ui-build .
-install -m 0755 /tmp/m-ui-build "$BIN"
-rm -f /tmp/m-ui-build
+CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${APP_VERSION}" -o /tmp/m-ui-server-build .
+install -m 0755 /tmp/m-ui-server-build "$SERVER_BIN"
+rm -f /tmp/m-ui-server-build
+install -m 0755 "$INSTALL_SRC/m-ui" "$MENU_BIN"
 install -m 0755 "$INSTALL_SRC/m-ui-ctl" "$CTL"
 
 NEW_PASSWORD=""
@@ -96,7 +98,7 @@ if [[ ! -f "$DATA_FILE" ]]; then
     NEW_PASSWORD="$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n')"
     [[ ${#NEW_PASSWORD} -ge 12 ]] || NEW_PASSWORD="MiniJet$(date +%s)Aa!"
   fi
-  "$BIN" --init --user "$ADMIN_USER" --password "$NEW_PASSWORD"
+  "$SERVER_BIN" --init --user "$ADMIN_USER" --password "$NEW_PASSWORD"
   chmod 600 "$DATA_FILE"
 fi
 
@@ -113,7 +115,7 @@ Environment=MUI_DATA=$DATA_FILE
 Environment=MUI_ADDR=0.0.0.0:$PANEL_PORT
 Environment=MUI_XRAY_BIN=/usr/local/bin/xray
 Environment=MUI_XRAY_CONFIG=$XRAY_CONFIG
-ExecStart=$BIN
+ExecStart=$SERVER_BIN
 Restart=on-failure
 RestartSec=3
 LimitNOFILE=1048576
@@ -140,7 +142,7 @@ open_port(){
 }
 open_port "$PANEL_PORT"
 
-PANEL_PATH="$("$BIN" --print-panel-path 2>/dev/null || true)"
+PANEL_PATH="$("$SERVER_BIN" --print-panel-path 2>/dev/null || true)"
 [[ -n "$PANEL_PATH" ]] || PANEL_PATH="/"
 
 SERVER_IP="$(curl -4 -fsS --max-time 4 https://api.ipify.org 2>/dev/null || true)"
@@ -164,7 +166,8 @@ else
   info "这是升级安装，原管理员账号和密码保持不变。"
 fi
 echo
-echo "常用命令:"
+echo "SSH 管理:"
+echo "  m-ui               打开交互式管理菜单"
 echo "  m-ui-ctl status    查看状态"
 echo "  m-ui-ctl restart   重启面板"
 echo "  m-ui-ctl logs      查看日志"
