@@ -79,6 +79,9 @@ jobs:
           grep -q '管理员账号：' web/assets/app.js
           grep -q 'restartPanelTop' web/assets/app.js
           grep -q 'restartPanelSettings' web/assets/app.js
+          grep -Fq "$('[data-route]').forEach" web/assets/app.js
+          grep -Fq "$('.copy-uri').forEach" web/assets/app.js
+          ! grep -Fq "\$('[data-route]').forEach" web/assets/app.js
           grep -q '+新建节点' web/assets/app.js
           grep -q 'github-link' web/assets/app.js
           grep -q '/api/system/restart' server.go

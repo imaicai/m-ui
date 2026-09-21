@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-var version = "1.4.2"
+var version = "1.4.3"
 
 //go:embed web/* web/assets/*
 var webFiles embed.FS
