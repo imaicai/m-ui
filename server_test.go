@@ -195,3 +195,20 @@ func TestSubscriptionCanBeStoppedWithoutResendingNameOrSlug(t *testing.T) {
 	}
 }
 
+func TestWriteJSONAndFlush(t *testing.T) {
+	w := httptest.NewRecorder()
+	writeJSONAndFlush(w, http.StatusOK, map[string]any{"ok": true})
+	if w.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d", w.Code)
+	}
+	if w.Header().Get("Content-Length") == "" {
+		t.Fatal("Content-Length must be set before Xray restart")
+	}
+	if !w.Flushed {
+		t.Fatal("response must be flushed before Xray restart")
+	}
+	if !strings.Contains(w.Body.String(), `"ok":true`) {
+		t.Fatalf("unexpected body: %s", w.Body.String())
+	}
+}
+
