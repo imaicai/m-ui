@@ -72,7 +72,7 @@ func TestBuildRealityConfigWithoutDomainOrCertificate(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(b)
-	for _, want := range []string{`"method": "raw"`, `"security": "reality"`, `"target": "www.microsoft.com:443"`, `"shortIds"`, `"minClientVer": "1.8.2"`} {
+	for _, want := range []string{`"method": "raw"`, `"security": "reality"`, `"target": "www.microsoft.com:443"`, `"shortIds"`, `"minClientVer": "1.8.2"`, `"StatsService"`, `"statsUserUplink": true`, `"statsUserDownlink": true`, `"api-in"`} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("Reality config missing %s: %s", want, s)
 		}
