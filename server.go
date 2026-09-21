@@ -33,6 +33,7 @@ type Server struct {
 	statsMu   sync.Mutex
 	trafficMu sync.Mutex
 	lastNet   netSample
+	startedAt time.Time
 	loginMu  sync.Mutex
 	failures map[string]*loginFailure
 }
@@ -65,15 +66,18 @@ type NodeView struct {
 }
 
 type Bootstrap struct {
-	Version       string         `json:"version"`
-	Author        string         `json:"author"`
-	Settings      PublicSettings `json:"settings"`
-	Nodes         []NodeView     `json:"nodes"`
-	Subscriptions []Subscription `json:"subscriptions"`
+	Version          string         `json:"version"`
+	Author           string         `json:"author"`
+	Settings         PublicSettings `json:"settings"`
+	Nodes            []NodeView     `json:"nodes"`
+	Subscriptions    []Subscription `json:"subscriptions"`
+	RestartRequired  bool           `json:"restart_required,omitempty"`
+	ReloginRequired  bool           `json:"relogin_required,omitempty"`
+	PanelPathChanged bool           `json:"panel_path_changed,omitempty"`
 }
 
 func NewServer(store *Store, cfg ServerConfig) *Server {
-	return &Server{store: store, xray: NewXrayManager(cfg.XrayBin, cfg.XrayConfig), cfg: cfg, failures: map[string]*loginFailure{}}
+	return &Server{store: store, xray: NewXrayManager(cfg.XrayBin, cfg.XrayConfig), cfg: cfg, startedAt: time.Now(), failures: map[string]*loginFailure{}}
 }
 
 func (s *Server) panelPath() string {
@@ -404,6 +408,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	st, sample := readSystemStats(&s.lastNet)
 	s.lastNet = sample
 	s.statsMu.Unlock()
+	if !s.startedAt.IsZero() {
+		st.PanelUptimeSeconds = uint64(time.Since(s.startedAt).Seconds())
+	}
 	writeJSON(w, 200, st)
 }
 
@@ -518,9 +525,11 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Any settings save is followed by a clean panel restart and fresh login.
-	// Expire the session cookie on both the old and new panel paths before exiting.
-	for _, cookiePath := range []string{old.Settings.PanelPath, next.Settings.PanelPath} {
+	pathChanged := next.Settings.PanelPath != old.Settings.PanelPath
+	restartRequired := portChanged
+	reloginRequired := accountChanged || restartRequired
+
+	expireSessionCookie := func(cookiePath string) {
 		p, err := normalizePanelPath(cookiePath)
 		if err != nil || p == "" {
 			p = "/"
@@ -530,18 +539,49 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 			SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: -1,
 		})
 	}
-	s.sessions.Range(func(k, v any) bool { s.sessions.Delete(k); return true })
+
+	if reloginRequired {
+		expireSessionCookie(old.Settings.PanelPath)
+		if next.Settings.PanelPath != old.Settings.PanelPath {
+			expireSessionCookie(next.Settings.PanelPath)
+		}
+		s.sessions.Range(func(k, v any) bool { s.sessions.Delete(k); return true })
+	} else if pathChanged {
+		// The panel path can change without restarting. Move the existing session
+		// cookie to the new path so the user stays signed in after navigation.
+		if ck, err := r.Cookie("mui_session"); err == nil && ck.Value != "" {
+			if v, ok := s.sessions.Load(ck.Value); ok {
+				exp := v.(session).Expires
+				p, err := normalizePanelPath(next.Settings.PanelPath)
+				if err != nil || p == "" {
+					p = "/"
+				}
+				http.SetCookie(w, &http.Cookie{
+					Name: "mui_session", Value: ck.Value, Path: p, HttpOnly: true,
+					SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil,
+					Expires: exp, MaxAge: int(time.Until(exp).Seconds()),
+				})
+				expireSessionCookie(old.Settings.PanelPath)
+			}
+		}
+	}
 
 	out := makeBootstrap(next)
 	out.Settings.PanelPort = requestedPort
+	out.RestartRequired = restartRequired
+	out.ReloginRequired = reloginRequired
+	out.PanelPathChanged = pathChanged
 	writeJSON(w, 200, out)
-	if f, ok := w.(http.Flusher); ok {
-		f.Flush()
+
+	if restartRequired {
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		go func() {
+			time.Sleep(1500 * time.Millisecond)
+			os.Exit(42)
+		}()
 	}
-	go func() {
-		time.Sleep(1500 * time.Millisecond)
-		os.Exit(42)
-	}()
 }
 
 func (s *Server) handleCreateDefaultNode(w http.ResponseWriter, r *http.Request) {
