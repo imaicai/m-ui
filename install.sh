@@ -7,7 +7,7 @@ REPO="https://github.com/imaicai/m-ui.git"
 RAW="https://raw.githubusercontent.com/imaicai/m-ui/main"
 BRANCH="${MUI_BRANCH:-main}"
 PANEL_PORT="${MUI_PORT:-54321}"
-ADMIN_USER="${MUI_ADMIN_USER:-admin}"
+ADMIN_USER="${MUI_ADMIN_USER:-minijet}"
 INSTALL_SRC="/opt/m-ui-src"
 SERVER_BIN="/usr/local/bin/m-ui-server"
 MENU_BIN="/usr/local/bin/m-ui"
@@ -91,7 +91,7 @@ git clone --depth 1 --branch "$BRANCH" "$REPO" "$INSTALL_SRC" >/dev/null 2>&1 ||
 info "编译 m-ui…"
 cd "$INSTALL_SRC"
 APP_VERSION="$(tr -d '[:space:]' < VERSION)"
-[[ -n "$APP_VERSION" ]] || APP_VERSION="1.1.0"
+[[ -n "$APP_VERSION" ]] || APP_VERSION="1.2.1"
 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${APP_VERSION}" -o /tmp/m-ui-server-build .
 install -m 0755 /tmp/m-ui-server-build "$SERVER_BIN"
 rm -f /tmp/m-ui-server-build
@@ -100,12 +100,7 @@ install -m 0755 "$INSTALL_SRC/m-ui-ctl" "$CTL"
 
 NEW_PASSWORD=""
 if [[ ! -f "$DATA_FILE" ]]; then
-  if [[ -n "${MUI_ADMIN_PASS:-}" ]]; then
-    NEW_PASSWORD="$MUI_ADMIN_PASS"
-  else
-    NEW_PASSWORD="$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n')"
-    [[ ${#NEW_PASSWORD} -ge 12 ]] || NEW_PASSWORD="MiniJet$(date +%s)Aa!"
-  fi
+  NEW_PASSWORD="${MUI_ADMIN_PASS:-minijet}"
   "$SERVER_BIN" --init --user "$ADMIN_USER" --password "$NEW_PASSWORD"
   chmod 600 "$DATA_FILE"
 fi
@@ -168,7 +163,7 @@ if [[ -n "$NEW_PASSWORD" ]]; then
   echo
 echo "  管理员账号: $ADMIN_USER"
   echo "  管理员密码: $NEW_PASSWORD"
-  warn "请立即保存以上密码，登录后可在系统设置中修改。"
+  warn "首次安装默认用户名和密码均为 minijet；建议登录后按需修改。"
 else
   echo
   info "这是升级安装，原管理员账号和密码保持不变。"
