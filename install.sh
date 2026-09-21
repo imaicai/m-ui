@@ -17,6 +17,14 @@ DATA_FILE="${DATA_DIR}/state.json"
 SERVICE="/etc/systemd/system/m-ui.service"
 XRAY_CONFIG="/usr/local/etc/xray/config.json"
 
+if [[ -z "${MUI_PORT:-}" && -f "$SERVICE" ]]; then
+  EXISTING_ADDR="$(sed -n 's/^Environment=MUI_ADDR=//p' "$SERVICE" | tail -n1)"
+  EXISTING_PORT="${EXISTING_ADDR##*:}"
+  if [[ "$EXISTING_PORT" =~ ^[0-9]+$ ]]; then
+    PANEL_PORT="$EXISTING_PORT"
+  fi
+fi
+
 BLUE='\033[0;34m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 info(){ echo -e "${BLUE}[m-ui]${NC} $*"; }
 ok(){ echo -e "${GREEN}[m-ui]${NC} $*"; }
