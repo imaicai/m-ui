@@ -312,6 +312,14 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	next.Settings.PanelName = cleanText(in.PanelName, "m-ui", 60)
 	next.Settings.PanelPath = panelPath
 	next.Settings.Domain = strings.TrimSpace(in.Domain)
+	if next.Settings.Domain != "" {
+		domain, err := normalizeNodeAddress(next.Settings.Domain)
+		if err != nil || net.ParseIP(domain) != nil {
+			writeError(w, 400, "节点域名格式不正确，请只填写域名，例如 vpn.example.com")
+			return
+		}
+		next.Settings.Domain = domain
+	}
 	next.Settings.CertFile = cleanPath(in.CertFile, "/maicai/ssh/m-ui/fullchain.pem")
 	next.Settings.KeyFile = cleanPath(in.KeyFile, "/maicai/ssh/m-ui/privkey.pem")
 	next.Settings.AdminUser = cleanText(in.AdminUser, old.Settings.AdminUser, 60)
@@ -391,10 +399,20 @@ func (s *Server) handleCreateDefaultNode(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	address := identity.IP
+	if strings.TrimSpace(next.Settings.Domain) != "" {
+		domain, err := normalizeNodeAddress(next.Settings.Domain)
+		if err != nil || net.ParseIP(domain) != nil {
+			writeError(w, 400, "系统设置中的节点域名格式不正确")
+			return
+		}
+		address = domain
+	}
+
 	name := nextCountryNodeName(identity.Country, next.Nodes)
 	node := Node{
 		ID: newID(), Name: name, UUID: uuid, Port: port, Enabled: true,
-		Security: "reality", Address: identity.IP,
+		Security: "reality", Address: address,
 		RealityPrivateKey: privateKey, RealityPassword: password, RealityShortID: shortID,
 		RealityServerName: next.Settings.RealityServerName, RealityTarget: next.Settings.RealityTarget,
 		CreatedAt: time.Now(),
@@ -409,7 +427,7 @@ func (s *Server) handleCreateDefaultNode(w http.ResponseWriter, r *http.Request)
 		"node": NodeView{Node: node, URI: nodeURI(next, node)},
 		"warning": warning,
 		"country": identity.Country,
-		"address": identity.IP,
+		"address": node.Address,
 	})
 }
 
@@ -438,8 +456,11 @@ func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 		next.Nodes = append(next.Nodes[:idx], next.Nodes[idx+1:]...)
 	case http.MethodPatch:
 		var in struct {
-			Name    *string `json:"name"`
-			Enabled *bool   `json:"enabled"`
+			Name              *string `json:"name"`
+			Enabled           *bool   `json:"enabled"`
+			Address           *string `json:"address"`
+			Port              *int    `json:"port"`
+			RealityServerName *string `json:"reality_server_name"`
 		}
 		if !decodeJSON(w, r, &in) {
 			return
@@ -450,6 +471,40 @@ func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 		if in.Enabled != nil {
 			next.Nodes[idx].Enabled = *in.Enabled
 		}
+		if in.Address != nil {
+			address, err := normalizeNodeAddress(*in.Address)
+			if err != nil {
+				writeError(w, 400, err.Error())
+				return
+			}
+			next.Nodes[idx].Address = address
+		}
+		if in.Port != nil {
+			if *in.Port < 1024 || *in.Port > 65535 {
+				writeError(w, 400, "节点端口必须在 1024-65535 之间")
+				return
+			}
+			if *in.Port != next.Nodes[idx].Port {
+				if err := validateEditedPort(*in.Port, next.Nodes[idx].ID, next.Nodes); err != nil {
+					writeError(w, 400, err.Error())
+					return
+				}
+				next.Nodes[idx].Port = *in.Port
+			}
+		}
+		if in.RealityServerName != nil {
+			if nodeSecurity(next.Nodes[idx]) != "reality" {
+				writeError(w, 400, "只有 REALITY 节点可以修改伪装域名")
+				return
+			}
+			serverName, err := normalizeDNSName(*in.RealityServerName)
+			if err != nil {
+				writeError(w, 400, "REALITY 伪装域名格式不正确")
+				return
+			}
+			next.Nodes[idx].RealityServerName = serverName
+			next.Nodes[idx].RealityTarget = serverName + ":443"
+		}
 	default:
 		methodNotAllowed(w)
 		return
@@ -457,6 +512,9 @@ func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 	if err := s.commitXrayState(old, next); err != nil {
 		writeError(w, 400, err.Error())
 		return
+	}
+	if r.Method == http.MethodPatch && next.Nodes[idx].Port != old.Nodes[idx].Port {
+		_ = tryOpenFirewall(next.Nodes[idx].Port)
 	}
 	writeJSON(w, 200, makeBootstrap(next))
 }
@@ -627,6 +685,54 @@ func cleanPath(v, fallback string) string {
 		return fallback
 	}
 	return filepath.Clean(v)
+}
+
+func normalizeNodeAddress(v string) (string, error) {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return "", errors.New("节点地址不能为空")
+	}
+	ipText := strings.Trim(v, "[]")
+	if ip := net.ParseIP(ipText); ip != nil {
+		return ip.String(), nil
+	}
+	return normalizeDNSName(v)
+}
+
+func normalizeDNSName(v string) (string, error) {
+	v = strings.ToLower(strings.TrimSpace(strings.TrimSuffix(v, ".")))
+	if v == "" || len(v) > 253 || strings.ContainsAny(v, "/?#@: \\t\\r\\n") {
+		return "", errors.New("域名格式不正确")
+	}
+	labels := strings.Split(v, ".")
+	if len(labels) < 2 {
+		return "", errors.New("域名至少需要包含一个点")
+	}
+	for _, label := range labels {
+		if label == "" || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return "", errors.New("域名格式不正确")
+		}
+		for _, r := range label {
+			if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-') {
+				return "", errors.New("域名只能包含字母、数字、点和连字符")
+			}
+		}
+	}
+	return v, nil
+}
+
+func validateEditedPort(port int, currentID string, nodes []Node) error {
+	for _, n := range nodes {
+		if n.ID != currentID && n.Port == port {
+			return fmt.Errorf("端口 %d 已被其他节点使用", port)
+		}
+	}
+	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
+	if err != nil {
+		return fmt.Errorf("端口 %d 已被系统中的其他程序占用", port)
+	}
+	_ = ln.Close()
+	return nil
 }
 
 func randomSessionToken() string {
