@@ -837,12 +837,17 @@ func normalizeSubscriptionSlug(v string) (string, error) {
 	if len(v) < 20 || len(v) > 80 {
 		return "", errors.New("订阅地址后缀长度应为 20-80 位")
 	}
+	unique := map[rune]struct{}{}
 	for _, r := range v {
 		ok := r == '-' || r == '_' ||
 			(r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
 		if !ok {
 			return "", errors.New("订阅地址只能包含字母、数字、- 和 _")
 		}
+		unique[r] = struct{}{}
+	}
+	if len(unique) < 8 {
+		return "", errors.New("订阅地址随机性过低，请使用更复杂的后缀")
 	}
 	return v, nil
 }
