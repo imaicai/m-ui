@@ -448,19 +448,14 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	oldConfiguredPort := s.configuredPanelPort()
 	requestedPort := in.PanelPort
 	if requestedPort == 0 {
-		requestedPort = s.configuredPanelPort()
+		requestedPort = oldConfiguredPort
 	}
 	if requestedPort < 1024 || requestedPort > 65535 {
 		writeError(w, 400, "面板端口必须是 1024-65535")
 		return
-	}
-	if requestedPort != s.configuredPanelPort() {
-		if err := s.stagePanelPort(requestedPort); err != nil {
-			writeError(w, 400, err.Error())
-			return
-		}
 	}
 
 	old := s.store.Snapshot()
@@ -503,7 +498,18 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	portChanged := requestedPort != oldConfiguredPort
+	if portChanged {
+		if err := s.stagePanelPort(requestedPort); err != nil {
+			writeError(w, 400, err.Error())
+			return
+		}
+	}
+
 	if err := s.commitXrayState(old, next); err != nil {
+		if portChanged {
+			_ = s.stagePanelPort(oldConfiguredPort)
+		}
 		writeError(w, 400, err.Error())
 		return
 	}
