@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -10,6 +12,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"os/user"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -33,6 +36,92 @@ func NewXrayManager(bin, configPath string) *XrayManager {
 	return &XrayManager{bin: bin, configPath: configPath}
 }
 
+func realityFallbackLimit(seed string, salt string) map[string]any {
+	sum := sha256.Sum256([]byte(seed + ":" + salt))
+	// Stable per-node jitter avoids shipping one globally-identical fallback fingerprint.
+	afterBytes := 6*1024*1024 + int(sum[0])*(8*1024*1024)/255
+	bytesPerSec := 768*1024 + int(sum[1])*(1024*1024)/255
+	burstFactor := 3 + int(sum[2])%4
+	return map[string]any{
+		"afterBytes":       afterBytes,
+		"bytesPerSec":      bytesPerSec,
+		"burstBytesPerSec": bytesPerSec * burstFactor,
+	}
+}
+
+func buildNodeInbound(st AppState, n Node) (map[string]any, error) {
+	security := nodeSecurity(n)
+	stream := map[string]any{
+		"method": "raw",
+		"sockopt": map[string]any{
+			"tcpKeepAliveIdle":     60,
+			"tcpKeepAliveInterval": 15,
+		},
+	}
+	switch security {
+	case "reality":
+		if strings.TrimSpace(n.RealityPrivateKey) == "" || strings.TrimSpace(n.RealityPassword) == "" || strings.TrimSpace(n.RealityShortID) == "" {
+			return nil, fmt.Errorf("节点 %s 的 REALITY 密钥不完整", n.Name)
+		}
+		target := strings.TrimSpace(n.RealityTarget)
+		if target == "" {
+			target = st.Settings.RealityTarget
+		}
+		serverName := strings.TrimSpace(n.RealityServerName)
+		if serverName == "" {
+			serverName = st.Settings.RealityServerName
+		}
+		if target == "" || serverName == "" {
+			return nil, fmt.Errorf("节点 %s 的 REALITY 伪装目标未设置", n.Name)
+		}
+		stream["security"] = "reality"
+		stream["realitySettings"] = map[string]any{
+			"show":          false,
+			"target":        target,
+			"xver":          0,
+			"serverNames":   []string{serverName},
+			"privateKey":    n.RealityPrivateKey,
+			"shortIds":      []string{n.RealityShortID},
+			"minClientVer":  "1.8.2",
+			"limitFallbackUpload":   realityFallbackLimit(n.ID+n.RealityShortID, "upload"),
+			"limitFallbackDownload": realityFallbackLimit(n.ID+n.RealityShortID, "download"),
+		}
+	default:
+		if strings.TrimSpace(st.Settings.Domain) == "" {
+			return nil, fmt.Errorf("节点 %s 使用 TLS，请先在系统设置中填写节点域名", n.Name)
+		}
+		if err := readableFile(st.Settings.CertFile); err != nil {
+			return nil, fmt.Errorf("证书文件不可用: %w", err)
+		}
+		if err := readableFile(st.Settings.KeyFile); err != nil {
+			return nil, fmt.Errorf("私钥文件不可用: %w", err)
+		}
+		stream["security"] = "tls"
+		stream["tlsSettings"] = map[string]any{
+			"alpn": []string{"h2", "http/1.1"},
+			"certificates": []any{map[string]any{
+				"certificateFile": st.Settings.CertFile,
+				"keyFile":         st.Settings.KeyFile,
+			}},
+		}
+	}
+	return map[string]any{
+		"listen":   "0.0.0.0",
+		"port":     n.Port,
+		"protocol": "vless",
+		"tag":      "m-ui-" + n.ID,
+		"settings": map[string]any{
+			"clients": []any{map[string]any{
+				"id":    n.UUID,
+				"flow":  "xtls-rprx-vision",
+				"email": n.ID + "@m-ui",
+			}},
+			"decryption": "none",
+		},
+		"streamSettings": stream,
+	}, nil
+}
+
 func (x *XrayManager) BuildConfig(st AppState) ([]byte, error) {
 	enabled := make([]Node, 0, len(st.Nodes))
 	for _, n := range st.Nodes {
@@ -43,77 +132,11 @@ func (x *XrayManager) BuildConfig(st AppState) ([]byte, error) {
 
 	inbounds := make([]any, 0, len(enabled))
 	for _, n := range enabled {
-		security := nodeSecurity(n)
-		stream := map[string]any{
-			"method": "raw",
+		inbound, err := buildNodeInbound(st, n)
+		if err != nil {
+			return nil, err
 		}
-		switch security {
-		case "reality":
-			if strings.TrimSpace(n.RealityPrivateKey) == "" || strings.TrimSpace(n.RealityPassword) == "" || strings.TrimSpace(n.RealityShortID) == "" {
-				return nil, fmt.Errorf("节点 %s 的 REALITY 密钥不完整", n.Name)
-			}
-			target := strings.TrimSpace(n.RealityTarget)
-			if target == "" {
-				target = st.Settings.RealityTarget
-			}
-			serverName := strings.TrimSpace(n.RealityServerName)
-			if serverName == "" {
-				serverName = st.Settings.RealityServerName
-			}
-			if target == "" || serverName == "" {
-				return nil, fmt.Errorf("节点 %s 的 REALITY 伪装目标未设置", n.Name)
-			}
-			stream["security"] = "reality"
-			stream["realitySettings"] = map[string]any{
-				"show":       false,
-				"target":     target,
-				"xver":       0,
-				"serverNames": []string{serverName},
-				"privateKey":    n.RealityPrivateKey,
-				"shortIds":      []string{n.RealityShortID},
-				"minClientVer": "1.8.2",
-				"limitFallbackUpload": map[string]any{
-					"afterBytes": 10485760, "bytesPerSec": 1048576, "burstBytesPerSec": 5242880,
-				},
-				"limitFallbackDownload": map[string]any{
-					"afterBytes": 10485760, "bytesPerSec": 1048576, "burstBytesPerSec": 5242880,
-				},
-			}
-		default:
-			if strings.TrimSpace(st.Settings.Domain) == "" {
-				return nil, fmt.Errorf("节点 %s 使用 TLS，请先在系统设置中填写节点域名", n.Name)
-			}
-			if err := readableFile(st.Settings.CertFile); err != nil {
-				return nil, fmt.Errorf("证书文件不可用: %w", err)
-			}
-			if err := readableFile(st.Settings.KeyFile); err != nil {
-				return nil, fmt.Errorf("私钥文件不可用: %w", err)
-			}
-			stream["security"] = "tls"
-			stream["tlsSettings"] = map[string]any{
-				"alpn": []string{"h2", "http/1.1"},
-				"certificates": []any{map[string]any{
-					"certificateFile": st.Settings.CertFile,
-					"keyFile":         st.Settings.KeyFile,
-				}},
-			}
-		}
-
-		inbounds = append(inbounds, map[string]any{
-			"listen":   "0.0.0.0",
-			"port":     n.Port,
-			"protocol": "vless",
-			"tag":      "m-ui-" + n.ID,
-			"settings": map[string]any{
-				"clients": []any{map[string]any{
-					"id":    n.UUID,
-					"flow":  "xtls-rprx-vision",
-					"email": n.ID + "@m-ui",
-				}},
-				"decryption": "none",
-			},
-			"streamSettings": stream,
-		})
+		inbounds = append(inbounds, inbound)
 	}
 
 	inbounds = append(inbounds, map[string]any{
@@ -137,7 +160,7 @@ func (x *XrayManager) BuildConfig(st AppState) ([]byte, error) {
 		},
 		"api": map[string]any{
 			"tag":      "api",
-			"services": []string{"StatsService"},
+			"services": []string{"StatsService", "HandlerService"},
 		},
 		"inbounds": inbounds,
 		"outbounds": []any{
@@ -218,7 +241,7 @@ func (x *XrayManager) validatedTempConfig(st AppState) (string, error) {
 		return "", err
 	}
 	tmp := x.validationTempPath()
-	if err := os.WriteFile(tmp, b, 0644); err != nil {
+	if err := os.WriteFile(tmp, b, 0600); err != nil {
 		return "", err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
@@ -239,27 +262,224 @@ func (x *XrayManager) Validate(st AppState) error {
 	return err
 }
 
+func secureXrayConfig(path string) error {
+	mode := os.FileMode(0600)
+	if u, err := user.Lookup("xray"); err == nil {
+		if gid, err := strconv.Atoi(u.Gid); err == nil {
+			if err := os.Chown(path, 0, gid); err == nil {
+				mode = 0640
+			}
+		}
+	}
+	return os.Chmod(path, mode)
+}
+
+func (x *XrayManager) persistValidatedTemp(tmp string) error {
+	if err := os.Rename(tmp, x.configPath); err != nil {
+		return err
+	}
+	return secureXrayConfig(x.configPath)
+}
+
+func (x *XrayManager) restartService(st AppState) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "systemctl", "restart", "xray")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("重启 Xray 失败: %s", strings.TrimSpace(string(out)))
+	}
+	if err := x.waitHealthy(st, 5*time.Second); err != nil {
+		return fmt.Errorf("Xray 重启后健康检查失败: %w", err)
+	}
+	return nil
+}
+
 func (x *XrayManager) Apply(st AppState) error {
 	tmp, err := x.validatedTempConfig(st)
 	if err != nil {
 		return err
 	}
 	defer os.Remove(tmp)
-
-	if err := os.Rename(tmp, x.configPath); err != nil {
+	if err := x.persistValidatedTemp(tmp); err != nil {
 		return err
 	}
-	if err := os.Chmod(x.configPath, 0644); err != nil {
+	return x.restartService(st)
+}
+
+func (x *XrayManager) EnsureRunningConfig(st AppState) error {
+	want, err := x.BuildConfig(st)
+	if err != nil {
 		return err
 	}
+	current, readErr := os.ReadFile(x.configPath)
+	if readErr == nil && bytes.Equal(bytes.TrimSpace(current), bytes.TrimSpace(want)) {
+		_ = secureXrayConfig(x.configPath)
+		if err := x.waitHealthy(st, 2*time.Second); err == nil {
+			return nil
+		}
+	}
+	return x.Apply(st)
+}
 
-	ctx2, cancel2 := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel2()
-	cmd := exec.CommandContext(ctx2, "systemctl", "restart", "xray")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("重启 Xray 失败: %s", strings.TrimSpace(string(out)))
+func runtimeNodeMap(st AppState) map[string]Node {
+	out := make(map[string]Node, len(st.Nodes))
+	for _, n := range st.Nodes {
+		out[n.ID] = n
+	}
+	return out
+}
+
+func nodeRuntimeFingerprint(st AppState, n Node) string {
+	if !n.Enabled {
+		return "disabled"
+	}
+	v, err := buildNodeInbound(st, n)
+	if err != nil {
+		return "error:" + err.Error()
+	}
+	b, _ := json.Marshal(v)
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:])
+}
+
+func changedRuntimeNodes(old, next AppState) (remove []Node, add []Node) {
+	oldMap, nextMap := runtimeNodeMap(old), runtimeNodeMap(next)
+	seen := map[string]bool{}
+	for id, before := range oldMap {
+		seen[id] = true
+		after, ok := nextMap[id]
+		changed := !ok || before.Enabled != after.Enabled || (before.Enabled && after.Enabled && nodeRuntimeFingerprint(old, before) != nodeRuntimeFingerprint(next, after))
+		if changed && before.Enabled {
+			remove = append(remove, before)
+		}
+		if changed && ok && after.Enabled {
+			add = append(add, after)
+		}
+	}
+	for id, after := range nextMap {
+		if seen[id] {
+			continue
+		}
+		if after.Enabled {
+			add = append(add, after)
+		}
+	}
+	return remove, add
+}
+
+func (x *XrayManager) removeInbound(tag string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, x.bin, "api", "rmi", "--server="+xrayStatsAPIAddr, tag).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("移除入站 %s 失败: %s", tag, strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+func (x *XrayManager) addInbound(st AppState, n Node) error {
+	inbound, err := buildNodeInbound(st, n)
+	if err != nil {
+		return err
+	}
+	payload, err := json.Marshal(map[string]any{"inbounds": []any{inbound}})
+	if err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(x.configPath), ".m-ui-inbound-*.json")
+	if err != nil {
+		return err
+	}
+	name := tmp.Name()
+	defer os.Remove(name)
+	if err := tmp.Chmod(0600); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(payload); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, x.bin, "api", "adi", "--server="+xrayStatsAPIAddr, name).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("添加入站 %s 失败: %s", n.Name, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+func (x *XrayManager) HotApply(old, next AppState) error {
+	tmp, err := x.validatedTempConfig(next)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp)
+	if err := x.persistValidatedTemp(tmp); err != nil {
+		return err
+	}
+
+	remove, add := changedRuntimeNodes(old, next)
+	if len(remove) == 0 && len(add) == 0 {
+		return nil
+	}
+
+	// HandlerService is intentionally best-effort. Any API inconsistency falls back
+	// to the validated full configuration so correctness wins over hot reload.
+	for _, n := range remove {
+		if err := x.removeInbound("m-ui-" + n.ID); err != nil {
+			return x.restartService(next)
+		}
+	}
+	if len(remove) > 0 && len(add) > 0 {
+		time.Sleep(120 * time.Millisecond)
+	}
+	for _, n := range add {
+		if err := x.addInbound(next, n); err != nil {
+			return x.restartService(next)
+		}
+	}
+	if err := x.waitHealthy(next, 3*time.Second); err != nil {
+		return x.restartService(next)
+	}
+	return nil
+}
+
+func (x *XrayManager) waitHealthy(st AppState, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for {
+		if _, err := x.QueryUserTraffic(false); err == nil {
+			allPorts := true
+			for _, n := range st.Nodes {
+				if !n.Enabled {
+					continue
+				}
+				conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(n.Port)), 250*time.Millisecond)
+				if err != nil {
+					allPorts = false
+					lastErr = fmt.Errorf("节点 %s 端口 %d 未监听", n.Name, n.Port)
+					break
+				}
+				_ = conn.Close()
+			}
+			if allPorts {
+				return nil
+			}
+		} else {
+			lastErr = err
+		}
+		if time.Now().After(deadline) {
+			if lastErr == nil {
+				lastErr = errors.New("健康检查超时")
+			}
+			return lastErr
+		}
+		time.Sleep(150 * time.Millisecond)
+	}
 }
 
 func (x *XrayManager) validationTempPath() string {
