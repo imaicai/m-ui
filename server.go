@@ -652,8 +652,12 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		if f, ok := w.(http.Flusher); ok {
 			f.Flush()
 		}
+		oldPort := oldConfiguredPort
 		go func() {
 			time.Sleep(1500 * time.Millisecond)
+			if oldPort != requestedPort {
+				_ = tryCloseFirewall(oldPort)
+			}
 			os.Exit(42)
 		}()
 	}
