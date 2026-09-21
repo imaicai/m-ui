@@ -4,6 +4,15 @@
 
 目标：**简单、稳定、易用**。普通用户不需要理解大量底层参数；新建节点默认使用 **VLESS + RAW + REALITY + XTLS Vision**，旧版已经创建的 TLS 节点会继续保留，不会在升级时强制转换。
 
+## v1.2.0
+
+- SSH 输入 `m-ui` 直接打开交互式管理菜单。
+- 后端程序改为 `/usr/local/bin/m-ui-server`，避免与 SSH 菜单命令冲突。
+- 菜单支持一键安装、彻底卸载、更新管理脚本、修改用户名/密码/端口/根路径、还原面板、服务控制和日志查看。
+- 增加“一键原版 BBR + FQ 加速”，仅使用当前 Linux 内核原生能力，不自动更换内核。
+- 增加“刷新IP配置及参数显示”，重新获取公网 IP、国家、面板地址和运行参数，不擅自改写已创建节点。
+- “还原面板”只重置登录访问参数，保留节点与订阅数据。
+
 ## v1.1.0
 
 - 修复 Xray 26.x 无法识别 `.tmp` 临时配置格式的问题；校验文件现在始终以 `.json` 结尾。
@@ -120,9 +129,40 @@ VLESS + RAW + REALITY + XTLS Vision
 
 修改登录名或密码时必须填写当前密码；修改成功后当前登录会失效，需要使用新账号重新登录。
 
+## SSH 管理菜单
+
+安装或升级到 v1.2.0 后，SSH 直接输入：
+
+```bash
+m-ui
+```
+
+显示：
+
+```text
+ 1. 一键安装 m-ui
+ 2. 删除卸载 m-ui （包含卸载所有配置）
+ 3. 更新 m-ui 脚本
+----------------------------------------------------------------------------------
+ 4. 变更 m-ui 面板设置 【用户名密码、登录端口、根路径、还原面板】
+ 5. 关闭、重启 m-ui
+----------------------------------------------------------------------------------
+ 6. 查看 m-ui 运行日志
+ 7. 一键原版BBR+FQ加速
+ 8. 刷新IP配置及参数显示
+```
+
+其中：
+
+- **删除卸载**：删除 m-ui 程序、节点、订阅、登录数据、m-ui 专属证书目录和 m-ui 生成的 Xray 配置；Xray Core 二进制本身保留，但 Xray 服务会停止。
+- **还原面板**：保留节点和订阅，重置为用户名 `admin`、随机新密码、端口 `54321`、随机新根路径。
+- **BBR + FQ**：写入 `/etc/sysctl.d/99-m-ui-bbr.conf`，只启用当前内核已经支持的原版 BBR 和 FQ，不自动替换 Linux 内核。
+- **刷新IP配置及参数显示**：刷新公网 IP、国家、面板地址、用户名、端口、根路径和 BBR/FQ 状态，仅用于显示，不修改已有节点。
+
 ## 常用命令
 
 ```bash
+m-ui
 m-ui-ctl status
 m-ui-ctl restart
 m-ui-ctl logs
@@ -140,7 +180,8 @@ m-ui-ctl xray
 
 ```text
 /etc/m-ui/state.json                     # m-ui 数据
-/usr/local/bin/m-ui                      # 主程序
+/usr/local/bin/m-ui                      # SSH 交互式管理菜单
+/usr/local/bin/m-ui-server               # m-ui 后端主程序
 /usr/local/bin/m-ui-ctl                  # 控制命令
 /etc/systemd/system/m-ui.service         # systemd 服务
 /usr/local/bin/xray                      # Xray Core
@@ -156,6 +197,7 @@ go test ./...
 go vet ./...
 node --check web/assets/app.js
 bash -n install.sh
+bash -n m-ui
 bash -n m-ui-ctl
 bash -n uninstall.sh
 ```

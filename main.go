@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-var version = "1.1.0"
+var version = "1.2.0"
 
 //go:embed web/* web/assets/*
 var webFiles embed.FS
@@ -19,6 +19,11 @@ func main() {
 	initPass := flag.String("password", "", "initial admin password")
 	showVersion := flag.Bool("version", false, "print version")
 	printPanelPath := flag.Bool("print-panel-path", false, "print configured panel base path")
+	printAdminUser := flag.Bool("print-admin-user", false, "print configured admin username")
+	setAdminUser := flag.String("set-admin-user", "", "set admin username")
+	setAdminPassword := flag.String("set-admin-password", "", "set admin password")
+	setPanelPath := flag.String("set-panel-path", "", "set panel base path")
+	resetPanelAccess := flag.Bool("reset-panel-access", false, "reset panel username, password and base path")
 	flag.Parse()
 
 	if *showVersion {
@@ -46,6 +51,50 @@ func main() {
 			p = "/"
 		}
 		fmt.Println(p)
+		return
+	}
+
+	if *printAdminUser {
+		fmt.Println(store.Snapshot().Settings.AdminUser)
+		return
+	}
+
+	if *resetPanelAccess {
+		st := store.Snapshot()
+		st.Settings.AdminUser = "admin"
+		password := randomToken(20)
+		if err := setPassword(&st, password); err != nil {
+			log.Fatalf("重置面板失败: %v", err)
+		}
+		st.Settings.PanelPath = randomPanelPath()
+		if err := store.Replace(st); err != nil {
+			log.Fatalf("重置面板失败: %v", err)
+		}
+		fmt.Printf("管理员账号: %s\n管理员密码: %s\n根路径: %s\n", st.Settings.AdminUser, password, st.Settings.PanelPath)
+		return
+	}
+
+	if *setAdminUser != "" || *setAdminPassword != "" || *setPanelPath != "" {
+		st := store.Snapshot()
+		if *setAdminUser != "" {
+			st.Settings.AdminUser = cleanText(*setAdminUser, st.Settings.AdminUser, 60)
+		}
+		if *setAdminPassword != "" {
+			if err := setPassword(&st, *setAdminPassword); err != nil {
+				log.Fatalf("修改密码失败: %v", err)
+			}
+		}
+		if *setPanelPath != "" {
+			p, err := normalizePanelPath(*setPanelPath)
+			if err != nil {
+				log.Fatalf("修改根路径失败: %v", err)
+			}
+			st.Settings.PanelPath = p
+		}
+		if err := store.Replace(st); err != nil {
+			log.Fatalf("保存面板设置失败: %v", err)
+		}
+		fmt.Println("m-ui 面板设置已更新")
 		return
 	}
 
