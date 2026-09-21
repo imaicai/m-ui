@@ -4,15 +4,18 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"golang.org/x/crypto/argon2"
 )
 
 const stateVersion = 6
@@ -323,16 +326,90 @@ func (s *Store) EnsureInitialized(user, pass string) error {
 	})
 }
 
-func hashPassword(password string) (saltHex, hashHex string, err error) {
+const (
+	argonMemory  uint32 = 32 * 1024
+	argonTime    uint32 = 2
+	argonThreads uint8  = 1
+	argonKeyLen  uint32 = 32
+)
+
+func hashPassword(password string) (saltHex, hashEncoded string, err error) {
 	salt := make([]byte, 16)
 	if _, err = rand.Read(salt); err != nil {
 		return "", "", err
 	}
-	h := passwordKDF(password, salt)
-	return hex.EncodeToString(salt), hex.EncodeToString(h), nil
+	hash := argon2.IDKey([]byte(password), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
+	encoded := fmt.Sprintf("$argon2id$v=19$m=%d,t=%d,p=%d$%s$%s",
+		argonMemory, argonTime, argonThreads,
+		base64.RawStdEncoding.EncodeToString(salt),
+		base64.RawStdEncoding.EncodeToString(hash),
+	)
+	// Keep PasswordSalt populated for backwards-compatible state shape. New
+	// verification uses the self-contained Argon2id hash string.
+	return hex.EncodeToString(salt), encoded, nil
 }
 
-func passwordKDF(password string, salt []byte) []byte {
+func passwordNeedsUpgrade(hash string) bool {
+	return !strings.HasPrefix(strings.TrimSpace(hash), "$argon2id$")
+}
+
+func verifyArgon2Password(password, encoded string) bool {
+	parts := strings.Split(encoded, "$")
+	if len(parts) != 6 || parts[1] != "argon2id" || parts[2] != "v=19" {
+		return false
+	}
+	var memory, iterations uint32
+	var threads64 uint64
+	params := strings.Split(parts[3], ",")
+	if len(params) != 3 {
+		return false
+	}
+	if _, err := fmt.Sscanf(params[0], "m=%d", &memory); err != nil {
+		return false
+	}
+	if _, err := fmt.Sscanf(params[1], "t=%d", &iterations); err != nil {
+		return false
+	}
+	pText := strings.TrimPrefix(params[2], "p=")
+	var err error
+	threads64, err = strconv.ParseUint(pText, 10, 8)
+	if err != nil {
+		return false
+	}
+	threads := uint8(threads64)
+	if memory < 8*1024 || memory > 256*1024 || iterations < 1 || iterations > 10 || threads < 1 || threads > 4 {
+		return false
+	}
+	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
+	if err != nil || len(salt) < 8 || len(salt) > 64 {
+		return false
+	}
+	expected, err := base64.RawStdEncoding.DecodeString(parts[5])
+	if err != nil || len(expected) < 16 || len(expected) > 64 {
+		return false
+	}
+	got := argon2.IDKey([]byte(password), salt, iterations, memory, threads, uint32(len(expected)))
+	return subtle.ConstantTimeCompare(got, expected) == 1
+}
+
+func verifyPassword(password, saltHex, hashValue string) bool {
+	if strings.HasPrefix(strings.TrimSpace(hashValue), "$argon2id$") {
+		return verifyArgon2Password(password, hashValue)
+	}
+	// Legacy v1.x SHA-256 KDF. Successful logins are transparently upgraded.
+	salt, err1 := hex.DecodeString(saltHex)
+	expected, err2 := hex.DecodeString(hashValue)
+	if err1 != nil || err2 != nil || len(expected) == 0 {
+		return false
+	}
+	got := legacyPasswordKDF(password, salt)
+	if len(got) != len(expected) {
+		return false
+	}
+	return subtle.ConstantTimeCompare(got, expected) == 1
+}
+
+func legacyPasswordKDF(password string, salt []byte) []byte {
 	sum := sha256.Sum256(append(append([]byte{}, salt...), []byte(password)...))
 	v := sum[:]
 	for i := 0; i < 120000; i++ {
@@ -342,19 +419,6 @@ func passwordKDF(password string, salt []byte) []byte {
 	out := make([]byte, len(v))
 	copy(out, v)
 	return out
-}
-
-func verifyPassword(password, saltHex, hashHex string) bool {
-	salt, err1 := hex.DecodeString(saltHex)
-	expected, err2 := hex.DecodeString(hashHex)
-	if err1 != nil || err2 != nil || len(expected) == 0 {
-		return false
-	}
-	got := passwordKDF(password, salt)
-	if len(got) != len(expected) {
-		return false
-	}
-	return subtle.ConstantTimeCompare(got, expected) == 1
 }
 
 func setPassword(st *AppState, password string) error {
