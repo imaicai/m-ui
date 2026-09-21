@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -88,5 +89,29 @@ func TestPanelRestartRejectsNonPost(t *testing.T) {
 	s.handlePanelRestart(w, req)
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("unexpected status: %d", w.Code)
+	}
+}
+
+func TestConfiguredPanelPortFromService(t *testing.T) {
+	content := "[Service]\nEnvironment=MUI_ADDR=0.0.0.0:18080\nExecStart=/usr/local/bin/m-ui-server\n"
+	if got := configuredPanelPortFromService(content, 16800); got != 18080 {
+		t.Fatalf("unexpected configured panel port: %d", got)
+	}
+	if got := configuredPanelPortFromService("[Service]\n", 16800); got != 16800 {
+		t.Fatalf("fallback port mismatch: %d", got)
+	}
+}
+
+func TestReplaceServicePanelPort(t *testing.T) {
+	content := "[Service]\nEnvironment=MUI_ADDR=0.0.0.0:16800\nExecStart=/usr/local/bin/m-ui-server\n"
+	got, err := replaceServicePanelPort(content, 18080)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, "Environment=MUI_ADDR=0.0.0.0:18080") {
+		t.Fatalf("port was not replaced: %s", got)
+	}
+	if _, err := replaceServicePanelPort(content, 80); err == nil {
+		t.Fatal("expected low panel port rejection")
 	}
 }
