@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const stateVersion = 3
+const stateVersion = 4
 
 func defaultCertHome() string {
 	if v := strings.TrimSpace(os.Getenv("MUI_CERT_HOME")); v != "" {
@@ -64,6 +64,8 @@ type Node struct {
 	RealityServerName string    `json:"reality_server_name,omitempty"`
 	RealityTarget     string    `json:"reality_target,omitempty"`
 	CreatedAt         time.Time `json:"created_at"`
+	UplinkBytes       uint64    `json:"uplink_bytes,omitempty"`
+	DownlinkBytes     uint64    `json:"downlink_bytes,omitempty"`
 }
 
 type Subscription struct {
