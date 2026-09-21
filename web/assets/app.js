@@ -51,7 +51,7 @@ function routeTitle(r){return {dashboard:['仪表盘','服务器状态与资源'
 function protocolLabel(n){return n?.security==='reality'?'VLESS · REALITY · Vision':'VLESS · TLS · Vision'}
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(){return `<img src="${panelURL('assets/app-icon.png?v=1.4.6')}" alt="${esc(brandName())}" class="brand-image">`}
+function brandIcon(){return `<img src="${panelURL('assets/app-icon.png?v=1.4.7')}" alt="${esc(brandName())}" class="brand-image">`}
 
 function nav(){return `<aside class="sidebar"><div class="brand">${brandIcon()}<div><strong>${esc(brandName())}</strong><small>MiniJet · Xray 管理</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
