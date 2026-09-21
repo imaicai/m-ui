@@ -64,6 +64,12 @@ func (x *XrayManager) BuildConfig(st AppState) ([]byte, error) {
 				"serverNames": []string{serverName},
 				"privateKey": n.RealityPrivateKey,
 				"shortIds":   []string{n.RealityShortID},
+				"limitFallbackUpload": map[string]any{
+					"afterBytes": 10485760, "bytesPerSec": 1048576, "burstBytesPerSec": 5242880,
+				},
+				"limitFallbackDownload": map[string]any{
+					"afterBytes": 10485760, "bytesPerSec": 1048576, "burstBytesPerSec": 5242880,
+				},
 			}
 		default:
 			if strings.TrimSpace(st.Settings.Domain) == "" {
