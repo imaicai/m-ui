@@ -206,29 +206,45 @@ func nodeSecurity(n Node) string {
 	return "tls"
 }
 
-func (x *XrayManager) Apply(st AppState) error {
+func (x *XrayManager) validatedTempConfig(st AppState) (string, error) {
 	b, err := x.BuildConfig(st)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if _, err := os.Stat(x.bin); err != nil {
-		return fmt.Errorf("未找到 Xray: %s", x.bin)
+		return "", fmt.Errorf("未找到 Xray: %s", x.bin)
 	}
 	if err := os.MkdirAll(filepath.Dir(x.configPath), 0755); err != nil {
-		return err
+		return "", err
 	}
 	tmp := x.validationTempPath()
 	if err := os.WriteFile(tmp, b, 0644); err != nil {
-		return err
+		return "", err
 	}
-	defer os.Remove(tmp)
-
 	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer cancel()
 	test := exec.CommandContext(ctx, x.bin, "run", "-test", "-config", tmp)
 	if out, err := test.CombinedOutput(); err != nil {
-		return fmt.Errorf("Xray 配置校验失败: %s", strings.TrimSpace(string(out)))
+		_ = os.Remove(tmp)
+		return "", fmt.Errorf("Xray 配置校验失败: %s", strings.TrimSpace(string(out)))
 	}
+	return tmp, nil
+}
+
+func (x *XrayManager) Validate(st AppState) error {
+	tmp, err := x.validatedTempConfig(st)
+	if tmp != "" {
+		_ = os.Remove(tmp)
+	}
+	return err
+}
+
+func (x *XrayManager) Apply(st AppState) error {
+	tmp, err := x.validatedTempConfig(st)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp)
 
 	if err := os.Rename(tmp, x.configPath); err != nil {
 		return err

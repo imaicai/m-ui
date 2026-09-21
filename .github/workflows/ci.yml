@@ -52,8 +52,16 @@ jobs:
           s = Path("web/assets/app.js").read_text(encoding="utf-8")
           assert "$$('[data-route]').forEach" in s
           assert "$$('.copy-uri').forEach" in s
+          assert "$$('.copy-sub').forEach" in s
+          assert "$$('.toggle-sub').forEach" in s
+          assert "$$('.edit-sub').forEach" in s
+          assert "$$('.delete-sub').forEach" in s
           assert re.search(r"(?<!\$)\$\('\[data-route\]'\)\.forEach", s) is None
           assert re.search(r"(?<!\$)\$\('\.copy-uri'\)\.forEach", s) is None
+          assert "  $('.copy-sub').forEach" not in s
+          assert "  $('.toggle-sub').forEach" not in s
+          assert "  $('.edit-sub').forEach" not in s
+          assert "  $('.delete-sub').forEach" not in s
           assert "$$$(" not in s
           PY
 
@@ -73,7 +81,7 @@ jobs:
           assert 'replaceServicePanelPort' in server
           PY
 
-      - name: v1.4.9 feature assertions
+      - name: v1.4.10 feature assertions
         shell: bash
         run: |
 
@@ -87,12 +95,14 @@ jobs:
           assert 'id="resetAllTraffic"' in app
           assert 'reset-node-traffic' in app
           assert '<th>流量</th>' in app
-          assert '稳定运行中' in app
+          assert '稳定运行中' not in app
+          assert '累计稳定运行' in app and 'id="stableUptime"' in app
           assert 'M-Ui：最简单的代理面板' in app
           assert '小飞机：最简单的代理客户端' in app
           assert 'MiniJet | 小飞机：最简单的代理客户端' not in app
           assert 'id="restartPanelSidebar"' in app
-          assert 'id="panelUptime"' in app and 'panel_uptime_seconds' in app
+          assert 'id="panelUptime"' not in app and 'panel_uptime_seconds' in app
+          assert 'class="panel-runtime"' not in app
           assert 'system-meta' not in app and 'minijet-link' not in app
           assert 'sidebar-credit' not in app
           assert 'https://github.com/imaicai/MiniJet' in app
@@ -118,7 +128,7 @@ jobs:
           assert 'normalizeSubscriptions(&data, false)' in Path("store.go").read_text(encoding="utf-8")
           store = Path("store.go").read_text(encoding="utf-8")
           main = Path("main.go").read_text(encoding="utf-8")
-          assert '面板累计运行 ' in app
+          assert 'fmtStableClock' in app and 'clockTimer' in app
           assert 'sub-select-circle' in app and 'toggle-sub' in app
           assert 'nodeNameHTML' in app and 'countryFlag' in app
           assert 'stop:' in app and 'play:' in app
@@ -129,6 +139,10 @@ jobs:
           assert '.restart-mark{background:transparent!important' in css
           assert '.sub-select-circle' in css and '.node-flag' in css
           assert 'Enabled *bool' in server
+          assert 'commitNodeToggleWithEarlyResponse' in server
+          assert 'writeJSONAndFlush' in server
+          assert 'func (x *XrayManager) Validate(st AppState) error' in xray
+          assert 'v1.4.10 stable runtime clock and interaction fixes' in css
           PY
 
       - name: Shell syntax
@@ -179,9 +193,12 @@ jobs:
           grep -q '+新建节点' web/assets/app.js
           grep -q 'repo-icon-link' web/assets/app.js
           grep -q '/api/system/restart' server.go
-          grep -q '面板累计运行 ' web/assets/app.js
+          grep -q '累计稳定运行' web/assets/app.js
+          ! grep -q 'id="panelUptime"' web/assets/app.js
+          grep -q "[$][$]('.copy-sub').forEach" web/assets/app.js
+          grep -q "[$][$]('.toggle-sub').forEach" web/assets/app.js
           grep -q 'toggle-sub' web/assets/app.js
           grep -q 'sub-select-circle' web/assets/app.js
           grep -q 'Country           string' store.go
           grep -q '//go:embed VERSION' main.go
-          grep -q '^1\.4\.9$' VERSION
+          grep -q '^1\.4\.10$' VERSION

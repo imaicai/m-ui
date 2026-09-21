@@ -13,7 +13,9 @@ const state = {
   netHistory: [],
   modal: null,
   busy: false,
-  timer: null
+  timer: null,
+  clockTimer: null,
+  panelUptimeAnchor: null
 };
 
 const icons={
@@ -43,7 +45,7 @@ async function api(path, options={}){
   const opts={credentials:'same-origin',...options,headers:{...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})}};
   const res=await fetch(panelURL(path),opts);
   let data=null; try{data=await res.json()}catch{}
-  if(res.status===401){state.loggedIn=false; state.boot=null; clearInterval(state.timer); render(); throw new Error(data?.error||'请先登录')}
+  if(res.status===401){state.loggedIn=false; state.boot=null; stopTimers(); render(); throw new Error(data?.error||'请先登录')}
   if(!res.ok) throw new Error(data?.error||`请求失败 (${res.status})`);
   return data;
 }
@@ -55,6 +57,10 @@ function fmtRate(v=0){return `${fmtBytes(v)}/s`}
 function fmtTrafficBytes(v=0){v=Number(v)||0;const u=['B','KB','MB','GB','TB'];let i=0;while(v>=1024&&i<u.length-1){v/=1024;i++}const digits=v>=100||i===0?0:v>=10?1:2;return `${v.toFixed(digits).replace(/\.0+$|(?<=\.[0-9])0+$/,'')}${u[i]}`}
 function fmtUptime(s=0){const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);return d?`${d} 天 ${h} 小时`:h?`${h} 小时 ${m} 分钟`:`${m} 分钟`}
 function fmtPanelUptime(s=0){s=Math.max(0,Math.floor(Number(s)||0));const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60),sec=s%60;if(d)return `${d}天 ${h}小时 ${m}分`;if(h)return `${h}小时 ${m}分 ${sec}秒`;if(m)return `${m}分 ${sec}秒`;return `${sec}秒`}
+function fmtStableClock(s=0){s=Math.max(0,Math.floor(Number(s)||0));const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return [h,m,sec].map(v=>String(v).padStart(2,'0')).join(':')}
+function currentPanelUptimeSeconds(){const a=state.panelUptimeAnchor;if(!a)return Number(state.stats?.panel_uptime_seconds||0);return a.seconds+Math.max(0,Math.floor((Date.now()-a.at)/1000))}
+function updateStableClock(){const el=$('#stableUptime');if(el)el.textContent=fmtStableClock(currentPanelUptimeSeconds())}
+function stopTimers(){clearInterval(state.timer);clearInterval(state.clockTimer);state.timer=null;state.clockTimer=null}
 function routeTitle(r){return {dashboard:['仪表盘','服务器状态与资源'],nodes:['节点管理','创建、编辑与维护节点'],subscriptions:['订阅管理','管理订阅入口'],settings:['系统设置','面板、安全与证书']}[r]||['仪表盘','']}
 function protocolLabel(n){return n?.security==='reality'?'VLESS · REALITY · Vision':'VLESS · TLS · Vision'}
 function countryFlag(code){
@@ -69,12 +75,12 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(){return `<img src="${panelURL('assets/app-icon.png?v=1.4.9')}" alt="${esc(brandName())}" class="brand-image">`}
+function brandIcon(){return `<img src="${panelURL('assets/app-icon.png?v=1.4.10')}" alt="${esc(brandName())}" class="brand-image">`}
 
 function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon()}<div><strong>${esc(brandName())}</strong><small>最简单的代理面板</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
-</nav><div class="sidebar-bottom"><div class="system-pill"><div class="statusline"><span class="dot"></span>稳定运行中</div><div class="service-copy"><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer" title="打开 M-Ui GitHub 源码" aria-label="打开 M-Ui GitHub 源码">${icon('github')}</a><span>M-Ui：最简单的代理面板</span></div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/MiniJet" target="_blank" rel="noopener noreferrer" title="打开 MiniJet GitHub 源码" aria-label="打开 MiniJet GitHub 源码">${icon('github')}</a><span>小飞机：最简单的代理客户端</span></div><div class="service-copyright">© 2026 <a href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer">M-Ui</a> v${ver}</div></div></div><button class="sidebar-restart" id="restartPanelSidebar" type="button"><span class="restart-mark">${icon('restart')}</span><span>重启面板</span></button></div></aside>`}
-function layout(content){const [title,sub]=routeTitle(state.route), user=state.boot?.settings?.admin_user||'admin', runtime=fmtPanelUptime(state.stats?.panel_uptime_seconds||0);return `<div class="shell">${nav()}<main class="main"><header class="topbar"><div class="page-heading-inline"><h1>${title}</h1><span>${sub}</span></div><div class="userbox-inline"><span class="panel-runtime" title="面板累计运行时间">${icon('clock')}<span id="panelUptime">面板累计运行 ${runtime}</span></span><span class="sep">·</span><span>管理员账号：<b>${esc(user)}</b></span><span class="sep">·</span><button class="icon-btn subtle" id="logout" title="退出" aria-label="退出">${icon('power')}</button></div></header><div class="content">${content}</div></main></div>`}
+</nav><div class="sidebar-bottom"><div class="system-pill"><div class="statusline stable-runtime">${icon('clock')}<span>累计稳定运行</span><b id="stableUptime">${fmtStableClock(currentPanelUptimeSeconds())}</b></div><div class="service-copy"><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer" title="打开 M-Ui GitHub 源码" aria-label="打开 M-Ui GitHub 源码">${icon('github')}</a><span>M-Ui：最简单的代理面板</span></div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/MiniJet" target="_blank" rel="noopener noreferrer" title="打开 MiniJet GitHub 源码" aria-label="打开 MiniJet GitHub 源码">${icon('github')}</a><span>小飞机：最简单的代理客户端</span></div><div class="service-copyright">© 2026 <a href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer">M-Ui</a> v${ver}</div></div></div><button class="sidebar-restart" id="restartPanelSidebar" type="button"><span class="restart-mark">${icon('restart')}</span><span>重启面板</span></button></div></aside>`}
+function layout(content){const [title,sub]=routeTitle(state.route), user=state.boot?.settings?.admin_user||'admin';return `<div class="shell">${nav()}<main class="main"><header class="topbar"><div class="page-heading-inline"><h1>${title}</h1><span>${sub}</span></div><div class="userbox-inline"><span>管理员账号：<b>${esc(user)}</b></span><span class="sep">·</span><button class="icon-btn subtle" id="logout" title="退出" aria-label="退出">${icon('power')}</button></div></header><div class="content">${content}</div></main></div>`}
 
 function login(){return `<div class="login-shell"><form class="login-card refined" id="loginForm"><div class="login-card-head">${brandIcon()}<h1>${esc(brandName())}</h1><p>最简单的代理面板</p></div><div class="field"><label>用户名</label><input class="input" name="user" autocomplete="username" autofocus></div><div class="field"><label>密码</label><input class="input" name="pass" type="password" autocomplete="current-password"></div><button class="btn btn-primary btn-lg" type="submit">登录面板</button><div class="security-note">仅限管理员访问</div></form></div>`}
 
@@ -185,8 +191,8 @@ function confirmBox(message, yes){state.modal='confirm';document.body.insertAdja
 
 async function loadPanelInfo(){try{state.publicInfo=await api('/api/panel-info')}catch{}}
 async function loadBootstrap(){state.boot=await api('/api/bootstrap');state.publicInfo={name:state.boot?.settings?.panel_name||'m-ui',version:state.boot?.version||''};document.title=brandName()+' · MiniJet'}
-async function loadStats(){try{const st=await api('/api/system/stats');state.stats=st;state.netHistory.push({rx:st.rx_rate||0,tx:st.tx_rate||0});if(state.netHistory.length>30)state.netHistory.shift();const runtime=$('#panelUptime');if(runtime)runtime.textContent='面板累计运行 '+fmtPanelUptime(st.panel_uptime_seconds||0);if(state.route==='dashboard')render()}catch(e){console.warn(e)}}
-function startPolling(){clearInterval(state.timer);loadStats();state.timer=setInterval(loadStats,5000)}
+async function loadStats(){try{const st=await api('/api/system/stats');state.stats=st;state.panelUptimeAnchor={seconds:Number(st.panel_uptime_seconds||0),at:Date.now()};state.netHistory.push({rx:st.rx_rate||0,tx:st.tx_rate||0});if(state.netHistory.length>30)state.netHistory.shift();if(state.route==='dashboard')render();updateStableClock()}catch(e){console.warn(e)}}
+function startPolling(){stopTimers();loadStats();state.timer=setInterval(loadStats,5000);state.clockTimer=setInterval(updateStableClock,1000)}
 
 async function restartPanel(){
   if(!confirm('确认重启面板？重启后需要重新登录。'))return;
@@ -199,14 +205,14 @@ async function restartPanel(){
   target.search='';
   toast('正在重启面板…');
   try{await api('/api/system/restart',{method:'POST'})}catch{}
-  clearInterval(state.timer);
+  stopTimers();
   setTimeout(()=>{location.href=target.toString()},4200);
 }
 
 function render(){document.title=brandName()+' · MiniJet';const app=$('#app');if(!state.loggedIn){app.innerHTML=login();bindLogin();return}if(!state.boot){app.innerHTML=`<div class="loading">正在载入 m-ui…</div>`;return}let html=state.route==='nodes'?nodes():state.route==='subscriptions'?subscriptions():state.route==='settings'?settings():dashboard();app.innerHTML=html;bindCommon();if(state.route==='nodes')bindNodes();if(state.route==='subscriptions')bindSubs();if(state.route==='settings')bindSettings()}
 
 function bindLogin(){$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const fd=new FormData(e.target);try{await api('/api/login',{method:'POST',body:JSON.stringify({username:fd.get('user'),password:fd.get('pass')})});state.loggedIn=true;await loadBootstrap();startPolling();render()}catch(err){toast(err.message,false)}})}
-function bindCommon(){$$('[data-route]').forEach(b=>b.onclick=()=>{state.route=b.dataset.route;location.hash='#/'+state.route;render()});$('#restartPanelSidebar')?.addEventListener('click',restartPanel);$('#logout')?.addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;clearInterval(state.timer);render()});$$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'))}
+function bindCommon(){$$('[data-route]').forEach(b=>b.onclick=()=>{state.route=b.dataset.route;location.hash='#/'+state.route;render()});$('#restartPanelSidebar')?.addEventListener('click',restartPanel);$('#logout')?.addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;stopTimers();render()});$$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'))}
 function openNodeModal(){document.body.insertAdjacentHTML('beforeend',nodeModal());const close=()=>$('.modal-backdrop')?.remove();$('#closeModal').onclick=close;$('#cancelModal').onclick=close;$('.modal-backdrop').addEventListener('click',e=>{if(e.target.classList.contains('modal-backdrop'))close()});$('#createNode').onclick=async()=>{const btn=$('#createNode');btn.disabled=true;btn.textContent='正在识别并创建…';try{const out=await api('/api/nodes/default',{method:'POST'});close();await loadBootstrap();render();toast(out.warning?`${out.node.name} 已创建；${out.warning}`:`${out.node.name} 已创建并生效`)}catch(err){btn.disabled=false;btn.textContent='立即创建';toast(err.message,false)}}}
 function bindNodes(){
   $('#addNode')?.addEventListener('click',openNodeModal);
@@ -219,16 +225,16 @@ function bindNodes(){
     b.disabled=true;
     try{state.boot=await api('/api/nodes/'+b.dataset.id+'/reset-traffic',{method:'POST'});render();toast('节点流量已清空')}catch(e){b.disabled=false;toast(e.message,false)}
   });
-  $$('.toggle-node').forEach(b=>b.onclick=async()=>{try{await api('/api/nodes/'+b.dataset.id,{method:'PATCH',body:JSON.stringify({enabled:b.dataset.enabled!=='true'})});await loadBootstrap();render();toast('节点状态已更新')}catch(e){toast(e.message,false)}});
+  $$('.toggle-node').forEach(b=>b.onclick=async()=>{b.disabled=true;try{state.boot=await api('/api/nodes/'+b.dataset.id,{method:'PATCH',body:JSON.stringify({enabled:b.dataset.enabled!=='true'})});render();toast(b.dataset.enabled==='true'?'节点已停止':'节点已启用')}catch(e){b.disabled=false;toast(e.message,false)}});
   $$('.delete-node').forEach(b=>b.onclick=()=>confirmBox(`删除节点“${b.dataset.name}”？删除后 Xray 会立即重载。`,async()=>{try{await api('/api/nodes/'+b.dataset.id,{method:'DELETE'});await loadBootstrap();render();toast('节点已删除')}catch(e){toast(e.message,false)}}));
   $('#nodeSearch')?.addEventListener('input',e=>{const q=e.target.value.toLowerCase();$$('#nodeRows tr').forEach(tr=>tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none')});
 }
 function bindSubs(){
-  $('.copy-sub').forEach(b=>b.onclick=()=>copyText(b.dataset.url,'订阅链接已复制'));
-  $('.toggle-sub').forEach(b=>b.onclick=async()=>{b.disabled=true;try{state.boot=await api('/api/subscriptions/'+b.dataset.id,{method:'PATCH',body:JSON.stringify({enabled:b.dataset.enabled!=='true'})});render();toast(b.dataset.enabled==='true'?'订阅已停止':'订阅已启用')}catch(e){b.disabled=false;toast(e.message,false)}});
-  $('.edit-sub').forEach(b=>b.onclick=()=>openEditSubscription(b.dataset.id));
+  $$('.copy-sub').forEach(b=>b.onclick=()=>copyText(b.dataset.url,'订阅链接已复制'));
+  $$('.toggle-sub').forEach(b=>b.onclick=async()=>{b.disabled=true;try{state.boot=await api('/api/subscriptions/'+b.dataset.id,{method:'PATCH',body:JSON.stringify({enabled:b.dataset.enabled!=='true'})});render();toast(b.dataset.enabled==='true'?'订阅已停止':'订阅已启用')}catch(e){b.disabled=false;toast(e.message,false)}});
+  $$('.edit-sub').forEach(b=>b.onclick=()=>openEditSubscription(b.dataset.id));
   $('#newSub')?.addEventListener('click',openNewSubscription);
-  $('.delete-sub').forEach(b=>b.onclick=()=>confirmBox('删除订阅“'+b.dataset.name+'”？',async()=>{try{await api('/api/subscriptions/'+b.dataset.id,{method:'DELETE'});await loadBootstrap();render();toast('订阅已删除')}catch(e){toast(e.message,false)}}))
+  $$('.delete-sub').forEach(b=>b.onclick=()=>confirmBox('删除订阅“'+b.dataset.name+'”？',async()=>{try{await api('/api/subscriptions/'+b.dataset.id,{method:'DELETE'});await loadBootstrap();render();toast('订阅已删除')}catch(e){toast(e.message,false)}}))
 }
 function bindSettings(){
   const s=state.boot?.settings||{};
@@ -289,7 +295,7 @@ function bindSettings(){
       if(out.restart_required){
         state.loggedIn=false;
         state.boot=null;
-        clearInterval(state.timer);
+        stopTimers();
         document.title=(state.publicInfo.name||'m-ui')+' · MiniJet';
         $('#app').innerHTML=`<div class="loading restart-loading"><div><strong>设置已保存</strong><span>面板端口已修改，正在重启；稍后请重新登录…</span></div></div>`;
         setTimeout(()=>{location.href=target.toString()},4200);
@@ -299,7 +305,7 @@ function bindSettings(){
       if(out.relogin_required){
         state.loggedIn=false;
         state.boot=null;
-        clearInterval(state.timer);
+        stopTimers();
         document.title=(state.publicInfo.name||'m-ui')+' · MiniJet';
         if(out.panel_path_changed){
           setTimeout(()=>{location.href=target.toString()},300);

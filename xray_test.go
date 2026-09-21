@@ -172,6 +172,9 @@ func TestGeneratedRealityConfigWithInstalledXray(t *testing.T) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("current Xray rejected generated REALITY config: %v\n%s", err, out)
 	}
+	if err := x.Validate(st); err != nil {
+		t.Fatalf("Validate rejected generated REALITY config: %v", err)
+	}
 }
 
 func TestBuildConfigEnablesPerNodeTrafficStats(t *testing.T) {
