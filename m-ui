@@ -209,18 +209,27 @@ purge_panel(){
   exit 0
 }
 
-update_scripts(){
-  local tmp_menu tmp_ctl
-  tmp_menu="$(mktemp)"
-  tmp_ctl="$(mktemp)"
-  curl -fsSL --retry 3 "$RAW/m-ui" -o "$tmp_menu"
-  curl -fsSL --retry 3 "$RAW/m-ui-ctl" -o "$tmp_ctl"
-  bash -n "$tmp_menu"
-  bash -n "$tmp_ctl"
-  install -m 0755 "$tmp_menu" "$MENU_BIN"
-  install -m 0755 "$tmp_ctl" "$CTL_BIN"
-  rm -f "$tmp_menu" "$tmp_ctl"
-  ok "m-ui SSH 管理脚本已更新。"
+update_program(){
+  installed || { warn "尚未检测到完整安装，将转入一键安装。"; install_panel; return; }
+
+  local current remote
+  current="$("$SERVER_BIN" --version 2>/dev/null | awk '{print $2}' || true)"
+  remote="$(curl -fsSL --max-time 8 "$RAW/VERSION" 2>/dev/null | tr -d '[:space:]' || true)"
+  [[ -n "$current" ]] || current="未知"
+  [[ -n "$remote" ]] || remote="未知"
+
+  info "开始完整更新 m-ui：$current → $remote"
+  info "将更新：后端程序、内嵌前端、SSH 菜单、控制脚本、Xray Core，并保留现有数据与设置。"
+  bash <(curl -fsSL --retry 3 "$RAW/install.sh")
+
+  local after
+  after="$("$SERVER_BIN" --version 2>/dev/null | awk '{print $2}' || true)"
+  [[ -n "$after" ]] || after="未知"
+  ok "完整更新完成，当前运行版本：$after"
+  echo
+  info "正在重新载入最新版 SSH 管理菜单…"
+  sleep 1
+  exec "$MENU_BIN"
 }
 
 settings_menu(){
@@ -392,7 +401,7 @@ main_menu(){
     echo
     echo " 1. 一键安装 m-ui"
     echo " 2. 删除卸载 m-ui （包含卸载所有配置）"
-    echo " 3. 更新 m-ui 脚本"
+    echo " 3. 完整更新 m-ui 【前端、后端、脚本、Xray】"
     line
     echo " 4. 变更 m-ui 面板设置 【用户名密码、登录端口、根路径、还原面板】"
     echo " 5. 关闭、重启 m-ui"
@@ -405,7 +414,7 @@ main_menu(){
     case "$choice" in
       1) install_panel; pause ;;
       2) purge_panel ;;
-      3) update_scripts; pause ;;
+      3) update_program ;;
       4) settings_menu ;;
       5) service_menu ;;
       6) show_logs ;;
