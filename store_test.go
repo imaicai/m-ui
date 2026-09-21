@@ -33,7 +33,7 @@ func TestInitPasswordAndNewDefaults(t *testing.T) {
 	if st.Subscriptions[0].Slug == "" || st.Subscriptions[0].Slug != st.Subscriptions[0].Token {
 		t.Fatalf("default subscription slug not initialized: %#v", st.Subscriptions[0])
 	}
-	if st.Settings.CertFile != "/root/minijet/ssh/m-ui/fullchain.pem" || st.Settings.KeyFile != "/root/minijet/ssh/m-ui/privkey.pem" {
+	if st.Settings.CertFile != defaultCertFile() || st.Settings.KeyFile != defaultKeyFile() {
 		t.Fatalf("unexpected certificate defaults: %#v", st.Settings)
 	}
 	if !strings.HasPrefix(st.Settings.PanelPath, "/") || !strings.HasSuffix(st.Settings.PanelPath, "/") || st.Settings.PanelPath == "/" {
@@ -72,7 +72,7 @@ func TestOldStateMigratesWithoutChangingExistingNodeSecurity(t *testing.T) {
 	if st.Nodes[0].Security != "tls" {
 		t.Fatalf("existing node must remain TLS, got %q", st.Nodes[0].Security)
 	}
-	if st.Settings.CertFile != "/root/minijet/ssh/m-ui/fullchain.pem" || st.Settings.KeyFile != "/root/minijet/ssh/m-ui/privkey.pem" {
+	if st.Settings.CertFile != defaultCertFile() || st.Settings.KeyFile != defaultKeyFile() {
 		t.Fatalf("old defaults not migrated")
 	}
 }
@@ -145,5 +145,15 @@ func TestSubscriptionSlugMigratesFromToken(t *testing.T) {
 	st := s.Snapshot()
 	if st.Subscriptions[0].Slug != "OldToken123" {
 		t.Fatalf("slug migration failed: %#v", st.Subscriptions[0])
+	}
+}
+
+func TestDefaultCertHomeUsesInstallerEnvironment(t *testing.T) {
+	t.Setenv("MUI_CERT_HOME", "/home/tester")
+	if got := defaultCertFile(); got != "/home/tester/minijet/ssh/m-ui/fullchain.pem" {
+		t.Fatalf("unexpected cert path: %s", got)
+	}
+	if got := defaultKeyFile(); got != "/home/tester/minijet/ssh/m-ui/privkey.pem" {
+		t.Fatalf("unexpected key path: %s", got)
 	}
 }
