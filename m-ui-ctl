@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -e
+RAW="https://raw.githubusercontent.com/imaicai/m-ui/main/install.sh"
+case "${1:-help}" in
+  status) systemctl status m-ui --no-pager ;;
+  start) systemctl start m-ui && echo "m-ui 已启动" ;;
+  stop) systemctl stop m-ui && echo "m-ui 已停止" ;;
+  restart) systemctl restart m-ui && echo "m-ui 已重启" ;;
+  logs) journalctl -u m-ui -f --no-pager ;;
+  update) bash <(curl -fsSL "$RAW") ;;
+  xray) systemctl status xray --no-pager ;;
+  *)
+    cat <<HELP
+m-ui 控制命令
+  m-ui-ctl status   查看面板状态
+  m-ui-ctl restart  重启面板
+  m-ui-ctl logs     实时查看日志
+  m-ui-ctl update   更新到最新源码
+  m-ui-ctl xray     查看 Xray 状态
+HELP
+    ;;
+esac
