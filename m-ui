@@ -227,7 +227,7 @@ update_program(){
 
   info "开始完整更新 m-ui：$current → $remote"
   info "将更新：后端程序、内嵌前端、SSH 菜单、控制脚本、Xray Core，并保留现有数据与设置。"
-  bash <(curl -fsSL --retry 3 "$RAW/install.sh")
+  MUI_XRAY_REFRESH=1 bash <(curl -fsSL --retry 3 "$RAW/install.sh")
 
   local after
   after="$("$SERVER_BIN" --version 2>/dev/null | awk '{print $2}' || true)"
@@ -383,7 +383,11 @@ net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 EOF
 
-  ok "已启用并持久化原版 BBR + FQ。"
+  sysctl -w net.ipv4.tcp_mtu_probing=1 >/dev/null 2>&1 || true
+  if ! grep -q "^net.ipv4.tcp_mtu_probing=1$" /etc/sysctl.d/99-m-ui-bbr.conf 2>/dev/null; then
+    echo "net.ipv4.tcp_mtu_probing=1" >> /etc/sysctl.d/99-m-ui-bbr.conf
+  fi
+  ok "已启用并持久化原版 BBR + FQ + PMTU 黑洞自动探测。"
   printf '原拥塞控制: %s    原排队规则: %s\n' "${old_cc:---}" "${old_q:---}"
   printf 'tcp_congestion_control = %s\n' "$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || echo unknown)"
   printf 'default_qdisc = %s\n' "$(sysctl -n net.core.default_qdisc 2>/dev/null || echo unknown)"
