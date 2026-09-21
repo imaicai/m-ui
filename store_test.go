@@ -72,7 +72,7 @@ func TestOldStateMigratesWithoutChangingExistingNodeSecurity(t *testing.T) {
 	if st.Nodes[0].Security != "tls" {
 		t.Fatalf("existing node must remain TLS, got %q", st.Nodes[0].Security)
 	}
-	if st.Settings.CertFile != "/maicai/ssh/m-ui/fullchain.pem" || st.Settings.KeyFile != "/maicai/ssh/m-ui/privkey.pem" {
+	if st.Settings.CertFile != "/root/minijet/ssh/m-ui/fullchain.pem" || st.Settings.KeyFile != "/root/minijet/ssh/m-ui/privkey.pem" {
 		t.Fatalf("old defaults not migrated")
 	}
 }
