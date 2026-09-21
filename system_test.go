@@ -26,3 +26,24 @@ func TestValidServerIdentityRejectsPrivateIP(t *testing.T) {
 		t.Fatal("unknown country code must be rejected")
 	}
 }
+
+func TestApplyNodeCountryBackfill(t *testing.T) {
+	st := defaultState()
+	st.Nodes = []Node{
+		{ID: "n1", Name: "US01"},
+		{ID: "n2", Name: "US02", Country: "JP"},
+	}
+	if !applyNodeCountryBackfill(&st, "us") {
+		t.Fatal("expected missing country to be backfilled")
+	}
+	if st.Nodes[0].Country != "US" {
+		t.Fatalf("unexpected backfilled country: %q", st.Nodes[0].Country)
+	}
+	if st.Nodes[1].Country != "JP" {
+		t.Fatalf("existing country must not be overwritten: %q", st.Nodes[1].Country)
+	}
+	if normalizeCountryCode("xx") != "" || normalizeCountryCode("USA") != "" || normalizeCountryCode(" jp ") != "JP" {
+		t.Fatal("country code normalization failed")
+	}
+}
+
