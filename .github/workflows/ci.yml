@@ -72,6 +72,14 @@ jobs:
           assert 'replaceServicePanelPort' in server
           PY
 
+      - name: Icon asset assertions
+        shell: bash
+        run: |
+          test -s web/assets/app-icon.png
+          test -s web/assets/favicon.ico
+          grep -q 'app-icon.png?v=1.4.6' web/assets/app.js
+          grep -q 'favicon.ico?v=1.4.6' web/index.html
+
       - name: Shell syntax
         shell: bash
         run: |
