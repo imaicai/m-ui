@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -76,5 +78,15 @@ func TestPanelPortDefault(t *testing.T) {
 func TestInvalidCertificateNeverForcesHTTPS(t *testing.T) {
 	if certificateValidForDomain("/does/not/exist.pem", "/does/not/exist.key", "panel.example.com", time.Now()) {
 		t.Fatal("missing certificate must never be treated as valid HTTPS")
+	}
+}
+
+func TestPanelRestartRejectsNonPost(t *testing.T) {
+	s := &Server{}
+	req := httptest.NewRequest(http.MethodGet, "/api/system/restart", nil)
+	w := httptest.NewRecorder()
+	s.handlePanelRestart(w, req)
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("unexpected status: %d", w.Code)
 	}
 }

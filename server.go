@@ -88,6 +88,7 @@ func (s *Server) Run() error {
 	panelMux.HandleFunc("/api/me", s.auth(s.handleMe))
 	panelMux.HandleFunc("/api/bootstrap", s.auth(s.handleBootstrap))
 	panelMux.HandleFunc("/api/system/stats", s.auth(s.handleStats))
+	panelMux.HandleFunc("/api/system/restart", s.auth(s.handlePanelRestart))
 	panelMux.HandleFunc("/api/settings", s.auth(s.handleSettings))
 	panelMux.HandleFunc("/api/nodes/default", s.auth(s.handleCreateDefaultNode))
 	panelMux.HandleFunc("/api/nodes/", s.auth(s.handleNode))
@@ -273,6 +274,26 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	s.lastNet = sample
 	s.statsMu.Unlock()
 	writeJSON(w, 200, st)
+}
+
+func (s *Server) handlePanelRestart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"ok":      true,
+		"message": "m-ui 正在重启",
+	})
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+	go func() {
+		time.Sleep(700 * time.Millisecond)
+		// The installer configures systemd with Restart=on-failure, so a controlled
+		// non-zero exit restarts only the panel process without touching Xray.
+		os.Exit(42)
+	}()
 }
 
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
