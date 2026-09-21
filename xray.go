@@ -17,6 +17,13 @@ import (
 	"time"
 )
 
+const xrayStatsAPIAddr = "127.0.0.1:10085"
+
+type TrafficDelta struct {
+	Uplink   uint64
+	Downlink uint64
+}
+
 type XrayManager struct {
 	bin        string
 	configPath string
@@ -101,7 +108,7 @@ func (x *XrayManager) BuildConfig(st AppState) ([]byte, error) {
 				"clients": []any{map[string]any{
 					"id":    n.UUID,
 					"flow":  "xtls-rprx-vision",
-					"email": n.Name + "@m-ui",
+					"email": n.ID + "@m-ui",
 				}},
 				"decryption": "none",
 			},
@@ -109,8 +116,29 @@ func (x *XrayManager) BuildConfig(st AppState) ([]byte, error) {
 		})
 	}
 
+	inbounds = append(inbounds, map[string]any{
+		"listen":   "127.0.0.1",
+		"port":     10085,
+		"protocol": "dokodemo-door",
+		"tag":      "api-in",
+		"settings": map[string]any{"address": "127.0.0.1"},
+	})
+
 	cfg := map[string]any{
 		"log":      map[string]any{"loglevel": "warning"},
+		"stats":    map[string]any{},
+		"policy": map[string]any{
+			"levels": map[string]any{
+				"0": map[string]any{
+					"statsUserUplink":   true,
+					"statsUserDownlink": true,
+				},
+			},
+		},
+		"api": map[string]any{
+			"tag":      "api",
+			"services": []string{"StatsService"},
+		},
 		"inbounds": inbounds,
 		"outbounds": []any{
 			map[string]any{"protocol": "freedom", "tag": "direct"},
@@ -119,11 +147,56 @@ func (x *XrayManager) BuildConfig(st AppState) ([]byte, error) {
 		"routing": map[string]any{
 			"domainStrategy": "AsIs",
 			"rules": []any{
+				map[string]any{"type": "field", "inboundTag": []string{"api-in"}, "outboundTag": "api"},
 				map[string]any{"type": "field", "protocol": []string{"bittorrent"}, "outboundTag": "blocked"},
 			},
 		},
 	}
 	return json.MarshalIndent(cfg, "", "  ")
+}
+
+func (x *XrayManager) QueryUserTraffic(reset bool) (map[string]TrafficDelta, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+	defer cancel()
+	args := []string{"api", "statsquery", "--server=" + xrayStatsAPIAddr, "-pattern", "user>>>"}
+	if reset {
+		args = append(args, "-reset")
+	}
+	out, err := exec.CommandContext(ctx, x.bin, args...).CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("读取 Xray 流量统计失败: %s", strings.TrimSpace(string(out)))
+	}
+	var resp struct {
+		Stat []struct {
+			Name  string          `json:"name"`
+			Value json.RawMessage `json:"value"`
+		} `json:"stat"`
+	}
+	if err := json.Unmarshal(out, &resp); err != nil {
+		return nil, fmt.Errorf("解析 Xray 流量统计失败: %w", err)
+	}
+	result := map[string]TrafficDelta{}
+	for _, item := range resp.Stat {
+		parts := strings.Split(item.Name, ">>>")
+		if len(parts) != 4 || parts[0] != "user" || parts[2] != "traffic" {
+			continue
+		}
+		email := parts[1]
+		raw := strings.Trim(strings.TrimSpace(string(item.Value)), "\"")
+		value, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil {
+			continue
+		}
+		d := result[email]
+		switch parts[3] {
+		case "uplink":
+			d.Uplink += value
+		case "downlink":
+			d.Downlink += value
+		}
+		result[email] = d
+	}
+	return result, nil
 }
 
 func nodeSecurity(n Node) string {
