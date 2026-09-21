@@ -44,6 +44,60 @@ jobs:
       - name: Frontend syntax
         run: node --check web/assets/app.js
 
+      - name: Xray HandlerService hot-reload smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo systemctl stop xray || true
+          cat >/tmp/mui-api-smoke.json <<'JSON'
+          {
+            "log": {"loglevel": "warning"},
+            "api": {"tag": "api", "services": ["HandlerService"]},
+            "inbounds": [
+              {
+                "listen": "127.0.0.1",
+                "port": 19085,
+                "protocol": "dokodemo-door",
+                "tag": "api-in",
+                "settings": {"address": "127.0.0.1"}
+              }
+            ],
+            "outbounds": [{"protocol": "freedom", "tag": "direct"}],
+            "routing": {
+              "rules": [
+                {"type": "field", "inboundTag": ["api-in"], "outboundTag": "api"}
+              ]
+            }
+          }
+          JSON
+          cat >/tmp/mui-add-inbound.json <<'JSON'
+          {
+            "inbounds": [
+              {
+                "listen": "127.0.0.1",
+                "port": 19088,
+                "protocol": "dokodemo-door",
+                "tag": "m-ui-ci-hot",
+                "settings": {"address": "127.0.0.1"}
+              }
+            ]
+          }
+          JSON
+          /usr/local/bin/xray run -config /tmp/mui-api-smoke.json >/tmp/mui-xray-smoke.log 2>&1 &
+          XRAY_PID=$!
+          trap 'kill "$XRAY_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            /usr/local/bin/xray api lsi --server=127.0.0.1:19085 >/dev/null 2>&1 && break
+            sleep 0.2
+          done
+          /usr/local/bin/xray api adi --server=127.0.0.1:19085 /tmp/mui-add-inbound.json
+          /usr/local/bin/xray api lsi --server=127.0.0.1:19085 | grep -q 'm-ui-ci-hot'
+          /usr/local/bin/xray api rmi --server=127.0.0.1:19085 m-ui-ci-hot
+          ! /usr/local/bin/xray api lsi --server=127.0.0.1:19085 | grep -q 'm-ui-ci-hot'
+          kill "$XRAY_PID"
+          wait "$XRAY_PID" || true
+          trap - EXIT
+
       - name: Frontend event binding assertions
         shell: bash
         run: |
@@ -158,6 +212,10 @@ jobs:
           assert 'Cache-Control' in server and 'no-store' in server
           panel_tls = Path("panel_tls.go").read_text(encoding="utf-8")
           assert 'MaxHeaderBytes' in panel_tls
+          assert 'func requestSecure' in panel_tls
+          assert 'X-Forwarded-Proto' in panel_tls
+          assert 'len(unique) < 8' in server
+          assert 'secure random source unavailable' in store
           PY
 
       - name: Shell syntax
@@ -180,6 +238,10 @@ jobs:
           grep -q 'xray-version.lock' install.sh
           grep -q 'tcp_mtu_probing=1' install.sh
           grep -q 'NoNewPrivileges=true' install.sh
+          grep -q 'PrivateTmp=true' install.sh
+          grep -q 'ProtectKernelTunables=true' install.sh
+          grep -q 'MUI_XRAY_USER 仅支持 xray 或 root' install.sh
+          grep -q 'close_port()' m-ui
           grep -q 'PANEL_PORT="${MUI_PORT:-16800}"' install.sh
           grep -q 'MUI_CERT_HOME' install.sh
           grep -q 'defaultCertFile()' store.go

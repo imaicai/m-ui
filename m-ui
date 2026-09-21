@@ -138,6 +138,16 @@ open_port(){
   fi
 }
 
+close_port(){
+  local port="$1"
+  if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qi 'Status: active'; then
+    ufw --force delete allow "${port}/tcp" >/dev/null 2>&1 || true
+  elif command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+    firewall-cmd --permanent --remove-port="${port}/tcp" >/dev/null 2>&1 || true
+    firewall-cmd --reload >/dev/null 2>&1 || true
+  fi
+}
+
 set_port(){
   local port="$1"
   [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1024 && port <= 65535 )) || { err "端口必须在 1024-65535 之间。"; return 1; }
@@ -277,11 +287,14 @@ settings_menu(){
         pause
         ;;
       3)
-        local port
+        local port old_port
+        old_port="$(panel_port)"
         read -r -p "请输入新的登录端口 [1024-65535]: " port
         if set_port "$port"; then
-          restart_panel
-          ok "面板登录端口已修改为: $port"
+          if restart_panel; then
+            [[ "$old_port" == "$port" ]] || close_port "$old_port"
+            ok "面板登录端口已修改为: $port"
+          fi
         fi
         pause
         ;;
@@ -301,9 +314,13 @@ settings_menu(){
         read -r -p "确认还原请输入 YES: " yes
         if [[ "$yes" == "YES" ]]; then
           echo
+          local old_port
+          old_port="$(panel_port)"
           if run_offline_setting --reset-panel-access; then
             set_port 16800
-            restart_panel
+            if restart_panel; then
+              [[ "$old_port" == "16800" ]] || close_port "$old_port"
+            fi
             echo
             warn "请保存上方新的管理员密码。"
           else
