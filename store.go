@@ -15,26 +15,36 @@ import (
 	"time"
 )
 
-const stateVersion = 1
+const stateVersion = 2
 
 type Settings struct {
-	PanelName       string `json:"panel_name"`
-	Domain          string `json:"domain"`
-	CertFile        string `json:"cert_file"`
-	KeyFile         string `json:"key_file"`
-	DefaultProtocol string `json:"default_protocol"`
-	AdminUser       string `json:"admin_user"`
-	PasswordSalt    string `json:"password_salt"`
-	PasswordHash    string `json:"password_hash"`
+	PanelName         string `json:"panel_name"`
+	PanelPath         string `json:"panel_path"`
+	Domain            string `json:"domain"`
+	CertFile          string `json:"cert_file"`
+	KeyFile           string `json:"key_file"`
+	DefaultProtocol   string `json:"default_protocol"`
+	RealityTarget     string `json:"reality_target"`
+	RealityServerName string `json:"reality_server_name"`
+	AdminUser         string `json:"admin_user"`
+	PasswordSalt      string `json:"password_salt"`
+	PasswordHash      string `json:"password_hash"`
 }
 
 type Node struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	UUID      string    `json:"uuid"`
-	Port      int       `json:"port"`
-	Enabled   bool      `json:"enabled"`
-	CreatedAt time.Time `json:"created_at"`
+	ID                string    `json:"id"`
+	Name              string    `json:"name"`
+	UUID              string    `json:"uuid"`
+	Port              int       `json:"port"`
+	Enabled           bool      `json:"enabled"`
+	Security          string    `json:"security,omitempty"`
+	Address           string    `json:"address,omitempty"`
+	RealityPrivateKey string    `json:"reality_private_key,omitempty"`
+	RealityPassword   string    `json:"reality_password,omitempty"`
+	RealityShortID    string    `json:"reality_short_id,omitempty"`
+	RealityServerName string    `json:"reality_server_name,omitempty"`
+	RealityTarget     string    `json:"reality_target,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 type Subscription struct {
@@ -81,18 +91,32 @@ func (s *Store) load() error {
 	if err := json.Unmarshal(b, &s.data); err != nil {
 		return fmt.Errorf("读取数据文件失败: %w", err)
 	}
-	if s.data.Version == 0 {
-		s.data.Version = stateVersion
+
+	// Upgrade older state files without breaking existing nodes.
+	if s.data.Settings.PanelPath == "" {
+		s.data.Settings.PanelPath = "/"
 	}
-	if s.data.Settings.CertFile == "" {
-		s.data.Settings.CertFile = "/maicai/ssh/fullchain.pem"
+	if s.data.Settings.CertFile == "" || s.data.Settings.CertFile == "/maicai/ssh/fullchain.pem" {
+		s.data.Settings.CertFile = "/maicai/ssh/m-ui/fullchain.pem"
 	}
-	if s.data.Settings.KeyFile == "" {
-		s.data.Settings.KeyFile = "/maicai/ssh/privkey.pem"
+	if s.data.Settings.KeyFile == "" || s.data.Settings.KeyFile == "/maicai/ssh/privkey.pem" {
+		s.data.Settings.KeyFile = "/maicai/ssh/m-ui/privkey.pem"
 	}
-	if s.data.Settings.DefaultProtocol == "" {
-		s.data.Settings.DefaultProtocol = "VLESS + TCP + TLS + XTLS Vision"
+	if s.data.Settings.DefaultProtocol == "" || strings.Contains(s.data.Settings.DefaultProtocol, "TLS") {
+		s.data.Settings.DefaultProtocol = "VLESS + RAW + REALITY + XTLS Vision"
 	}
+	if s.data.Settings.RealityTarget == "" {
+		s.data.Settings.RealityTarget = "www.microsoft.com:443"
+	}
+	if s.data.Settings.RealityServerName == "" {
+		s.data.Settings.RealityServerName = "www.microsoft.com"
+	}
+	for i := range s.data.Nodes {
+		if s.data.Nodes[i].Security == "" {
+			s.data.Nodes[i].Security = "tls"
+		}
+	}
+	s.data.Version = stateVersion
 	return nil
 }
 
@@ -100,11 +124,14 @@ func defaultState() AppState {
 	return AppState{
 		Version: stateVersion,
 		Settings: Settings{
-			PanelName:       "m-ui",
-			CertFile:        "/maicai/ssh/fullchain.pem",
-			KeyFile:         "/maicai/ssh/privkey.pem",
-			DefaultProtocol: "VLESS + TCP + TLS + XTLS Vision",
-			AdminUser:       "admin",
+			PanelName:         "m-ui",
+			PanelPath:         "",
+			CertFile:          "/maicai/ssh/m-ui/fullchain.pem",
+			KeyFile:           "/maicai/ssh/m-ui/privkey.pem",
+			DefaultProtocol:   "VLESS + RAW + REALITY + XTLS Vision",
+			RealityTarget:     "www.microsoft.com:443",
+			RealityServerName: "www.microsoft.com",
+			AdminUser:         "admin",
 		},
 		Nodes:         []Node{},
 		Subscriptions: []Subscription{},
@@ -176,6 +203,9 @@ func (s *Store) EnsureInitialized(user, pass string) error {
 			return err
 		}
 		st.Settings.AdminUser = user
+		if st.Settings.PanelPath == "" {
+			st.Settings.PanelPath = randomPanelPath()
+		}
 		st.Settings.PasswordSalt = salt
 		st.Settings.PasswordHash = hash
 		if len(st.Subscriptions) == 0 {
@@ -252,3 +282,31 @@ func randomToken(n int) string {
 }
 
 func newID() string { return strings.ToLower(randomToken(12)) }
+
+func randomPanelPath() string {
+	return "/" + strings.ToLower(randomToken(12)) + "/"
+}
+
+func normalizePanelPath(v string) (string, error) {
+	v = strings.TrimSpace(v)
+	if v == "" || v == "/" {
+		return "/", nil
+	}
+	if !strings.HasPrefix(v, "/") {
+		v = "/" + v
+	}
+	if !strings.HasSuffix(v, "/") {
+		v += "/"
+	}
+	if len(v) > 80 || strings.Contains(v, "..") {
+		return "", errors.New("面板 URL 根路径格式不正确")
+	}
+	for _, r := range strings.Trim(v, "/") {
+		ok := r == '/' || r == '-' || r == '_' ||
+			(r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+		if !ok {
+			return "", errors.New("面板 URL 根路径只能包含字母、数字、-、_ 和 /")
+		}
+	}
+	return v, nil
+}
