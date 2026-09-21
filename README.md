@@ -4,10 +4,21 @@
 
 目标：**简单、稳定、易用**。普通用户不需要理解大量底层参数；新建节点默认使用 **VLESS + RAW + REALITY + XTLS Vision**，旧版已经创建的 TLS 节点会继续保留，不会在升级时强制转换。
 
+## v1.4.1
+
+- 使用 MiniJet PNG 图标作为网页 favicon、侧边栏应用图标与登录面板图标。
+- 登录页改为单一居中白色卡片，图标、品牌、账号输入全部收纳在卡片内。
+- 顶部导航高度缩减并改为单行：页面标题 + 页面说明；右侧显示登录管理员与退出图标。
+- 仪表盘移除“一键添加节点”卡片，服务器资源扩展为整页宽度。
+- 节点管理把添加按钮放到搜索框右侧，新手说明移动到节点列表下方。
+- 订阅管理移除顶部统计卡，改为单一订阅使用说明卡片。
+- 继续精修绿色 `#00B176` 视觉体系、字号、间距、表格与操作图标。
+- TLS 证书默认目录改为当前 SSH 安装用户的 home：`~/minijet/ssh/m-ui/`。root 登录时即为 `/root/minijet/ssh/m-ui/`。
+
 ## v1.4.0
 
 - 默认面板端口改为 `16800`（已有安装升级保留当前端口）。
-- 默认证书路径改为 `/root/minijet/ssh/m-ui/fullchain.pem` 与 `/root/minijet/ssh/m-ui/privkey.pem`。
+- 默认证书路径位于当前 SSH 安装用户 home：`~/minijet/ssh/m-ui/fullchain.pem` 与 `~/minijet/ssh/m-ui/privkey.pem`。
 - 面板同端口支持 HTTP/HTTPS；证书有效且匹配节点域名时 HTTP 自动跳转 HTTPS，证书失效时 HTTP 仍可访问。
 - 订阅名称和订阅地址后缀支持编辑。
 - 节点自动生成参数尽量避免数字 `4`（真实 IP/手工域名不做篡改）。
@@ -55,8 +66,8 @@
 - 自动识别服务器公网 IP 与国家代码，节点名自动生成，例如 `US01`、`US02`。
 - 新增 **面板 URL 根路径**；新安装自动生成随机路径，已有安装升级后先保持 `/`，可在系统设置中修改。
 - TLS 兼容模式默认证书路径改为：
-  - `/root/minijet/ssh/m-ui/fullchain.pem`
-  - `/root/minijet/ssh/m-ui/privkey.pem`
+  - `<SSH_HOME>/minijet/ssh/m-ui/fullchain.pem`
+  - `<SSH_HOME>/minijet/ssh/m-ui/privkey.pem`
 - 登录名与密码均可在系统设置中修改；账号信息变化要求输入当前密码。
 - 系统设置的“使用建议”移动到页面顶部，不再使用右侧独立边栏。
 - 增加针对当前官方 Xray 的 REALITY 配置集成测试。
@@ -148,8 +159,8 @@ VLESS + RAW + REALITY + XTLS Vision
 升级不会强制转换已有节点。TLS 节点仍使用系统设置中的域名与证书：
 
 ```text
-/root/minijet/ssh/m-ui/fullchain.pem
-/root/minijet/ssh/m-ui/privkey.pem
+<SSH_HOME>/minijet/ssh/m-ui/fullchain.pem
+<SSH_HOME>/minijet/ssh/m-ui/privkey.pem
 ```
 
 如果服务器没有旧 TLS 节点，节点域名可以留空。
@@ -220,8 +231,8 @@ m-ui-ctl xray
 /etc/systemd/system/m-ui.service         # systemd 服务
 /usr/local/bin/xray                      # Xray Core
 /usr/local/etc/xray/config.json          # m-ui 生成的 Xray 配置
-/root/minijet/ssh/m-ui/fullchain.pem           # TLS 兼容节点证书
-/root/minijet/ssh/m-ui/privkey.pem             # TLS 兼容节点私钥
+<SSH_HOME>/minijet/ssh/m-ui/fullchain.pem           # TLS 兼容节点证书
+<SSH_HOME>/minijet/ssh/m-ui/privkey.pem             # TLS 兼容节点私钥
 ```
 
 ## 开发与测试
