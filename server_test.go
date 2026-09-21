@@ -58,7 +58,7 @@ func TestNormalizeSubscriptionSlug(t *testing.T) {
 			t.Fatalf("normalizeSubscriptionSlug(%q) = %q, %v; want %q", in, got, err, want)
 		}
 	}
-	for _, bad := range []string{"a", "abcd", "bad/path", "含中文"} {
+	for _, bad := range []string{"a", "abcd", "aaaaaaaaaaaaaaaaaaaa", "abababababababababab", "bad/path", "含中文"} {
 		if _, err := normalizeSubscriptionSlug(bad); err == nil {
 			t.Fatalf("expected invalid subscription slug: %q", bad)
 		}
