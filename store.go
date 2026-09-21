@@ -436,19 +436,27 @@ func setPassword(st *AppState, password string) error {
 
 func randomToken(n int) string {
 	const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, n)
-	rnd := make([]byte, n)
-	if _, err := rand.Read(rnd); err != nil {
-		now := time.Now().UnixNano()
-		for i := range b {
-			b[i] = alphabet[(int(now)+i*31)%len(alphabet)]
+	if n <= 0 {
+		return ""
+	}
+	out := make([]byte, 0, n)
+	buf := make([]byte, 64)
+	const maxUnbiased = byte(248) // 62 * 4; reject 248-255 to remove modulo bias.
+	for len(out) < n {
+		if _, err := rand.Read(buf); err != nil {
+			panic("m-ui: secure random source unavailable")
 		}
-		return string(b)
+		for _, v := range buf {
+			if v >= maxUnbiased {
+				continue
+			}
+			out = append(out, alphabet[int(v)%len(alphabet)])
+			if len(out) == n {
+				break
+			}
+		}
 	}
-	for i := range b {
-		b[i] = alphabet[int(rnd[i])%len(alphabet)]
-	}
-	return string(b)
+	return string(out)
 }
 
 func newID() string { return strings.ToLower(randomToken(12)) }
