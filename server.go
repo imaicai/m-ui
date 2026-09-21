@@ -663,6 +663,7 @@ func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 	old := s.store.Snapshot()
 	next := old
 	idx := -1
+	toggleOnly := false
 	for i := range next.Nodes {
 		if next.Nodes[i].ID == id {
 			idx = i
@@ -688,6 +689,7 @@ func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 		if !decodeJSON(w, r, &in) {
 			return
 		}
+		toggleOnly = in.Enabled != nil && in.Name == nil && in.Address == nil && in.Port == nil && in.RealityServerName == nil
 		if in.Name != nil {
 			next.Nodes[idx].Name = cleanText(*in.Name, next.Nodes[idx].Name, 60)
 		}
@@ -730,6 +732,12 @@ func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 		}
 	default:
 		methodNotAllowed(w)
+		return
+	}
+	if toggleOnly {
+		if err := s.commitNodeToggleWithEarlyResponse(w, old, next); err != nil {
+			writeError(w, 400, err.Error())
+		}
 		return
 	}
 	if err := s.commitXrayState(old, next); err != nil {
@@ -1074,6 +1082,36 @@ func (s *Server) handleResetNodeTraffic(w http.ResponseWriter, r *http.Request, 
 	writeJSON(w, 200, makeBootstrap(st))
 }
 
+func (s *Server) commitNodeToggleWithEarlyResponse(w http.ResponseWriter, old, next AppState) error {
+	s.trafficMu.Lock()
+	defer s.trafficMu.Unlock()
+
+	if raw, err := s.xray.QueryUserTraffic(true); err == nil {
+		deltas := trafficDeltasByNodeID(old, raw)
+		applyNodeTrafficDeltas(&old, deltas)
+		applyNodeTrafficDeltas(&next, deltas)
+	}
+	if err := s.xray.Validate(next); err != nil {
+		return err
+	}
+	if err := s.store.Replace(next); err != nil {
+		return err
+	}
+
+	writeJSONAndFlush(w, http.StatusOK, makeBootstrap(next))
+	// Give the browser time to receive the complete response before Xray is restarted.
+	// This matters when the administrator is currently reaching the panel through
+	// the very node that is being stopped.
+	time.Sleep(250 * time.Millisecond)
+
+	if err := s.xray.Apply(next); err != nil {
+		log.Printf("m-ui: 节点状态切换后重载 Xray 失败，正在回滚: %v", err)
+		_ = s.store.Replace(old)
+		_ = s.xray.Apply(old)
+	}
+	return nil
+}
+
 func (s *Server) commitXrayState(old, next AppState) error {
 	s.trafficMu.Lock()
 	defer s.trafficMu.Unlock()
@@ -1232,6 +1270,23 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+func writeJSONAndFlush(w http.ResponseWriter, status int, v any) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "响应编码失败")
+		return
+	}
+	b = append(b, '\n')
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(len(b)))
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(status)
+	_, _ = w.Write(b)
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]any{"error": msg})
