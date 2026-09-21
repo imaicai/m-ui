@@ -97,6 +97,25 @@ func (s *Server) httpsReady() bool {
 	)
 }
 
+func requestSecure(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	if r.TLS != nil {
+		return true
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	peer := net.ParseIP(strings.TrimSpace(host))
+	if peer == nil || !(peer.IsLoopback() || peer.IsPrivate()) {
+		return false
+	}
+	proto := strings.ToLower(strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Proto"), ",")[0]))
+	return proto == "https"
+}
+
 func panelPort(addr string) string {
 	_, port, err := net.SplitHostPort(addr)
 	if err == nil && port != "" {
@@ -112,7 +131,7 @@ func panelPort(addr string) string {
 
 func (s *Server) redirectHTTPS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.TLS == nil && s.httpsReady() {
+		if !requestSecure(r) && s.httpsReady() {
 			st := s.store.Snapshot()
 			domain := strings.TrimSpace(st.Settings.Domain)
 			port := panelPort(s.cfg.Addr)
