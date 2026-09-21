@@ -874,7 +874,7 @@ func (s *Server) handleSubscriptionFeed(w http.ResponseWriter, r *http.Request) 
 func trafficDeltasByNodeID(st AppState, raw map[string]TrafficDelta) map[string]TrafficDelta {
 	out := map[string]TrafficDelta{}
 	for _, n := range st.Nodes {
-		if d, ok := raw[n.Name+"@m-ui"]; ok {
+		if d, ok := raw[n.ID+"@m-ui"]; ok {
 			out[n.ID] = d
 		}
 	}
