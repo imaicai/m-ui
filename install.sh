@@ -6,7 +6,7 @@ AUTHOR="MiniJet"
 REPO="https://github.com/imaicai/m-ui.git"
 RAW="https://raw.githubusercontent.com/imaicai/m-ui/main"
 BRANCH="${MUI_BRANCH:-main}"
-PANEL_PORT="${MUI_PORT:-54321}"
+PANEL_PORT="${MUI_PORT:-16800}"
 ADMIN_USER="${MUI_ADMIN_USER:-minijet}"
 INSTALL_SRC="/opt/m-ui-src"
 SERVER_BIN="/usr/local/bin/m-ui-server"
@@ -53,18 +53,20 @@ info "检查基础环境…"
 install_packages
 command -v go >/dev/null 2>&1 || die "Go 安装失败。"
 
-mkdir -p "$DATA_DIR" /maicai/ssh/m-ui /var/log/m-ui
+mkdir -p "$DATA_DIR" /root/minijet/ssh/m-ui /var/log/m-ui
 chmod 700 "$DATA_DIR"
-chmod 755 /maicai /maicai/ssh 2>/dev/null || true
-chmod 700 /maicai/ssh/m-ui 2>/dev/null || true
+chmod 700 /root/minijet /root/minijet/ssh /root/minijet/ssh/m-ui 2>/dev/null || true
 
-# Upgrade compatibility: move the old default TLS files into the new m-ui-only directory
-# only when the new destination is still empty.
-if [[ -f /maicai/ssh/fullchain.pem && ! -f /maicai/ssh/m-ui/fullchain.pem ]]; then
-  cp -a /maicai/ssh/fullchain.pem /maicai/ssh/m-ui/fullchain.pem
+# Upgrade compatibility: copy previous default certificate files into the new root-only directory.
+if [[ ! -f /root/minijet/ssh/m-ui/fullchain.pem ]]; then
+  for src in /maicai/ssh/m-ui/fullchain.pem /maicai/ssh/fullchain.pem; do
+    [[ -f "$src" ]] && { cp -a "$src" /root/minijet/ssh/m-ui/fullchain.pem; break; }
+  done
 fi
-if [[ -f /maicai/ssh/privkey.pem && ! -f /maicai/ssh/m-ui/privkey.pem ]]; then
-  cp -a /maicai/ssh/privkey.pem /maicai/ssh/m-ui/privkey.pem
+if [[ ! -f /root/minijet/ssh/m-ui/privkey.pem ]]; then
+  for src in /maicai/ssh/m-ui/privkey.pem /maicai/ssh/privkey.pem; do
+    [[ -f "$src" ]] && { cp -a "$src" /root/minijet/ssh/m-ui/privkey.pem; break; }
+  done
 fi
 
 if [[ -f "$DATA_FILE" ]]; then
@@ -91,7 +93,7 @@ git clone --depth 1 --branch "$BRANCH" "$REPO" "$INSTALL_SRC" >/dev/null 2>&1 ||
 info "编译 m-ui…"
 cd "$INSTALL_SRC"
 APP_VERSION="$(tr -d '[:space:]' < VERSION)"
-[[ -n "$APP_VERSION" ]] || APP_VERSION="1.3.1"
+[[ -n "$APP_VERSION" ]] || APP_VERSION="1.4.0"
 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${APP_VERSION}" -o /tmp/m-ui-server-build .
 install -m 0755 /tmp/m-ui-server-build "$SERVER_BIN"
 rm -f /tmp/m-ui-server-build
@@ -158,7 +160,7 @@ echo "  面板地址: http://${SERVER_IP}:${PANEL_PORT}${PANEL_PATH}"
 echo "  程序名称: m-ui"
 echo "  作者:     MiniJet"
 echo "  数据文件: $DATA_FILE"
-echo "  证书目录: /maicai/ssh/m-ui/"
+echo "  证书目录: /root/minijet/ssh/m-ui/"
 if [[ -n "$NEW_PASSWORD" ]]; then
   echo
 echo "  管理员账号: $ADMIN_USER"
