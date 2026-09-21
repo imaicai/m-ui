@@ -367,10 +367,18 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.clearLoginFailure(ip)
+	if passwordNeedsUpgrade(st.Settings.PasswordHash) {
+		_ = s.store.Update(func(next *AppState) error {
+			return setPassword(next, in.Password)
+		})
+	}
 	token := randomSessionToken()
+	csrf := randomSessionToken()
 	exp := time.Now().Add(7 * 24 * time.Hour)
-	s.sessions.Store(token, session{Expires: exp})
-	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: token, Path: s.panelPath(), HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, Expires: exp, MaxAge: int((7 * 24 * time.Hour).Seconds())})
+	s.sessions.Store(token, session{Expires: exp, CSRF: csrf})
+	cookiePath := s.panelPath()
+	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: token, Path: cookiePath, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, Expires: exp, MaxAge: int((7 * 24 * time.Hour).Seconds())})
+	http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: csrf, Path: cookiePath, HttpOnly: false, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, Expires: exp, MaxAge: int((7 * 24 * time.Hour).Seconds())})
 	writeJSON(w, 200, map[string]any{"ok": true, "username": st.Settings.AdminUser})
 }
 
@@ -389,7 +397,9 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie("mui_session"); err == nil {
 		s.sessions.Delete(c.Value)
 	}
-	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: "", Path: s.panelPath(), HttpOnly: true, MaxAge: -1, SameSite: http.SameSiteStrictMode})
+	path := s.panelPath()
+	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: "", Path: path, HttpOnly: true, Secure: r.TLS != nil, MaxAge: -1, SameSite: http.SameSiteStrictMode})
+	http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: "", Path: path, HttpOnly: false, Secure: r.TLS != nil, MaxAge: -1, SameSite: http.SameSiteStrictMode})
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -801,8 +811,8 @@ func normalizeSubscriptionSlug(v string) (string, error) {
 	v = strings.TrimSpace(v)
 	v = strings.TrimPrefix(v, "/sub/")
 	v = strings.Trim(v, "/")
-	if len(v) < 4 || len(v) > 80 {
-		return "", errors.New("订阅地址后缀长度应为 4-80 位")
+	if len(v) < 20 || len(v) > 80 {
+		return "", errors.New("订阅地址后缀长度应为 20-80 位")
 	}
 	for _, r := range v {
 		ok := r == '-' || r == '_' ||
@@ -1151,8 +1161,8 @@ func (s *Server) commitNodeToggleWithEarlyResponse(w http.ResponseWriter, old, n
 	// the very node that is being stopped.
 	time.Sleep(250 * time.Millisecond)
 
-	if err := s.xray.Apply(next); err != nil {
-		log.Printf("m-ui: 节点状态切换后重载 Xray 失败，正在回滚: %v", err)
+	if err := s.xray.HotApply(old, next); err != nil {
+		log.Printf("m-ui: 节点状态切换失败，正在回滚: %v", err)
 		_ = s.store.Replace(old)
 		_ = s.xray.Apply(old)
 	}
@@ -1171,7 +1181,7 @@ func (s *Server) commitXrayState(old, next AppState) error {
 	if err := s.store.Replace(next); err != nil {
 		return err
 	}
-	if err := s.xray.Apply(next); err != nil {
+	if err := s.xray.HotApply(old, next); err != nil {
 		_ = s.store.Replace(old)
 		_ = s.xray.Apply(old)
 		return err
