@@ -768,6 +768,41 @@ func subscriptionSlugExists(st AppState, slug, exceptID string) bool {
 	return false
 }
 
+func normalizeSubscriptionNodeIDs(st AppState, ids []string) ([]string, error) {
+	known := make(map[string]bool, len(st.Nodes))
+	for _, node := range st.Nodes {
+		known[node.ID] = true
+	}
+	out := make([]string, 0, len(ids))
+	seen := map[string]bool{}
+	for _, raw := range ids {
+		id := strings.TrimSpace(raw)
+		if id == "" {
+			continue
+		}
+		if !known[id] {
+			return nil, fmt.Errorf("节点不存在: %s", id)
+		}
+		if !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	return out, nil
+}
+
+func subscriptionHasNode(sub Subscription, nodeID string) bool {
+	if sub.IsDefault {
+		return true
+	}
+	for _, id := range sub.NodeIDs {
+		if id == nodeID {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		writeJSON(w, 200, s.store.Snapshot().Subscriptions)
@@ -778,9 +813,9 @@ func (s *Server) handleSubscriptions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Name    string   \`json:"name"\`
-		Slug    string   \`json:"slug"\`
-		NodeIDs []string \`json:"node_ids"\`
+		Name    string   `json:"name"`
+		Slug    string   `json:"slug"`
+		NodeIDs []string `json:"node_ids"`
 	}
 	if !decodeJSON(w, r, &in) {
 		return
@@ -829,9 +864,9 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPatch:
 		var in struct {
-			Name    string    \`json:"name"\`
-			Slug    string    \`json:"slug"\`
-			NodeIDs *[]string \`json:"node_ids"\`
+			Name    string    `json:"name"`
+			Slug    string    `json:"slug"`
+			NodeIDs *[]string `json:"node_ids"`
 		}
 		if !decodeJSON(w, r, &in) {
 			return
