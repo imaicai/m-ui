@@ -9,6 +9,7 @@ case "${1:-help}" in
   logs) journalctl -u m-ui -f --no-pager ;;
   update) bash <(curl -fsSL "$RAW") ;;
   xray) systemctl status xray --no-pager ;;
+  menu) exec /usr/local/bin/m-ui ;;
   *)
     cat <<HELP
 m-ui 控制命令
@@ -17,6 +18,7 @@ m-ui 控制命令
   m-ui-ctl logs     实时查看日志
   m-ui-ctl update   更新到最新源码
   m-ui-ctl xray     查看 Xray 状态
+  m-ui-ctl menu     打开交互式管理菜单
 HELP
     ;;
 esac
