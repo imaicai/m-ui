@@ -8,7 +8,14 @@ CTL_BIN="/usr/local/bin/m-ui-ctl"
 SERVICE="/etc/systemd/system/m-ui.service"
 DATA_DIR="/etc/m-ui"
 DATA_FILE="$DATA_DIR/state.json"
-CERT_DIR="/root/minijet/ssh/m-ui"
+CERT_HOME="$(sed -n 's/^Environment=MUI_CERT_HOME=//p' "$SERVICE" 2>/dev/null | tail -n1 || true)"
+if [[ -z "$CERT_HOME" ]]; then
+  CERT_USER="${SUDO_USER:-$(logname 2>/dev/null || true)}"
+  [[ -n "$CERT_USER" ]] || CERT_USER="root"
+  CERT_HOME="$(getent passwd "$CERT_USER" 2>/dev/null | cut -d: -f6)"
+fi
+[[ -n "$CERT_HOME" ]] || CERT_HOME="/root"
+CERT_DIR="$CERT_HOME/minijet/ssh/m-ui"
 XRAY_CONFIG="/usr/local/etc/xray/config.json"
 
 BLUE='\033[0;34m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
