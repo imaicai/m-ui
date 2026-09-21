@@ -42,7 +42,11 @@ func main() {
 	}
 
 	if *initMode {
-		if err := store.EnsureInitialized(*initUser, *initPass); err != nil {
+		pass := *initPass
+		if pass == "" {
+			pass = os.Getenv("MUI_INIT_PASS")
+		}
+		if err := store.EnsureInitialized(*initUser, pass); err != nil {
 			log.Fatalf("初始化失败: %v", err)
 		}
 		fmt.Println("m-ui 初始化完成")
