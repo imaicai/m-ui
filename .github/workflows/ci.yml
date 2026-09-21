@@ -86,14 +86,18 @@ jobs:
           assert 'id="resetAllTraffic"' in app
           assert 'reset-node-traffic' in app
           assert '<th>流量</th>' in app
-          assert 'sidebar-credit' in app
+          assert 'system-meta' in app and 'system-tagline' in app
+          assert 'system-repo-link' in app and 'minijet-link' in app
+          assert 'sidebar-credit' not in app
           assert 'https://github.com/imaicai/MiniJet' in app
           assert '设置已保存' in app and '面板正在重启' in app
           assert '/api/nodes/reset-traffic' in server
           assert 'handleResetNodeTraffic' in server
           assert 'QueryUserTraffic' in xray
           assert 'StatsService' in xray
-          assert 'v1.4.7 traffic and sidebar footer' in css
+          assert 'v1.4.7 traffic and sidebar service card' in css
+          assert '.system-meta .github-link' in css
+          assert 'border:0!important' in css
           PY
 
       - name: Shell syntax
