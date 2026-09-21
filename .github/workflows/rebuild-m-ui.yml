@@ -60,3 +60,5 @@ jobs:
           git add -A
           git commit -m "feat: rebuild m-ui v1.0.0"
           git push origin HEAD:main
+
+# trigger: repaired payload
