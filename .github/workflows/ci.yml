@@ -151,7 +151,10 @@ jobs:
           assert 'secureXrayConfig' in xray and '0640' in xray
           assert 'X-MUI-CSRF' in server and 'requestSameOrigin' in server
           assert 'passwordNeedsUpgrade' in server
-          assert '$argon2id
+          assert '$argon2id$' in store
+          assert 'realityFallbackLimit' in xray
+          assert 'golang.org/x/crypto/argon2' in store
+          assert 'loginSlots' in server
           PY
 
       - name: Shell syntax
@@ -214,66 +217,6 @@ jobs:
           grep -q 'sub-select-circle' web/assets/app.js
           grep -q 'Country           string' store.go
           grep -q '//go:embed VERSION' main.go
-          grep -q '^1\.4\.10$' VERSION
- in store
-          assert 'realityFallbackLimit' in xray
-          assert 'golang.org/x/crypto/argon2' in store
-          PY
-
-      - name: Shell syntax
-        shell: bash
-        run: |
-          bash -n install.sh
-          bash -n m-ui
-          bash -n m-ui-ctl
-          bash -n uninstall.sh
-          grep -q 'ExecStart=$SERVER_BIN' install.sh
-          grep -q 'SERVER_BIN="/usr/local/bin/m-ui-server"' install.sh
-          grep -q '一键原版BBR+FQ加速' m-ui
-          grep -q '完整更新 m-ui 【前端、后端、脚本、Xray】' m-ui
-          grep -q 'update_program()' m-ui
-          grep -q 'ADMIN_USER="${MUI_ADMIN_USER:-minijet}"' install.sh
-          grep -q 'NEW_PASSWORD="${MUI_ADMIN_PASS:-minijet}"' install.sh
-          grep -q 'PANEL_PORT="${MUI_PORT:-16800}"' install.sh
-          grep -q 'MUI_CERT_HOME' install.sh
-          grep -q 'defaultCertFile()' store.go
-          grep -q '#00B176' web/assets/app.css
-          ! grep -q 'value="admin"' web/assets/app.js
-          ! grep -q '>复制</button>' web/assets/app.js
-          ! grep -q '>编辑</button>' web/assets/app.js
-          ! grep -q '>删除</button>' web/assets/app.js
-          grep -q 'https://github.com/imaicai/m-ui' web/assets/app.js
-          grep -q 'openEditSubscription' web/assets/app.js
-
-          grep -q 'brand-image' web/assets/app.js
-          grep -q 'page-heading-inline' web/assets/app.js
-          grep -q 'subscription-guide' web/assets/app.js
-          ! grep -q 'id="quickAdd"' web/assets/app.js
-          ! grep -q 'icon-add' web/assets/app.js
-          grep -q 'new-node-btn' web/assets/app.js
-          grep -q 'v1.4.1 refined UI' web/assets/app.css
-          grep -q 'v1.4.2 toolbar and restart refinement' web/assets/app.css
-          grep -q 'v1.4.8 subscription workflow and interaction polish' web/assets/app.css
-          grep -q '最简单的代理面板' web/assets/app.js
-          grep -q '默认订阅不能删除' server.go
-          grep -q 'stateVersion = 6' store.go
-          grep -q '管理员账号：' web/assets/app.js
-          ! grep -q 'restartPanelTop' web/assets/app.js
-          ! grep -q 'restartPanelSettings' web/assets/app.js
-          grep -q 'restartPanelSidebar' web/assets/app.js
-          grep -q 'PanelUptimeSeconds' system.go
-          grep -q 'restartRequired := portChanged' server.go
-          grep -q 'reloginRequired := accountChanged || restartRequired' server.go
-
-          grep -q '+新建节点' web/assets/app.js
-          grep -q 'repo-icon-link' web/assets/app.js
-          grep -q '/api/system/restart' server.go
-          grep -q '累计稳定运行' web/assets/app.js
-          ! grep -q 'id="panelUptime"' web/assets/app.js
-          grep -q "[$][$]('.copy-sub').forEach" web/assets/app.js
-          grep -q "[$][$]('.toggle-sub').forEach" web/assets/app.js
-          grep -q 'toggle-sub' web/assets/app.js
-          grep -q 'sub-select-circle' web/assets/app.js
-          grep -q 'Country           string' store.go
-          grep -q '//go:embed VERSION' main.go
-          grep -q '^1\.4\.10$' VERSION
+          test -s go.sum
+          ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
+          grep -q '^1\.5\.0$' VERSION
