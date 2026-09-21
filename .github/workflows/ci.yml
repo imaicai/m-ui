@@ -48,11 +48,12 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           s = Path("web/assets/app.js").read_text(encoding="utf-8")
-          assert "$('[data-route]').forEach" in s
-          assert "$('.copy-uri').forEach" in s
-          assert "$('[data-route]').forEach" not in s
-          assert "$('.copy-uri').forEach" not in s
+          assert "$$('[data-route]').forEach" in s
+          assert "$$('.copy-uri').forEach" in s
+          assert re.search(r"(?<!\$)\$\('\[data-route\]'\)\.forEach", s) is None
+          assert re.search(r"(?<!\$)\$\('\.copy-uri'\)\.forEach", s) is None
           PY
 
       - name: Shell syntax
