@@ -49,6 +49,15 @@ chmod 700 "$DATA_DIR"
 chmod 755 /maicai /maicai/ssh 2>/dev/null || true
 chmod 700 /maicai/ssh/m-ui 2>/dev/null || true
 
+# Upgrade compatibility: move the old default TLS files into the new m-ui-only directory
+# only when the new destination is still empty.
+if [[ -f /maicai/ssh/fullchain.pem && ! -f /maicai/ssh/m-ui/fullchain.pem ]]; then
+  cp -a /maicai/ssh/fullchain.pem /maicai/ssh/m-ui/fullchain.pem
+fi
+if [[ -f /maicai/ssh/privkey.pem && ! -f /maicai/ssh/m-ui/privkey.pem ]]; then
+  cp -a /maicai/ssh/privkey.pem /maicai/ssh/m-ui/privkey.pem
+fi
+
 if [[ -f "$DATA_FILE" ]]; then
   cp -a "$DATA_FILE" "$DATA_FILE.bak.$(date +%Y%m%d-%H%M%S)"
   info "检测到已有 m-ui 数据，将保留账号、节点和订阅。"
