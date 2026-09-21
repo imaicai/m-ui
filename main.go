@@ -114,6 +114,13 @@ func main() {
 		XrayBin:    getenv("MUI_XRAY_BIN", "/usr/local/bin/xray"),
 		XrayConfig: getenv("MUI_XRAY_CONFIG", "/usr/local/etc/xray/config.json"),
 	})
+	if _, err := os.Stat(srv.cfg.XrayBin); err == nil {
+		if err := srv.xray.Apply(store.Snapshot()); err != nil {
+			log.Printf("m-ui: 启动时同步 Xray 配置失败，面板仍继续启动: %v", err)
+		} else {
+			log.Printf("m-ui: 已使用当前数据同步并校验 Xray 配置")
+		}
+	}
 	log.Printf("m-ui %s by MiniJet listening on %s", version, srv.cfg.Addr)
 	if err := srv.Run(); err != nil {
 		log.Fatal(err)
