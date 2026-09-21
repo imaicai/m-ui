@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"strconv"
 	"testing"
 )
 
@@ -112,6 +113,25 @@ func TestRealityURIWithIPv6Address(t *testing.T) {
 	}
 }
 
+func TestGeneratedUUIDAndPortAvoidDigitFour(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		id, err := generateUUID()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(id, "4") {
+			t.Fatalf("generated UUID contains digit 4: %s", id)
+		}
+	}
+	port, err := availablePort(map[int]bool{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strconv.Itoa(port), "4") {
+		t.Fatalf("generated port contains digit 4: %d", port)
+	}
+}
+
 func TestGeneratedRealityConfigWithInstalledXray(t *testing.T) {
 	if os.Getenv("XRAY_INTEGRATION") != "1" {
 		t.Skip("set XRAY_INTEGRATION=1 to test against installed Xray")
@@ -128,6 +148,9 @@ func TestGeneratedRealityConfigWithInstalledXray(t *testing.T) {
 	}
 	if privateKey == "" || password == "" || len(shortID) != 16 {
 		t.Fatalf("bad REALITY material: private=%t password=%t shortID=%q", privateKey != "", password != "", shortID)
+	}
+	if strings.Contains(privateKey, "4") || strings.Contains(password, "4") || strings.Contains(shortID, "4") {
+		t.Fatalf("REALITY material contains digit 4")
 	}
 
 	st := defaultState()
