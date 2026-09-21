@@ -105,11 +105,11 @@ func (s *Store) load() error {
 	if s.data.Settings.DefaultProtocol == "" || strings.Contains(s.data.Settings.DefaultProtocol, "TLS") {
 		s.data.Settings.DefaultProtocol = "VLESS + RAW + REALITY + XTLS Vision"
 	}
-	if s.data.Settings.RealityTarget == "" {
-		s.data.Settings.RealityTarget = "www.microsoft.com:443"
+	if s.data.Settings.RealityTarget == "" || s.data.Settings.RealityTarget == "www.microsoft.com:443" {
+		s.data.Settings.RealityTarget = "www.apple.com:443"
 	}
-	if s.data.Settings.RealityServerName == "" {
-		s.data.Settings.RealityServerName = "www.microsoft.com"
+	if s.data.Settings.RealityServerName == "" || s.data.Settings.RealityServerName == "www.microsoft.com" {
+		s.data.Settings.RealityServerName = "www.apple.com"
 	}
 	for i := range s.data.Nodes {
 		if s.data.Nodes[i].Security == "" {
@@ -129,8 +129,8 @@ func defaultState() AppState {
 			CertFile:          "/maicai/ssh/m-ui/fullchain.pem",
 			KeyFile:           "/maicai/ssh/m-ui/privkey.pem",
 			DefaultProtocol:   "VLESS + RAW + REALITY + XTLS Vision",
-			RealityTarget:     "www.microsoft.com:443",
-			RealityServerName: "www.microsoft.com",
+			RealityTarget:     "www.apple.com:443",
+			RealityServerName: "www.apple.com",
 			AdminUser:         "admin",
 		},
 		Nodes:         []Node{},

@@ -62,8 +62,9 @@ func (x *XrayManager) BuildConfig(st AppState) ([]byte, error) {
 				"target":     target,
 				"xver":       0,
 				"serverNames": []string{serverName},
-				"privateKey": n.RealityPrivateKey,
-				"shortIds":   []string{n.RealityShortID},
+				"privateKey":    n.RealityPrivateKey,
+				"shortIds":      []string{n.RealityShortID},
+				"minClientVer": "1.8.2",
 				"limitFallbackUpload": map[string]any{
 					"afterBytes": 10485760, "bytesPerSec": 1048576, "burstBytesPerSec": 5242880,
 				},

@@ -39,6 +39,9 @@ func TestInitPasswordAndNewDefaults(t *testing.T) {
 	if st.Settings.DefaultProtocol != "VLESS + RAW + REALITY + XTLS Vision" {
 		t.Fatalf("unexpected protocol: %s", st.Settings.DefaultProtocol)
 	}
+	if st.Settings.RealityTarget != "www.apple.com:443" || st.Settings.RealityServerName != "www.apple.com" {
+		t.Fatalf("unexpected REALITY defaults: target=%q serverName=%q", st.Settings.RealityTarget, st.Settings.RealityServerName)
+	}
 }
 
 func TestOldStateMigratesWithoutChangingExistingNodeSecurity(t *testing.T) {
@@ -88,5 +91,35 @@ func TestNormalizePanelPath(t *testing.T) {
 		if _, err := normalizePanelPath(bad); err == nil {
 			t.Fatalf("expected invalid panel path: %q", bad)
 		}
+	}
+}
+
+func TestMicrosoftDefaultMigratesToAppleWithoutChangingExistingRealityNode(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "state.json")
+	old := AppState{
+		Version: stateVersion,
+		Settings: Settings{
+			PanelName: "m-ui", PanelPath: "/", DefaultProtocol: "VLESS + RAW + REALITY + XTLS Vision",
+			RealityTarget: "www.microsoft.com:443", RealityServerName: "www.microsoft.com",
+		},
+		Nodes: []Node{{
+			ID: "old-reality", Name: "US01", Security: "reality",
+			RealityTarget: "www.microsoft.com:443", RealityServerName: "www.microsoft.com",
+		}},
+	}
+	b, _ := json.Marshal(old)
+	if err := os.WriteFile(p, b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := NewStore(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := s.Snapshot()
+	if st.Settings.RealityTarget != "www.apple.com:443" || st.Settings.RealityServerName != "www.apple.com" {
+		t.Fatalf("global REALITY defaults were not migrated to Apple: %#v", st.Settings)
+	}
+	if st.Nodes[0].RealityTarget != "www.microsoft.com:443" || st.Nodes[0].RealityServerName != "www.microsoft.com" {
+		t.Fatalf("existing REALITY node must not be silently rewritten: %#v", st.Nodes[0])
 	}
 }
