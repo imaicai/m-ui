@@ -84,6 +84,20 @@ func TestBuildRealityConfigWithoutDomainOrCertificate(t *testing.T) {
 	}
 }
 
+func TestRealityURIWithIPv6Address(t *testing.T) {
+	st := defaultState()
+	n := Node{
+		Name: "US01", UUID: "9e7c8e21-026e-41a6-a8f1-168a7e20d819", Port: 16888,
+		Enabled: true, Security: "reality", Address: "2001:db8::1",
+		RealityPassword: "client-password", RealityShortID: "0123456789abcdef",
+		RealityServerName: "www.microsoft.com",
+	}
+	uri := nodeURI(st, n)
+	if !strings.Contains(uri, "@[2001:db8::1]:16888?") {
+		t.Fatalf("IPv6 endpoint is not bracketed correctly: %s", uri)
+	}
+}
+
 func TestGeneratedRealityConfigWithInstalledXray(t *testing.T) {
 	if os.Getenv("XRAY_INTEGRATION") != "1" {
 		t.Skip("set XRAY_INTEGRATION=1 to test against installed Xray")
