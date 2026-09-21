@@ -630,7 +630,7 @@ func (s *Server) handleCreateDefaultNode(w http.ResponseWriter, r *http.Request)
 	name := nextCountryNodeName(identity.Country, next.Nodes)
 	node := Node{
 		ID: newID(), Name: name, UUID: uuid, Port: port, Enabled: true,
-		Security: "reality", Address: address,
+		Security: "reality", Address: address, Country: normalizeCountryCode(identity.Country),
 		RealityPrivateKey: privateKey, RealityPassword: password, RealityShortID: shortID,
 		RealityServerName: next.Settings.RealityServerName, RealityTarget: next.Settings.RealityTarget,
 		CreatedAt: time.Now(),
@@ -864,9 +864,10 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPatch:
 		var in struct {
-			Name    string    `json:"name"`
-			Slug    string    `json:"slug"`
+			Name    *string   `json:"name"`
+			Slug    *string   `json:"slug"`
 			NodeIDs *[]string `json:"node_ids"`
+			Enabled *bool     `json:"enabled"`
 		}
 		if !decodeJSON(w, r, &in) {
 			return
@@ -882,15 +883,22 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 			if idx < 0 {
 				return errors.New("订阅不存在")
 			}
-			slug, err := normalizeSubscriptionSlug(in.Slug)
-			if err != nil {
-				return err
+			if in.Name != nil {
+				st.Subscriptions[idx].Name = cleanText(*in.Name, st.Subscriptions[idx].Name, 60)
 			}
-			if subscriptionSlugExists(*st, slug, id) {
-				return errors.New("该订阅地址已被使用")
+			if in.Slug != nil {
+				slug, err := normalizeSubscriptionSlug(*in.Slug)
+				if err != nil {
+					return err
+				}
+				if subscriptionSlugExists(*st, slug, id) {
+					return errors.New("该订阅地址已被使用")
+				}
+				st.Subscriptions[idx].Slug = slug
 			}
-			st.Subscriptions[idx].Name = cleanText(in.Name, st.Subscriptions[idx].Name, 60)
-			st.Subscriptions[idx].Slug = slug
+			if in.Enabled != nil {
+				st.Subscriptions[idx].Enabled = *in.Enabled
+			}
 			if !st.Subscriptions[idx].IsDefault && in.NodeIDs != nil {
 				nodeIDs, err := normalizeSubscriptionNodeIDs(*st, *in.NodeIDs)
 				if err != nil {

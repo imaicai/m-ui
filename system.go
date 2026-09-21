@@ -280,6 +280,59 @@ func validServerIdentity(id serverIdentity) bool {
 	return true
 }
 
+func normalizeCountryCode(v string) string {
+	v = strings.ToUpper(strings.TrimSpace(v))
+	if len(v) != 2 || v == "XX" {
+		return ""
+	}
+	for _, r := range v {
+		if r < 'A' || r > 'Z' {
+			return ""
+		}
+	}
+	return v
+}
+
+func applyNodeCountryBackfill(st *AppState, country string) bool {
+	if st == nil {
+		return false
+	}
+	country = normalizeCountryCode(country)
+	if country == "" {
+		return false
+	}
+	changed := false
+	for i := range st.Nodes {
+		if normalizeCountryCode(st.Nodes[i].Country) == "" {
+			st.Nodes[i].Country = country
+			changed = true
+		}
+	}
+	return changed
+}
+
+func backfillNodeCountries(store *Store) error {
+	if store == nil {
+		return nil
+	}
+	st := store.Snapshot()
+	needsBackfill := false
+	for _, node := range st.Nodes {
+		if normalizeCountryCode(node.Country) == "" {
+			needsBackfill = true
+			break
+		}
+	}
+	if !needsBackfill {
+		return nil
+	}
+	identity := detectServerIdentity()
+	if !applyNodeCountryBackfill(&st, identity.Country) {
+		return nil
+	}
+	return store.Replace(st)
+}
+
 func nextCountryNodeName(country string, nodes []Node) string {
 	country = strings.ToUpper(strings.TrimSpace(country))
 	if len(country) != 2 {

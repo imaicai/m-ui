@@ -73,7 +73,7 @@ jobs:
           assert 'replaceServicePanelPort' in server
           PY
 
-      - name: v1.4.8 feature assertions
+      - name: v1.4.9 feature assertions
         shell: bash
         run: |
 
@@ -116,6 +116,19 @@ jobs:
           assert '默认订阅不能删除' in server
           assert 'subscriptionHasNode(sub, n.ID)' in server
           assert 'normalizeSubscriptions(&data, false)' in Path("store.go").read_text(encoding="utf-8")
+          store = Path("store.go").read_text(encoding="utf-8")
+          main = Path("main.go").read_text(encoding="utf-8")
+          assert '面板累计运行 ' in app
+          assert 'sub-select-circle' in app and 'toggle-sub' in app
+          assert 'nodeNameHTML' in app and 'countryFlag' in app
+          assert 'stop:' in app and 'play:' in app
+          assert 'Country           string' in store and 'stateVersion = 6' in store
+          assert 'backfillNodeCountries(store)' in main
+          assert '//go:embed VERSION' in main
+          assert 'v1.4.9 subscription selector, runtime and node country refinement' in css
+          assert '.restart-mark{background:transparent!important' in css
+          assert '.sub-select-circle' in css and '.node-flag' in css
+          assert 'Enabled *bool' in server
           PY
 
       - name: Shell syntax
@@ -154,7 +167,7 @@ jobs:
           grep -q 'v1.4.8 subscription workflow and interaction polish' web/assets/app.css
           grep -q '最简单的代理面板' web/assets/app.js
           grep -q '默认订阅不能删除' server.go
-          grep -q 'stateVersion = 5' store.go
+          grep -q 'stateVersion = 6' store.go
           grep -q '管理员账号：' web/assets/app.js
           ! grep -q 'restartPanelTop' web/assets/app.js
           ! grep -q 'restartPanelSettings' web/assets/app.js
@@ -166,3 +179,9 @@ jobs:
           grep -q '+新建节点' web/assets/app.js
           grep -q 'repo-icon-link' web/assets/app.js
           grep -q '/api/system/restart' server.go
+          grep -q '面板累计运行 ' web/assets/app.js
+          grep -q 'toggle-sub' web/assets/app.js
+          grep -q 'sub-select-circle' web/assets/app.js
+          grep -q 'Country           string' store.go
+          grep -q '//go:embed VERSION' main.go
+          grep -q '^1\.4\.9$' VERSION

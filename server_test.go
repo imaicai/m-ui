@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -166,6 +167,31 @@ func TestNormalizeSubscriptionNodeIDsAndMembership(t *testing.T) {
 	}
 	if subscriptionHasNode(Subscription{NodeIDs: []string{"n1"}}, "n2") {
 		t.Fatal("custom subscription must not contain unselected node")
+	}
+}
+
+func TestSubscriptionCanBeStoppedWithoutResendingNameOrSlug(t *testing.T) {
+	store, err := NewStore(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := defaultState()
+	st.Subscriptions = []Subscription{{
+		ID: "sub-one", Name: "默认订阅", Token: "token1234", Slug: "token1234", Enabled: true, IsDefault: true,
+	}}
+	if err := store.Replace(st); err != nil {
+		t.Fatal(err)
+	}
+
+	srv := &Server{store: store}
+	req := httptest.NewRequest(http.MethodPatch, "/api/subscriptions/sub-one", strings.NewReader(`{"enabled":false}`))
+	w := httptest.NewRecorder()
+	srv.handleSubscription(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("unexpected status %d: %s", w.Code, w.Body.String())
+	}
+	if store.Snapshot().Subscriptions[0].Enabled {
+		t.Fatal("subscription should be stopped")
 	}
 }
 

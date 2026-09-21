@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const stateVersion = 5
+const stateVersion = 6
 
 func defaultCertHome() string {
 	if v := strings.TrimSpace(os.Getenv("MUI_CERT_HOME")); v != "" {
@@ -58,6 +58,7 @@ type Node struct {
 	Enabled           bool      `json:"enabled"`
 	Security          string    `json:"security,omitempty"`
 	Address           string    `json:"address,omitempty"`
+	Country           string    `json:"country,omitempty"`
 	RealityPrivateKey string    `json:"reality_private_key,omitempty"`
 	RealityPassword   string    `json:"reality_password,omitempty"`
 	RealityShortID    string    `json:"reality_short_id,omitempty"`
