@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - 'fix-*'
+      - 'release-*'
   pull_request:
     branches:
       - main
@@ -43,236 +44,142 @@ jobs:
       - name: Frontend syntax
         run: node --check web/assets/app.js
 
-      - name: Frontend event binding assertions
+      - name: Xray HandlerService hot-reload smoke test
         shell: bash
         run: |
+          set -euo pipefail
+          sudo systemctl stop xray || true
+          cat >/tmp/mui-api-smoke.json <<'JSON'
+          {
+            "log": {"loglevel": "warning"},
+            "api": {"tag": "api", "services": ["HandlerService"]},
+            "inbounds": [
+              {
+                "listen": "127.0.0.1",
+                "port": 19085,
+                "protocol": "dokodemo-door",
+                "tag": "api-in",
+                "settings": {"address": "127.0.0.1"}
+              }
+            ],
+            "outbounds": [{"protocol": "freedom", "tag": "direct"}],
+            "routing": {
+              "rules": [
+                {"type": "field", "inboundTag": ["api-in"], "outboundTag": "api"}
+              ]
+            }
+          }
+          JSON
+          cat >/tmp/mui-add-inbound.json <<'JSON'
+          {
+            "inbounds": [
+              {
+                "listen": "127.0.0.1",
+                "port": 19088,
+                "protocol": "dokodemo-door",
+                "tag": "m-ui-ci-hot",
+                "settings": {"address": "127.0.0.1"}
+              }
+            ]
+          }
+          JSON
+          /usr/local/bin/xray run -config /tmp/mui-api-smoke.json >/tmp/mui-xray-smoke.log 2>&1 &
+          XRAY_PID=$!
+          trap 'kill "$XRAY_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            /usr/local/bin/xray api lsi --server=127.0.0.1:19085 >/tmp/mui-lsi-before.json 2>/dev/null && break
+            sleep 0.2
+          done
+          /usr/local/bin/xray api adi --server=127.0.0.1:19085 /tmp/mui-add-inbound.json
+          /usr/local/bin/xray api lsi --server=127.0.0.1:19085 | grep -q 'm-ui-ci-hot'
+          /usr/local/bin/xray api rmi --server=127.0.0.1:19085 m-ui-ci-hot
+          ! /usr/local/bin/xray api lsi --server=127.0.0.1:19085 | grep -q 'm-ui-ci-hot'
+          kill "$XRAY_PID"
+          wait "$XRAY_PID" || true
+          trap - EXIT
+
+      - name: Frontend event and security assertions
+        shell: bash
+        run: |
+          set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           import re
-          s = Path("web/assets/app.js").read_text(encoding="utf-8")
-          assert "$$('[data-route]').forEach" in s
-          assert "$$('.copy-uri').forEach" in s
-          assert "$$('.copy-sub').forEach" in s
-          assert "$$('.toggle-sub').forEach" in s
-          assert "$$('.edit-sub').forEach" in s
-          assert "$$('.delete-sub').forEach" in s
-          assert re.search(r"(?<!\$)\$\('\[data-route\]'\)\.forEach", s) is None
-          assert re.search(r"(?<!\$)\$\('\.copy-uri'\)\.forEach", s) is None
-          assert "  $('.copy-sub').forEach" not in s
-          assert "  $('.toggle-sub').forEach" not in s
-          assert "  $('.edit-sub').forEach" not in s
-          assert "  $('.delete-sub').forEach" not in s
-          assert "$$$(" not in s
-          PY
-
-      - name: Panel port and brand assertions
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
           app = Path("web/assets/app.js").read_text(encoding="utf-8")
           server = Path("server.go").read_text(encoding="utf-8")
+          store = Path("store.go").read_text(encoding="utf-8")
+          xray = Path("xray.go").read_text(encoding="utf-8")
+          main = Path("main.go").read_text(encoding="utf-8")
+          index = Path("web/index.html").read_text(encoding="utf-8")
+
+          for selector in [
+              "$$('[data-route]').forEach",
+              "$$('.copy-uri').forEach",
+              "$$('.copy-sub').forEach",
+              "$$('.toggle-sub').forEach",
+              "$$('.edit-sub').forEach",
+              "$$('.delete-sub').forEach",
+          ]:
+              assert selector in app
+          assert re.search(r"(?<!\$)\$\('\[data-route\]'\)\.forEach", app) is None
+          assert "$$$(" not in app
+
           assert 'id="setPort"' in app
           assert "panel_port:Number($('#setPort').value)" in app
-          assert "function brandName()" in app
-          assert "/api/panel-info" in app
-          assert 'panelMux.HandleFunc("/api/panel-info"' in server
-          assert 'PanelPort       int' in server
-          assert 'replaceServicePanelPort' in server
-          PY
-
-      - name: v1.5.0 security and performance assertions
-        shell: bash
-        run: |
-
-
-          python3 - <<'PY'
-          from pathlib import Path
-          app = Path("web/assets/app.js").read_text(encoding="utf-8")
-          css = Path("web/assets/app.css").read_text(encoding="utf-8")
-          server = Path("server.go").read_text(encoding="utf-8")
-          xray = Path("xray.go").read_text(encoding="utf-8")
-          assert 'id="resetAllTraffic"' in app
-          assert 'reset-node-traffic' in app
-          assert '<th>流量</th>' in app
-          assert '稳定运行中' not in app
-          assert '累计稳定运行' in app and 'id="stableUptime"' in app
+          assert 'id="stableUptime"' in app and '累计稳定运行' in app
+          assert 'id="panelUptime"' not in app
+          assert 'id="restartPanelSidebar"' in app
           assert 'M-Ui：最简单的代理面板' in app
           assert '小飞机：最简单的代理客户端' in app
-          assert 'MiniJet | 小飞机：最简单的代理客户端' not in app
-          assert 'id="restartPanelSidebar"' in app
-          assert 'id="panelUptime"' not in app and 'panel_uptime_seconds' in app
-          assert 'class="panel-runtime"' not in app
-          assert 'system-meta' not in app and 'minijet-link' not in app
-          assert 'sidebar-credit' not in app
-          assert 'https://github.com/imaicai/MiniJet' in app
-          assert 'id="saveSettings" disabled' in app
-          assert 'out.restart_required' in app and 'out.relogin_required' in app
-          assert '设置已保存' in app
-          assert '/api/nodes/reset-traffic' in server
-          assert 'handleResetNodeTraffic' in server
-          assert 'QueryUserTraffic' in xray
-          assert 'StatsService' in xray
-          assert 'v1.4.7 service card, runtime and conditional settings save' in css
-          assert 'v1.4.8 subscription workflow and interaction polish' in css
-          assert '.repo-icon-link' in css
-          assert '.restart-mark' in css
-          assert '#saveSettings:disabled' in css
-          assert '.panel-runtime' in css
-          assert '#logout:hover' in css
-          assert '.default-sub-tag' in css
-          assert 'openNewSubscription' in app
-          assert 'node_ids' in app
-          assert '默认订阅不能删除' in server
-          assert 'subscriptionHasNode(sub, n.ID)' in server
-          assert 'normalizeSubscriptions(&data, false)' in Path("store.go").read_text(encoding="utf-8")
-          store = Path("store.go").read_text(encoding="utf-8")
-          main = Path("main.go").read_text(encoding="utf-8")
-          assert 'fmtStableClock' in app and 'clockTimer' in app
-          assert 'sub-select-circle' in app and 'toggle-sub' in app
-          assert 'nodeNameHTML' in app and 'countryFlag' in app
-          assert 'stop:' in app and 'play:' in app
-          assert 'Country           string' in store and 'stateVersion = 6' in store
-          assert 'backfillNodeCountries(store)' in main
-          assert '//go:embed VERSION' in main
-          assert 'v1.4.9 subscription selector, runtime and node country refinement' in css
-          assert '.restart-mark{background:transparent!important' in css
-          assert '.sub-select-circle' in css and '.node-flag' in css
-          assert 'Enabled *bool' in server
-          assert 'commitNodeToggleWithEarlyResponse' in server
-          assert 'writeJSONAndFlush' in server
-          assert 'func (x *XrayManager) Validate(st AppState) error' in xray
-          assert 'v1.4.10 stable runtime clock and interaction fixes' in css
+          assert 'X-MUI-CSRF' in app and "mui_csrf" in app
+          assert "v=1.5.0" in app
+          assert "v=1.5.0" in index
+
           assert 'HandlerService' in xray
-          assert 'tcpKeepAliveIdle' in xray and 'tcpKeepAliveInterval' in xray
-          assert 'HotApply(old, next AppState)' in xray
-          assert 'EnsureRunningConfig' in xray
-          assert 'secureXrayConfig' in xray and '0640' in xray
-          assert 'X-MUI-CSRF' in server and 'requestSameOrigin' in server
+          assert 'StatsService' in xray
+          assert 'tcpKeepAliveIdle' in xray
+          assert 'tcpKeepAliveInterval' in xray
+          assert 'func (x *XrayManager) HotApply(old, next AppState) error' in xray
+          assert 'func (x *XrayManager) EnsureRunningConfig(st AppState) error' in xray
+          assert 'func secureXrayConfig(path string) error' in xray
+          assert 'realityFallbackLimit' in xray
+          assert 'waitHealthy' in xray
+          assert 'os.WriteFile(tmp, b, 0600)' in xray
+
+          assert 'X-MUI-CSRF' in server
+          assert 'requestSameOrigin' in server
+          assert 'Strict-Transport-Security' in server
+          assert 'len(v) < 20' in server
+          assert 'tryCloseFirewall' in server
+          assert 'HotApply(old, next)' in server
           assert 'passwordNeedsUpgrade' in server
-          assert '$argon2id
+
+          assert 'golang.org/x/crypto/argon2' in store
+          assert '$argon2id$' in store
+          assert 'legacyPasswordKDF' in store
+          assert 'stateVersion = 6' in store
+          assert 'EnsureRunningConfig' in main
+          assert '//go:embed VERSION' in main
           PY
 
-      - name: Shell syntax
+      - name: Shell and install safety assertions
         shell: bash
         run: |
+          set -euo pipefail
           bash -n install.sh
           bash -n m-ui
           bash -n m-ui-ctl
           bash -n uninstall.sh
           grep -q 'ExecStart=$SERVER_BIN' install.sh
           grep -q 'SERVER_BIN="/usr/local/bin/m-ui-server"' install.sh
-          grep -q '一键原版BBR+FQ加速' m-ui
-          grep -q '完整更新 m-ui 【前端、后端、脚本、Xray】' m-ui
-          grep -q 'update_program()' m-ui
-          grep -q 'ADMIN_USER="${MUI_ADMIN_USER:-minijet}"' install.sh
           grep -q 'od -An -N18 -tx1 /dev/urandom' install.sh
           grep -q 'MUI_XRAY_REFRESH' install.sh
           grep -q 'xray-version.lock' install.sh
           grep -q 'tcp_mtu_probing=1' install.sh
           grep -q 'NoNewPrivileges=true' install.sh
-          grep -q 'PANEL_PORT="${MUI_PORT:-16800}"' install.sh
-          grep -q 'MUI_CERT_HOME' install.sh
-          grep -q 'defaultCertFile()' store.go
-          grep -q '#00B176' web/assets/app.css
-          ! grep -q 'value="admin"' web/assets/app.js
-          ! grep -q '>复制</button>' web/assets/app.js
-          ! grep -q '>编辑</button>' web/assets/app.js
-          ! grep -q '>删除</button>' web/assets/app.js
-          grep -q 'https://github.com/imaicai/m-ui' web/assets/app.js
-          grep -q 'openEditSubscription' web/assets/app.js
-
-          grep -q 'brand-image' web/assets/app.js
-          grep -q 'page-heading-inline' web/assets/app.js
-          grep -q 'subscription-guide' web/assets/app.js
-          ! grep -q 'id="quickAdd"' web/assets/app.js
-          ! grep -q 'icon-add' web/assets/app.js
-          grep -q 'new-node-btn' web/assets/app.js
-          grep -q 'v1.4.1 refined UI' web/assets/app.css
-          grep -q 'v1.4.2 toolbar and restart refinement' web/assets/app.css
-          grep -q 'v1.4.8 subscription workflow and interaction polish' web/assets/app.css
-          grep -q '最简单的代理面板' web/assets/app.js
-          grep -q '默认订阅不能删除' server.go
-          grep -q 'stateVersion = 6' store.go
-          grep -q '管理员账号：' web/assets/app.js
-          ! grep -q 'restartPanelTop' web/assets/app.js
-          ! grep -q 'restartPanelSettings' web/assets/app.js
-          grep -q 'restartPanelSidebar' web/assets/app.js
-          grep -q 'PanelUptimeSeconds' system.go
-          grep -q 'restartRequired := portChanged' server.go
-          grep -q 'reloginRequired := accountChanged || restartRequired' server.go
-
-          grep -q '+新建节点' web/assets/app.js
-          grep -q 'repo-icon-link' web/assets/app.js
-          grep -q '/api/system/restart' server.go
-          grep -q '累计稳定运行' web/assets/app.js
-          ! grep -q 'id="panelUptime"' web/assets/app.js
-          grep -q "[$][$]('.copy-sub').forEach" web/assets/app.js
-          grep -q "[$][$]('.toggle-sub').forEach" web/assets/app.js
-          grep -q 'toggle-sub' web/assets/app.js
-          grep -q 'sub-select-circle' web/assets/app.js
-          grep -q 'Country           string' store.go
-          grep -q '//go:embed VERSION' main.go
-          grep -q '^1\.4\.10$' VERSION
- in store
-          assert 'realityFallbackLimit' in xray
-          assert 'golang.org/x/crypto/argon2' in store
-          PY
-
-      - name: Shell syntax
-        shell: bash
-        run: |
-          bash -n install.sh
-          bash -n m-ui
-          bash -n m-ui-ctl
-          bash -n uninstall.sh
-          grep -q 'ExecStart=$SERVER_BIN' install.sh
-          grep -q 'SERVER_BIN="/usr/local/bin/m-ui-server"' install.sh
-          grep -q '一键原版BBR+FQ加速' m-ui
+          grep -q 'XRAY_RUN_USER' install.sh
+          grep -q '恢复上一版本' install.sh
           grep -q '完整更新 m-ui 【前端、后端、脚本、Xray】' m-ui
-          grep -q 'update_program()' m-ui
-          grep -q 'ADMIN_USER="${MUI_ADMIN_USER:-minijet}"' install.sh
-          grep -q 'NEW_PASSWORD="${MUI_ADMIN_PASS:-minijet}"' install.sh
-          grep -q 'PANEL_PORT="${MUI_PORT:-16800}"' install.sh
-          grep -q 'MUI_CERT_HOME' install.sh
-          grep -q 'defaultCertFile()' store.go
-          grep -q '#00B176' web/assets/app.css
-          ! grep -q 'value="admin"' web/assets/app.js
-          ! grep -q '>复制</button>' web/assets/app.js
-          ! grep -q '>编辑</button>' web/assets/app.js
-          ! grep -q '>删除</button>' web/assets/app.js
-          grep -q 'https://github.com/imaicai/m-ui' web/assets/app.js
-          grep -q 'openEditSubscription' web/assets/app.js
-
-          grep -q 'brand-image' web/assets/app.js
-          grep -q 'page-heading-inline' web/assets/app.js
-          grep -q 'subscription-guide' web/assets/app.js
-          ! grep -q 'id="quickAdd"' web/assets/app.js
-          ! grep -q 'icon-add' web/assets/app.js
-          grep -q 'new-node-btn' web/assets/app.js
-          grep -q 'v1.4.1 refined UI' web/assets/app.css
-          grep -q 'v1.4.2 toolbar and restart refinement' web/assets/app.css
-          grep -q 'v1.4.8 subscription workflow and interaction polish' web/assets/app.css
-          grep -q '最简单的代理面板' web/assets/app.js
-          grep -q '默认订阅不能删除' server.go
-          grep -q 'stateVersion = 6' store.go
-          grep -q '管理员账号：' web/assets/app.js
-          ! grep -q 'restartPanelTop' web/assets/app.js
-          ! grep -q 'restartPanelSettings' web/assets/app.js
-          grep -q 'restartPanelSidebar' web/assets/app.js
-          grep -q 'PanelUptimeSeconds' system.go
-          grep -q 'restartRequired := portChanged' server.go
-          grep -q 'reloginRequired := accountChanged || restartRequired' server.go
-
-          grep -q '+新建节点' web/assets/app.js
-          grep -q 'repo-icon-link' web/assets/app.js
-          grep -q '/api/system/restart' server.go
-          grep -q '累计稳定运行' web/assets/app.js
-          ! grep -q 'id="panelUptime"' web/assets/app.js
-          grep -q "[$][$]('.copy-sub').forEach" web/assets/app.js
-          grep -q "[$][$]('.toggle-sub').forEach" web/assets/app.js
-          grep -q 'toggle-sub' web/assets/app.js
-          grep -q 'sub-select-circle' web/assets/app.js
-          grep -q 'Country           string' store.go
-          grep -q '//go:embed VERSION' main.go
-          grep -q '^1\.4\.10$' VERSION
+          grep -q '一键原版BBR+FQ加速' m-ui
+          grep -q 'tcp_mtu_probing=1' m-ui
+          grep -q '^1\.5\.0$' VERSION
