@@ -30,8 +30,9 @@ type Server struct {
 	xray     *XrayManager
 	cfg      ServerConfig
 	sessions sync.Map
-	statsMu  sync.Mutex
-	lastNet  netSample
+	statsMu   sync.Mutex
+	trafficMu sync.Mutex
+	lastNet   netSample
 	loginMu  sync.Mutex
 	failures map[string]*loginFailure
 }
@@ -202,6 +203,7 @@ func (s *Server) Run() error {
 	panelMux.HandleFunc("/api/system/restart", s.auth(s.handlePanelRestart))
 	panelMux.HandleFunc("/api/settings", s.auth(s.handleSettings))
 	panelMux.HandleFunc("/api/nodes/default", s.auth(s.handleCreateDefaultNode))
+	panelMux.HandleFunc("/api/nodes/reset-traffic", s.auth(s.handleResetAllTraffic))
 	panelMux.HandleFunc("/api/nodes/", s.auth(s.handleNode))
 	panelMux.HandleFunc("/api/subscriptions", s.auth(s.handleSubscriptions))
 	panelMux.HandleFunc("/api/subscriptions/", s.auth(s.handleSubscription))
@@ -258,6 +260,7 @@ func (s *Server) Run() error {
 	})
 
 	handler := securityHeaders(s.redirectHTTPS(rootMux))
+	go s.trafficLoop()
 	return s.servePanel(handler)
 }
 
@@ -367,6 +370,7 @@ func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w)
 		return
 	}
+	_ = s.syncTraffic()
 	st := s.store.Snapshot()
 	out := makeBootstrap(st)
 	out.Settings.PanelPort = s.configuredPanelPort()
@@ -514,25 +518,30 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if old.Settings.PanelPath != next.Settings.PanelPath {
-		if ck, err := r.Cookie("mui_session"); err == nil {
-			if v, ok := s.sessions.Load(ck.Value); ok {
-				exp := v.(session).Expires
-				http.SetCookie(w, &http.Cookie{
-					Name: "mui_session", Value: ck.Value, Path: next.Settings.PanelPath,
-					HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil,
-					Expires: exp, MaxAge: int(time.Until(exp).Seconds()),
-				})
-			}
+	// Any settings save is followed by a clean panel restart and fresh login.
+	// Expire the session cookie on both the old and new panel paths before exiting.
+	for _, cookiePath := range []string{old.Settings.PanelPath, next.Settings.PanelPath} {
+		p, err := normalizePanelPath(cookiePath)
+		if err != nil || p == "" {
+			p = "/"
 		}
+		http.SetCookie(w, &http.Cookie{
+			Name: "mui_session", Value: "", Path: p, HttpOnly: true,
+			SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: -1,
+		})
 	}
+	s.sessions.Range(func(k, v any) bool { s.sessions.Delete(k); return true })
 
-	if accountChanged {
-		s.sessions.Range(func(k, v any) bool { s.sessions.Delete(k); return true })
-	}
 	out := makeBootstrap(next)
 	out.Settings.PanelPort = requestedPort
 	writeJSON(w, 200, out)
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+	go func() {
+		time.Sleep(1500 * time.Millisecond)
+		os.Exit(42)
+	}()
 }
 
 func (s *Server) handleCreateDefaultNode(w http.ResponseWriter, r *http.Request) {
@@ -602,6 +611,11 @@ func (s *Server) handleCreateDefaultNode(w http.ResponseWriter, r *http.Request)
 
 func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 	id := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/nodes/"), "/")
+	if strings.HasSuffix(id, "/reset-traffic") {
+		nodeID := strings.TrimSuffix(id, "/reset-traffic")
+		s.handleResetNodeTraffic(w, r, strings.Trim(nodeID, "/"))
+		return
+	}
 	if id == "" {
 		writeError(w, 404, "节点不存在")
 		return
@@ -857,7 +871,116 @@ func (s *Server) handleSubscriptionFeed(w http.ResponseWriter, r *http.Request) 
 	_, _ = w.Write([]byte(encoded))
 }
 
+func trafficDeltasByNodeID(st AppState, raw map[string]TrafficDelta) map[string]TrafficDelta {
+	out := map[string]TrafficDelta{}
+	for _, n := range st.Nodes {
+		if d, ok := raw[n.Name+"@m-ui"]; ok {
+			out[n.ID] = d
+		}
+	}
+	return out
+}
+
+func applyNodeTrafficDeltas(st *AppState, deltas map[string]TrafficDelta) {
+	for i := range st.Nodes {
+		if d, ok := deltas[st.Nodes[i].ID]; ok {
+			st.Nodes[i].UplinkBytes += d.Uplink
+			st.Nodes[i].DownlinkBytes += d.Downlink
+		}
+	}
+}
+
+func (s *Server) syncTraffic() error {
+	s.trafficMu.Lock()
+	defer s.trafficMu.Unlock()
+	raw, err := s.xray.QueryUserTraffic(true)
+	if err != nil {
+		return err
+	}
+	if len(raw) == 0 {
+		return nil
+	}
+	return s.store.Update(func(st *AppState) error {
+		applyNodeTrafficDeltas(st, trafficDeltasByNodeID(*st, raw))
+		return nil
+	})
+}
+
+func (s *Server) trafficLoop() {
+	timer := time.NewTicker(60 * time.Second)
+	defer timer.Stop()
+	for range timer.C {
+		if err := s.syncTraffic(); err != nil {
+			log.Printf("m-ui: 节点流量采集暂不可用: %v", err)
+		}
+	}
+}
+
+func (s *Server) handleResetAllTraffic(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	s.trafficMu.Lock()
+	defer s.trafficMu.Unlock()
+	_, _ = s.xray.QueryUserTraffic(true)
+	err := s.store.Update(func(st *AppState) error {
+		for i := range st.Nodes {
+			st.Nodes[i].UplinkBytes = 0
+			st.Nodes[i].DownlinkBytes = 0
+		}
+		return nil
+	})
+	if err != nil {
+		writeError(w, 500, err.Error())
+		return
+	}
+	writeJSON(w, 200, makeBootstrap(s.store.Snapshot()))
+}
+
+func (s *Server) handleResetNodeTraffic(w http.ResponseWriter, r *http.Request, id string) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	if id == "" {
+		writeError(w, 404, "节点不存在")
+		return
+	}
+	s.trafficMu.Lock()
+	defer s.trafficMu.Unlock()
+	st := s.store.Snapshot()
+	raw, _ := s.xray.QueryUserTraffic(true)
+	applyNodeTrafficDeltas(&st, trafficDeltasByNodeID(st, raw))
+	found := false
+	for i := range st.Nodes {
+		if st.Nodes[i].ID == id {
+			st.Nodes[i].UplinkBytes = 0
+			st.Nodes[i].DownlinkBytes = 0
+			found = true
+			break
+		}
+	}
+	if !found {
+		writeError(w, 404, "节点不存在")
+		return
+	}
+	if err := s.store.Replace(st); err != nil {
+		writeError(w, 500, err.Error())
+		return
+	}
+	writeJSON(w, 200, makeBootstrap(st))
+}
+
 func (s *Server) commitXrayState(old, next AppState) error {
+	s.trafficMu.Lock()
+	defer s.trafficMu.Unlock()
+
+	if raw, err := s.xray.QueryUserTraffic(true); err == nil {
+		deltas := trafficDeltasByNodeID(old, raw)
+		applyNodeTrafficDeltas(&old, deltas)
+		applyNodeTrafficDeltas(&next, deltas)
+	}
 	if err := s.store.Replace(next); err != nil {
 		return err
 	}
