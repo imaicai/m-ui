@@ -127,3 +127,36 @@ button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!impo
   .node-toolbar{gap:8px}
   .guide-inline{display:grid;gap:6px}
 }
+
+
+/* v1.4.2 toolbar and restart refinement */
+.topbar{height:70px;padding:0 24px}
+.page-heading-inline{display:flex;align-items:flex-end;gap:11px;min-width:0}
+.page-heading-inline h1{font-size:24px;line-height:1.05;margin:0;letter-spacing:-.02em}
+.page-heading-inline span{font-size:14px;line-height:1.05;color:var(--muted);white-space:nowrap;margin-bottom:1px}
+.userbox-inline{display:flex;align-items:center;gap:9px;font-size:14px;color:var(--muted)}
+.topbar-restart{height:34px;padding:0 12px;display:inline-flex;align-items:center;gap:7px;border-radius:9px;font-size:13px}
+.topbar-restart .icon{width:15px;height:15px}
+.userbox-inline b{color:var(--text);font-weight:700}
+
+.version-row{display:flex;align-items:center;gap:7px;margin-top:9px;color:var(--muted);font-size:11px}
+.github-link{width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;color:#52665e;text-decoration:none;border:1px solid var(--line);background:#fff;transition:.15s}
+.github-link:hover{color:var(--primary);border-color:#a9dcca;background:var(--primary-soft)}
+.github-link .icon{width:15px;height:15px}
+.version-row>span{white-space:nowrap}
+
+.node-toolbar .search{height:44px}
+.new-node-btn{height:44px;min-width:112px;padding:0 16px;border-radius:11px;white-space:nowrap;font-size:14px}
+
+.settings-restart-note{margin-top:2px;padding:12px 14px;border:1px solid #dceee7;border-radius:11px;background:#f7fbf9;color:var(--muted);font-size:13px;line-height:1.6}
+.savebar{align-items:center}
+.savebar .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.savebar .btn .icon{width:16px;height:16px}
+
+@media(max-width:760px){
+  .topbar{height:auto;min-height:70px;padding:12px 14px}
+  .page-heading-inline{align-items:flex-end;gap:7px}
+  .userbox-inline{width:100%;justify-content:flex-end;flex-wrap:wrap}
+  .topbar-restart{height:32px;padding:0 10px}
+  .new-node-btn{min-width:106px;padding:0 13px}
+}
