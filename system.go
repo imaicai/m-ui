@@ -3,7 +3,10 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"strconv"
@@ -191,4 +194,68 @@ func fmtBytes(v uint64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %ciB", float64(v)/float64(div), "KMGTPE"[exp])
+}
+
+
+type serverIdentity struct {
+	IP      string
+	Country string
+}
+
+func detectServerIdentity() serverIdentity {
+	client := &http.Client{Timeout: 4 * time.Second}
+	req, _ := http.NewRequest(http.MethodGet, "https://api.country.is/", nil)
+	req.Header.Set("User-Agent", "m-ui/"+version)
+	if resp, err := client.Do(req); err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			var v struct {
+				IP      string `json:"ip"`
+				Country string `json:"country"`
+			}
+			if json.NewDecoder(resp.Body).Decode(&v) == nil {
+				v.IP = strings.TrimSpace(v.IP)
+				v.Country = strings.ToUpper(strings.TrimSpace(v.Country))
+				if net.ParseIP(v.IP) != nil && len(v.Country) == 2 {
+					return serverIdentity{IP: v.IP, Country: v.Country}
+				}
+			}
+		}
+	}
+
+	ip := ""
+	if out, err := exec.Command("hostname", "-I").Output(); err == nil {
+		for _, field := range strings.Fields(string(out)) {
+			if p := net.ParseIP(field); p != nil && !p.IsLoopback() {
+				ip = field
+				break
+			}
+		}
+	}
+	return serverIdentity{IP: ip, Country: "NODE"}
+}
+
+func nextCountryNodeName(country string, nodes []Node) string {
+	country = strings.ToUpper(strings.TrimSpace(country))
+	if len(country) != 2 {
+		country = "NODE"
+	}
+	max := 0
+	for _, n := range nodes {
+		name := strings.ToUpper(strings.TrimSpace(n.Name))
+		if !strings.HasPrefix(name, country) {
+			continue
+		}
+		suffix := strings.TrimPrefix(name, country)
+		if suffix == "" {
+			continue
+		}
+		if v, err := strconv.Atoi(suffix); err == nil && v > max {
+			max = v
+		}
+	}
+	if country == "NODE" {
+		return fmt.Sprintf("NODE%02d", max+1)
+	}
+	return fmt.Sprintf("%s%02d", country, max+1)
 }
