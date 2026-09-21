@@ -282,7 +282,7 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("Referrer-Policy", "same-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
-		if r.TLS != nil {
+		if requestSecure(r) {
 			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
 		next.ServeHTTP(w, r)
@@ -310,7 +310,7 @@ func requestSameOrigin(r *http.Request) bool {
 	if err != nil || !strings.EqualFold(u.Host, r.Host) {
 		return false
 	}
-	if r.TLS != nil {
+	if requestSecure(r) {
 		return strings.EqualFold(u.Scheme, "https")
 	}
 	return strings.EqualFold(u.Scheme, "http")
@@ -395,8 +395,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	exp := time.Now().Add(7 * 24 * time.Hour)
 	s.sessions.Store(token, session{Expires: exp, CSRF: csrf})
 	cookiePath := s.panelPath()
-	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: token, Path: cookiePath, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, Expires: exp, MaxAge: int((7 * 24 * time.Hour).Seconds())})
-	http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: csrf, Path: cookiePath, HttpOnly: false, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, Expires: exp, MaxAge: int((7 * 24 * time.Hour).Seconds())})
+	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: token, Path: cookiePath, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: requestSecure(r), Expires: exp, MaxAge: int((7 * 24 * time.Hour).Seconds())})
+	http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: csrf, Path: cookiePath, HttpOnly: false, SameSite: http.SameSiteStrictMode, Secure: requestSecure(r), Expires: exp, MaxAge: int((7 * 24 * time.Hour).Seconds())})
 	writeJSON(w, 200, map[string]any{"ok": true, "username": st.Settings.AdminUser})
 }
 
@@ -416,8 +416,8 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		s.sessions.Delete(c.Value)
 	}
 	path := s.panelPath()
-	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: "", Path: path, HttpOnly: true, Secure: r.TLS != nil, MaxAge: -1, SameSite: http.SameSiteStrictMode})
-	http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: "", Path: path, HttpOnly: false, Secure: r.TLS != nil, MaxAge: -1, SameSite: http.SameSiteStrictMode})
+	http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: "", Path: path, HttpOnly: true, Secure: requestSecure(r), MaxAge: -1, SameSite: http.SameSiteStrictMode})
+	http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: "", Path: path, HttpOnly: false, Secure: requestSecure(r), MaxAge: -1, SameSite: http.SameSiteStrictMode})
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -608,8 +608,8 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		if err != nil || p == "" {
 			p = "/"
 		}
-		http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: "", Path: p, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: -1})
-		http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: "", Path: p, HttpOnly: false, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, MaxAge: -1})
+		http.SetCookie(w, &http.Cookie{Name: "mui_session", Value: "", Path: p, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: requestSecure(r), MaxAge: -1})
+		http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: "", Path: p, HttpOnly: false, SameSite: http.SameSiteStrictMode, Secure: requestSecure(r), MaxAge: -1})
 	}
 
 	if reloginRequired {
@@ -630,11 +630,11 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 				}
 				http.SetCookie(w, &http.Cookie{
 					Name: "mui_session", Value: ck.Value, Path: p, HttpOnly: true,
-					SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil,
+					SameSite: http.SameSiteStrictMode, Secure: requestSecure(r),
 					Expires: exp, MaxAge: int(time.Until(exp).Seconds()),
 				})
 				if sess, ok := v.(session); ok && sess.CSRF != "" {
-					http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: sess.CSRF, Path: p, HttpOnly: false, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil, Expires: exp, MaxAge: int(time.Until(exp).Seconds())})
+					http.SetCookie(w, &http.Cookie{Name: "mui_csrf", Value: sess.CSRF, Path: p, HttpOnly: false, SameSite: http.SameSiteStrictMode, Secure: requestSecure(r), Expires: exp, MaxAge: int(time.Until(exp).Seconds())})
 				}
 				expireAuthCookies(old.Settings.PanelPath)
 			}
