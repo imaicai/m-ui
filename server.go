@@ -965,37 +965,6 @@ func (s *Server) handleSubscriptionFeed(w http.ResponseWriter, r *http.Request) 
 	_, _ = w.Write([]byte(encoded))
 }
 
-*http.Request) {
-	token := strings.Trim(strings.TrimPrefix(r.URL.Path, "/sub/"), "/")
-	if token == "" {
-		http.NotFound(w, r)
-		return
-	}
-	st := s.store.Snapshot()
-	found := false
-	for _, sub := range st.Subscriptions {
-		if sub.Slug == token && sub.Enabled {
-			found = true
-			break
-		}
-	}
-	if !found {
-		http.NotFound(w, r)
-		return
-	}
-	var lines []string
-	for _, n := range st.Nodes {
-		if n.Enabled {
-			lines = append(lines, nodeURI(st, n))
-		}
-	}
-	raw := strings.Join(lines, "\n")
-	encoded := base64.StdEncoding.EncodeToString([]byte(raw))
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
-	_, _ = w.Write([]byte(encoded))
-}
-
 func trafficDeltasByNodeID(st AppState, raw map[string]TrafficDelta) map[string]TrafficDelta {
 	out := map[string]TrafficDelta{}
 	for _, n := range st.Nodes {
