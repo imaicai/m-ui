@@ -1,6 +1,7 @@
 name: m-ui CI
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
