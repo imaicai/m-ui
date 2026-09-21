@@ -173,3 +173,32 @@ func TestGeneratedRealityConfigWithInstalledXray(t *testing.T) {
 		t.Fatalf("current Xray rejected generated REALITY config: %v\n%s", err, out)
 	}
 }
+
+func TestBuildConfigEnablesPerNodeTrafficStats(t *testing.T) {
+	st := defaultState()
+	st.Nodes = []Node{{
+		ID: "node-stats-1", Name: "US01", UUID: "9e7c8e21-026e-51a6-a8f1-168a7e20d819",
+		Port: 16888, Enabled: true, Security: "reality", Address: "203.0.113.10",
+		RealityPrivateKey: "server-private-key", RealityPassword: "client-password",
+		RealityShortID: "012356789abcdef0", RealityServerName: "www.apple.com",
+		RealityTarget: "www.apple.com:443",
+	}}
+	x := NewXrayManager("/usr/local/bin/xray", filepath.Join(t.TempDir(), "config.json"))
+	b, err := x.BuildConfig(st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	for _, want := range []string{
+		`"StatsService"`,
+		`"statsUserUplink": true`,
+		`"statsUserDownlink": true`,
+		`"email": "node-stats-1@m-ui"`,
+		`"port": 10085`,
+		`"outboundTag": "api"`,
+	} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("traffic stats config missing %s: %s", want, s)
+		}
+	}
+}
