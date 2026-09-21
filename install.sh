@@ -243,7 +243,7 @@ install -m 0755 "$INSTALL_SRC/m-ui-ctl" "$CTL"
 
 NEW_PASSWORD=""
 if [[ ! -f "$DATA_FILE" ]]; then
-  NEW_PASSWORD="${MUI_ADMIN_PASS:-$(od -An -N18 -tx1 /dev/urandom | tr -d ' \\n')}"
+  NEW_PASSWORD="${MUI_ADMIN_PASS:-$(od -An -N18 -tx1 /dev/urandom | tr -d '[:space:]')}"
   "$SERVER_BIN" --init --user "$ADMIN_USER" --password "$NEW_PASSWORD"
   chmod 600 "$DATA_FILE"
 fi
