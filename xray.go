@@ -271,7 +271,8 @@ func nodeURI(st AppState, n Node) string {
 		q.Set("sni", st.Settings.Domain)
 		q.Set("alpn", "h2,http/1.1")
 	}
-	return fmt.Sprintf("vless://%s@%s:%d?%s#%s", n.UUID, host, n.Port, q.Encode(), url.PathEscape(n.Name))
+	endpoint := net.JoinHostPort(host, strconv.Itoa(n.Port))
+	return fmt.Sprintf("vless://%s@%s?%s#%s", n.UUID, endpoint, q.Encode(), url.PathEscape(n.Name))
 }
 
 func tryOpenFirewall(port int) string {
