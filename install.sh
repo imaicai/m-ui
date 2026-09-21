@@ -166,6 +166,9 @@ fi
 info "安装/校验 Xray Core…"
 ensure_xray_user
 XRAY_RUN_USER="$(detect_xray_run_user)"
+if [[ "$XRAY_RUN_USER" != "xray" && "$XRAY_RUN_USER" != "root" ]]; then
+  die "MUI_XRAY_USER 仅支持 xray 或 root，避免配置文件权限与运行用户不一致。"
+fi
 XRAY_LOCK_FILE="$DATA_DIR/xray-version.lock"
 XRAY_REFRESH="${MUI_XRAY_REFRESH:-0}"
 XRAY_SCRIPT="$(mktemp)"
@@ -266,7 +269,16 @@ ExecStart=$SERVER_BIN
 Restart=on-failure
 RestartSec=3
 LimitNOFILE=1048576
-NoNewPrivileges=false
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target
