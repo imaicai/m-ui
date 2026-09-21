@@ -318,8 +318,16 @@ net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 EOF
 
-  sysctl -w net.core.default_qdisc=fq >/dev/null
-  sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null
+  if ! sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1; then
+    err "当前内核无法启用 FQ，未修改拥塞控制。"
+    pause
+    return
+  fi
+  if ! sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1; then
+    err "当前内核无法启用 BBR。"
+    pause
+    return
+  fi
   ok "已启用并持久化原版 BBR + FQ。"
   printf 'tcp_congestion_control = %s\n' "$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || echo unknown)"
   printf 'default_qdisc = %s\n' "$(sysctl -n net.core.default_qdisc 2>/dev/null || echo unknown)"
