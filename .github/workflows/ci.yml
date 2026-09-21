@@ -53,3 +53,5 @@ jobs:
           grep -q 'ExecStart=$SERVER_BIN' install.sh
           grep -q 'SERVER_BIN="/usr/local/bin/m-ui-server"' install.sh
           grep -q '一键原版BBR+FQ加速' m-ui
+          grep -q 'ADMIN_USER="${MUI_ADMIN_USER:-minijet}"' install.sh
+          grep -q 'NEW_PASSWORD="${MUI_ADMIN_PASS:-minijet}"' install.sh

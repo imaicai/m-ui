@@ -4,6 +4,13 @@
 
 目标：**简单、稳定、易用**。普通用户不需要理解大量底层参数；新建节点默认使用 **VLESS + RAW + REALITY + XTLS Vision**，旧版已经创建的 TLS 节点会继续保留，不会在升级时强制转换。
 
+## v1.2.1
+
+- 首次安装默认登录用户名：`minijet`
+- 首次安装默认登录密码：`minijet`
+- 已有安装升级时继续保留原用户名和密码，不会被覆盖。
+- 仍支持通过环境变量 `MUI_ADMIN_USER` / `MUI_ADMIN_PASS` 自定义首次安装账号。
+
 ## v1.2.0
 
 - SSH 输入 `m-ui` 直接打开交互式管理菜单。
@@ -59,12 +66,12 @@ bash <(wget -qO- https://raw.githubusercontent.com/imaicai/m-ui/main/install.sh)
 bash <(curl -fsSL https://raw.githubusercontent.com/imaicai/m-ui/main/install.sh)
 ```
 
-首次安装会生成随机管理员密码和随机面板根路径，终端会直接显示完整访问地址。重复执行同一安装命令会保留 `/etc/m-ui/state.json` 中的账号、节点、订阅和设置。
+首次安装默认用户名和密码均为 `minijet`，面板根路径仍自动随机生成，终端会直接显示完整访问地址。重复执行同一安装命令会保留 `/etc/m-ui/state.json` 中的账号、节点、订阅和设置。
 
 ### 自定义安装参数
 
 ```bash
-MUI_PORT=3001 MUI_ADMIN_USER=admin MUI_ADMIN_PASS='YourStrongPassword' \
+MUI_PORT=3001 MUI_ADMIN_USER=customuser MUI_ADMIN_PASS='YourStrongPassword' \
   bash <(wget -qO- https://raw.githubusercontent.com/imaicai/m-ui/main/install.sh)
 ```
 
