@@ -20,6 +20,9 @@ type SystemStats struct {
 	MemoryPercent float64 `json:"memory_percent"`
 	MemoryUsed    uint64  `json:"memory_used"`
 	MemoryTotal   uint64  `json:"memory_total"`
+	SwapPercent   float64 `json:"swap_percent"`
+	SwapUsed      uint64  `json:"swap_used"`
+	SwapTotal     uint64  `json:"swap_total"`
 	DiskPercent   float64 `json:"disk_percent"`
 	DiskUsed      uint64  `json:"disk_used"`
 	DiskTotal     uint64  `json:"disk_total"`
@@ -55,7 +58,7 @@ func readSystemStats(prevNet *netSample, prevCPU *cpuSample) (SystemStats, netSa
 	var st SystemStats
 	cpuValue, prevCPUValue := cpuPercent(prevCPU)
 	st.CPUPercent = cpuValue
-	st.MemoryUsed, st.MemoryTotal, st.MemoryPercent = memoryStats()
+	st.MemoryUsed, st.MemoryTotal, st.MemoryPercent, st.SwapUsed, st.SwapTotal, st.SwapPercent = memorySwapStats()
 	st.DiskUsed, st.DiskTotal, st.DiskPercent = diskStats()
 	rx, tx := networkBytes()
 	now := time.Now()
@@ -119,7 +122,7 @@ func readCPU() (idle, total uint64) {
 	return
 }
 
-func memoryStats() (used, total uint64, percent float64) {
+func memorySwapStats() (used, total uint64, percent float64, swapUsed, swapTotal uint64, swapPercent float64) {
 	b, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
 		return
@@ -140,6 +143,15 @@ func memoryStats() (used, total uint64, percent float64) {
 	}
 	if total > 0 {
 		percent = float64(used) * 100 / float64(total)
+	}
+
+	swapTotal = vals["SwapTotal"]
+	swapFree := vals["SwapFree"]
+	if swapTotal >= swapFree {
+		swapUsed = swapTotal - swapFree
+	}
+	if swapTotal > 0 {
+		swapPercent = float64(swapUsed) * 100 / float64(swapTotal)
 	}
 	return
 }

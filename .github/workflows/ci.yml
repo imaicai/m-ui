@@ -213,12 +213,20 @@ jobs:
           assert '服务器实时网络' in app and '节点概览' in app
           assert 'dashboardProxyTraffic' in app and 'dashboardAlerts' in app and 'dashboardNodeRows' in app
           assert '推荐配置' not in app[app.index('function dashboard()'):app.index('function nodeModal()')]
-          assert 'dashboard-alert' in css and 'network-ring' in css and 'v1.5.1 proxy-first dashboard refinement' in css
+          assert 'dashboard-alert' in css and 'v1.5.1 proxy-first dashboard refinement' in css
           assert 'v1.5.2 resource sampling and sidebar interaction refinement' in css
+          assert 'v1.5.3 persistent shell, SWAP resources and neutral scrollbars' in css
           assert 'fmtPercent' in app and '面板累计运行' in app
           assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
+          assert 'contentOnly' in app and 'syncShellChrome' in app and 'app.querySelector(\'.shell .content\')' in app
+          assert 'brand-logo-slot' in app and 'width="128" height="128"' in app and 'assets/app-icon.png?v=1.5.3' in app
+          assert 'admin-account' in app and "icon('user')" in app and '管理员账号：' not in app
+          assert "ring('SWAP'" in app and 'networkResource' not in app
+          assert '#B8C2CC' in css and '#F2F5F8' in css and '#EDF2F8' in css
+          assert 'hsl(216 82% 62%)' in app and 'hsl(258 72% 62%)' in app and 'hsl(32 82% 62%)' in app and 'hsl(335 62% 62%)' in app
           system = Path("system.go").read_text(encoding="utf-8")
           assert 'ProxyUplinkBytes' in system and 'ProxyDownlinkBytes' in system and 'NodeTraffic' in system
+          assert 'SwapPercent' in system and 'SwapUsed' in system and 'SwapTotal' in system and 'memorySwapStats' in system
           assert 'cpuPercentBetween' in system and 'time.Sleep(90 * time.Millisecond)' not in system
           assert 'lastCPU   cpuSample' in server and 'readSystemStats(&s.lastNet, &s.lastCPU)' in server
           assert 'st.NodeTraffic = make(map[string]NodeTrafficStat' in server
@@ -279,7 +287,8 @@ jobs:
           grep -q '最简单的代理面板' web/assets/app.js
           grep -q '默认订阅不能删除' server.go
           grep -q 'stateVersion = 6' store.go
-          grep -q '管理员账号：' web/assets/app.js
+          ! grep -q '管理员账号：' web/assets/app.js
+          grep -q 'admin-account' web/assets/app.js
           ! grep -q 'restartPanelTop' web/assets/app.js
           ! grep -q 'restartPanelSettings' web/assets/app.js
           grep -q 'restartPanelSidebar' web/assets/app.js
@@ -301,4 +310,4 @@ jobs:
           grep -q '//go:embed VERSION' main.go
           test -s go.sum
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
-          grep -q '^1\.5\.2$' VERSION
+          grep -q '^1\.5\.3$' VERSION
