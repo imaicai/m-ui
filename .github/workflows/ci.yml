@@ -214,6 +214,10 @@ jobs:
           assert 'dashboardProxyTraffic' in app and 'dashboardAlerts' in app and 'dashboardNodeRows' in app
           assert '推荐配置' not in app[app.index('function dashboard()'):app.index('function nodeModal()')]
           assert 'dashboard-alert' in css and 'network-rate-pair' in css and 'v1.5.1 proxy-first dashboard refinement' in css
+          system = Path("system.go").read_text(encoding="utf-8")
+          assert 'ProxyUplinkBytes' in system and 'ProxyDownlinkBytes' in system and 'NodeTraffic' in system
+          assert 'st.NodeTraffic = make(map[string]NodeTrafficStat' in server
+          assert 'st.node_traffic||{}' in app and 'proxy_uplink_bytes' in app and 'proxy_downlink_bytes' in app
           assert 'Cache-Control' in server and 'no-store' in server
           panel_tls = Path("panel_tls.go").read_text(encoding="utf-8")
           assert 'MaxHeaderBytes' in panel_tls
