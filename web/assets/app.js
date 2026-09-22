@@ -260,7 +260,7 @@ function confirmBox(message, yes){state.modal='confirm';document.body.insertAdja
 
 async function loadPanelInfo(){try{state.publicInfo=await api('/api/panel-info')}catch{}}
 async function loadBootstrap(){state.boot=await api('/api/bootstrap');state.publicInfo={name:state.boot?.settings?.panel_name||'m-ui',version:state.boot?.version||''};document.title=brandName()+' · MiniJet'}
-async function loadStats(){try{const st=await api('/api/system/stats');state.stats=st;state.panelUptimeAnchor={seconds:Number(st.panel_uptime_seconds||0),at:Date.now()};state.netHistory.push({rx:st.rx_rate||0,tx:st.tx_rate||0});if(state.netHistory.length>30)state.netHistory.shift();if(state.route==='dashboard')render();updateStableClock()}catch(e){console.warn(e)}}
+async function loadStats(){try{const st=await api('/api/system/stats');state.stats=st;const traffic=st.node_traffic||{};for(const n of state.boot?.nodes||[]){const t=traffic[n.id];if(!t)continue;n.uplink_bytes=Number(t.uplink_bytes||0);n.downlink_bytes=Number(t.downlink_bytes||0)}state.panelUptimeAnchor={seconds:Number(st.panel_uptime_seconds||0),at:Date.now()};state.netHistory.push({rx:st.rx_rate||0,tx:st.tx_rate||0});if(state.netHistory.length>30)state.netHistory.shift();if(state.route==='dashboard')render();updateStableClock()}catch(e){console.warn(e)}}
 function startPolling(){stopTimers();loadStats();state.timer=setInterval(loadStats,5000);state.clockTimer=setInterval(updateStableClock,1000)}
 
 async function restartPanel(){
