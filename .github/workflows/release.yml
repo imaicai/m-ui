@@ -2,6 +2,11 @@ name: Build Release ZIP
 
 on:
   workflow_dispatch:
+    inputs:
+      release_notes:
+        description: "本版本说明（留空则使用项目简介）"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -84,6 +89,23 @@ jobs:
           )
           sha256sum "dist/$NAME.zip" > "dist/$NAME.zip.sha256"
 
+      - name: Prepare release notes
+        if: steps.existing.outputs.exists != 'true'
+        env:
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$(printf '%s' "$RELEASE_NOTES" | tr -d '[:space:]')" ]]; then
+            printf '%s\n' "$RELEASE_NOTES" > /tmp/release-notes.md
+          else
+            cat > /tmp/release-notes.md <<'EOF'
+          M-Ui 是一个面向个人服务器的轻量级 Xray 管理面板，默认采用 VLESS + RAW + REALITY + XTLS Vision，提供节点管理、订阅管理、运行监控、系统设置和 SSH 管理等功能。
+
+          本 Release 提供正式 ZIP 打包文件及 SHA256 校验文件。
+          EOF
+          fi
+
       - name: Create GitHub Release
         if: steps.existing.outputs.exists != 'true'
         env:
@@ -99,4 +121,4 @@ jobs:
             "dist/$NAME.zip.sha256" \
             --target "$GITHUB_SHA" \
             --title "M-Ui v$VERSION" \
-            --generate-notes
+            --notes-file /tmp/release-notes.md

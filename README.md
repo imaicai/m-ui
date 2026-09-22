@@ -218,6 +218,19 @@ MUI_XRAY_USER=root ...
 
 ---
 
+## 📦 Releases
+
+正式打包版本统一发布在 GitHub **Releases** 页面。
+
+每个正式 Release 会提供：
+
+- **m-ui-vX.Y.Z.zip**：完整项目打包文件；
+- **m-ui-vX.Y.Z.zip.sha256**：ZIP 的 SHA256 校验文件。
+
+当前首个正式 Release 只使用简短项目简介。后续版本发布时，版本变化、修复内容和重要注意事项会统一记录在 Releases 中；README 继续只负责介绍当前项目和使用方法，不作为历史更新日志。
+
+---
+
 ## 🔄 更新与维护
 
 ### 普通更新
