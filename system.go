@@ -78,15 +78,22 @@ func readSystemStats(prevNet *netSample, prevCPU *cpuSample) (SystemStats, netSa
 func cpuPercent(prev *cpuSample) (float64, cpuSample) {
 	idle, total := readCPU()
 	current := cpuSample{idle: idle, total: total}
-	if prev == nil || prev.total == 0 || total <= prev.total || idle < prev.idle {
+	if prev == nil {
 		return 0, current
 	}
-	dt := total - prev.total
-	di := idle - prev.idle
+	return cpuPercentBetween(*prev, current), current
+}
+
+func cpuPercentBetween(prev, current cpuSample) float64 {
+	if prev.total == 0 || current.total <= prev.total || current.idle < prev.idle {
+		return 0
+	}
+	dt := current.total - prev.total
+	di := current.idle - prev.idle
 	if dt == 0 || di > dt {
-		return 0, current
+		return 0
 	}
-	return float64(dt-di) * 100 / float64(dt), current
+	return float64(dt-di) * 100 / float64(dt)
 }
 
 func readCPU() (idle, total uint64) {
