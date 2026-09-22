@@ -219,7 +219,7 @@ jobs:
           assert 'fmtPercent' in app and '面板累计运行' in app
           assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
           assert 'contentOnly' in app and 'syncShellChrome' in app and 'app.querySelector(\'.shell .content\')' in app
-          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.4' in app
+          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.5' in app
           assert 'admin-account' in app and "icon('user')" in app and '管理员账号：' not in app
           assert "ring('SWAP'" in app and 'networkResource' not in app
           assert '#B8C2CC' in css and '#F2F5F8' in css and '#EDF2F8' in css
@@ -310,4 +310,6 @@ jobs:
           grep -q '//go:embed VERSION' main.go
           test -s go.sum
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
-          grep -q '^1\.5\.4$' VERSION
+          test -f web/assets/app-icon.png
+          test ! -e app-icon.png
+          grep -q '^1\.5\.5$' VERSION
