@@ -100,11 +100,16 @@ function ring(label,pct,sub,color='var(--blue)'){pct=Math.max(0,Math.min(100,Num
 function chart(){const hist=state.netHistory.slice(-30);if(hist.length<2)return `<div class="chart-empty">等待网络采样…</div>`;const max=Math.max(1,...hist.flatMap(x=>[x.rx,x.tx]));const pts=(key)=>hist.map((x,i)=>`${(i/(hist.length-1))*700},${220-(x[key]/max)*180}`).join(' ');return `<div class="chart"><svg viewBox="0 0 700 240" preserveAspectRatio="none"><polyline points="${pts('rx')}" fill="none" stroke="#00B176" stroke-width="4"/><polyline points="${pts('tx')}" fill="none" stroke="#67CFA9" stroke-width="3"/></svg><div class="chart-legend"><span><i class="legend blue"></i>下载 ${fmtRate(hist.at(-1).rx)}</span><span><i class="legend green"></i>上传 ${fmtRate(hist.at(-1).tx)}</span></div></div>`}
 
 
-function dashboardProxyTraffic(nodes){
+function dashboardProxyTraffic(nodes,st={}){
   let uplink=0,downlink=0;
-  for(const n of nodes){
-    uplink+=Number(n.uplink_bytes||0);
-    downlink+=Number(n.downlink_bytes||0);
+  if(st.proxy_uplink_bytes!=null||st.proxy_downlink_bytes!=null){
+    uplink=Number(st.proxy_uplink_bytes||0);
+    downlink=Number(st.proxy_downlink_bytes||0);
+  }else{
+    for(const n of nodes){
+      uplink+=Number(n.uplink_bytes||0);
+      downlink+=Number(n.downlink_bytes||0);
+    }
   }
   return {uplink,downlink,total:uplink+downlink};
 }
@@ -150,7 +155,7 @@ function dashboardNodeRows(nodes){
 function dashboard(){
   const st=state.stats||{},nodes=state.boot?.nodes||[];
   const enabled=nodes.filter(n=>n.enabled).length,disabled=nodes.length-enabled;
-  const traffic=dashboardProxyTraffic(nodes),health=dashboardHealth(st);
+  const traffic=dashboardProxyTraffic(nodes,st),health=dashboardHealth(st);
   const serviceValue=st.xray_running?'运行正常':'服务异常';
   const serviceSub=st.xray_running?`Xray 正常 · 服务器运行 ${fmtUptime(st.uptime_seconds)}`:'请检查 Xray 服务';
   const nodeValue=nodes.length?`${nodes.length} 个节点`:'暂无节点';
