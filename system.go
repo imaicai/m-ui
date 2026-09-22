@@ -25,11 +25,19 @@ type SystemStats struct {
 	DiskTotal     uint64  `json:"disk_total"`
 	RXBytes       uint64  `json:"rx_bytes"`
 	TXBytes       uint64  `json:"tx_bytes"`
-	RXRate        float64 `json:"rx_rate"`
-	TXRate        float64 `json:"tx_rate"`
-	UptimeSeconds      uint64  `json:"uptime_seconds"`
-	PanelUptimeSeconds uint64  `json:"panel_uptime_seconds"`
-	XrayRunning        bool    `json:"xray_running"`
+	RXRate             float64                    `json:"rx_rate"`
+	TXRate             float64                    `json:"tx_rate"`
+	ProxyUplinkBytes   uint64                     `json:"proxy_uplink_bytes"`
+	ProxyDownlinkBytes uint64                     `json:"proxy_downlink_bytes"`
+	NodeTraffic        map[string]NodeTrafficStat `json:"node_traffic,omitempty"`
+	UptimeSeconds      uint64                     `json:"uptime_seconds"`
+	PanelUptimeSeconds uint64                     `json:"panel_uptime_seconds"`
+	XrayRunning        bool                       `json:"xray_running"`
+}
+
+type NodeTrafficStat struct {
+	UplinkBytes   uint64 `json:"uplink_bytes"`
+	DownlinkBytes uint64 `json:"downlink_bytes"`
 }
 
 type netSample struct {
