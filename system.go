@@ -53,7 +53,8 @@ type cpuSample struct {
 
 func readSystemStats(prevNet *netSample, prevCPU *cpuSample) (SystemStats, netSample, cpuSample) {
 	var st SystemStats
-	st.CPUPercent, prevCPUValue := cpuPercent(prevCPU)
+	cpuValue, prevCPUValue := cpuPercent(prevCPU)
+	st.CPUPercent = cpuValue
 	st.MemoryUsed, st.MemoryTotal, st.MemoryPercent = memoryStats()
 	st.DiskUsed, st.DiskTotal, st.DiskPercent = diskStats()
 	rx, tx := networkBytes()
