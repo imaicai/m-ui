@@ -326,10 +326,6 @@ else
 fi
 echo
 echo "SSH 管理:"
-echo "  m-ui               打开交互式管理菜单"
-echo "  m-ui-ctl status    查看状态"
-echo "  m-ui-ctl restart   重启面板"
-echo "  m-ui-ctl logs      查看日志"
-echo "  m-ui-ctl update    更新程序"
+echo "  m-ui    打开交互式管理菜单"
 echo
 warn "如果云服务器有安全组，请另外放行 TCP ${PANEL_PORT}；后续节点端口也需要允许入站。"

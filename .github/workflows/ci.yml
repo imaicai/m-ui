@@ -236,6 +236,10 @@ jobs:
           assert "## v1.5.0" not in readme and "安全稳定性能版" not in readme
           assert "## 🚀 核心能力" in readme and "## ⚙️ 一键安装" in readme and "## 🛡️ 安全设计" in readme
           assert '<img src="web/assets/app-icon.png"' in readme
+          assert "**当前版本：v1.5.8**" in readme
+          assert "请输入选项 [1-8，CTRL+C退出]" in readme
+          assert "m-ui-ctl status" not in readme
+          assert "高级控制脚本（为自动化和兼容已有运维流程保留）" in readme
           release = Path('.github/workflows/release.yml').read_text(encoding='utf-8')
           assert 'workflow_dispatch:' in release and '  push:' not in release
           system = Path("system.go").read_text(encoding="utf-8")
@@ -265,12 +269,19 @@ jobs:
           grep -q 'SERVER_BIN="/usr/local/bin/m-ui-server"' install.sh
           grep -q '一键原版BBR+FQ加速' m-ui
           grep -q '完整更新 m-ui 【前端、后端、脚本、Xray】' m-ui
+          grep -Fq "line(){ printf '%s\\n' '-------------------------------------------------------'; }" m-ui
+          grep -Fq ' 2. 删除卸载 m-ui 【包含卸载所有配置】' m-ui
+          grep -Fq '请输入选项 [1-8，CTRL+C退出]' m-ui
+          ! grep -Fq 'q退出' m-ui
           grep -q 'update_program()' m-ui
           grep -q 'ADMIN_USER="${MUI_ADMIN_USER:-minijet}"' install.sh
           grep -q 'od -An -N18 -tx1 /dev/urandom' install.sh
           grep -q 'MUI_INIT_PASS="$NEW_PASSWORD"' install.sh
           ! grep -q -- '--password "$NEW_PASSWORD"' install.sh
           grep -q 'MUI_XRAY_REFRESH' install.sh
+          grep -q 'install -m 0755 "$INSTALL_SRC/m-ui-ctl" "$CTL"' install.sh
+          grep -q 'm-ui    打开交互式管理菜单' install.sh
+          ! grep -q 'm-ui-ctl status    查看状态' install.sh
           grep -q 'xray-version.lock' install.sh
           grep -q 'tcp_mtu_probing=1' install.sh
           grep -q 'NoNewPrivileges=true' install.sh
@@ -308,6 +319,9 @@ jobs:
           ! grep -q '## v1.5.0' README.md
           grep -q '## 🚀 核心能力' README.md
           grep -q '## ⚙️ 一键安装' README.md
+          grep -q '当前版本：v1.5.8' README.md
+          grep -Fq '请输入选项 [1-8，CTRL+C退出]' README.md
+          ! grep -q 'm-ui-ctl status' README.md
           grep -q "trafficSub,'i-green'" web/assets/app.js
           grep -q 'v1.5.6 dashboard card alignment refinement' web/assets/app.css
           grep -q 'workflow_dispatch:' .github/workflows/release.yml
@@ -335,4 +349,4 @@ jobs:
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
           test -f web/assets/app-icon.png
           test ! -e app-icon.png
-          grep -q '^1\.5\.7$' VERSION
+          grep -q '^1\.5\.8$' VERSION
