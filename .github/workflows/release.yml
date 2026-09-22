@@ -1,0 +1,108 @@
+name: Build Release ZIP
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - VERSION
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: m-ui-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "name=m-ui-v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Skip existing release
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test
+        if: steps.existing.outputs.exists != 'true'
+        run: go test ./...
+
+      - name: Build Linux amd64 server
+        if: steps.existing.outputs.exists != 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o /tmp/m-ui-server .
+
+      - name: Package ZIP
+        if: steps.existing.outputs.exists != 'true'
+        env:
+          NAME: ${{ steps.version.outputs.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="dist/$NAME"
+          mkdir -p "$ROOT"
+
+          cp README.md LICENSE VERSION Makefile go.mod go.sum "$ROOT/"
+          cp ./*.go "$ROOT/"
+          cp install.sh uninstall.sh m-ui m-ui-ctl "$ROOT/"
+          cp -R web "$ROOT/"
+          install -m 0755 /tmp/m-ui-server "$ROOT/m-ui-server-linux-amd64"
+
+          (
+            cd dist
+            zip -qr "$NAME.zip" "$NAME"
+          )
+          sha256sum "dist/$NAME.zip" > "dist/$NAME.zip.sha256"
+
+      - name: Create GitHub Release
+        if: steps.existing.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          NAME: ${{ steps.version.outputs.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            "dist/$NAME.zip" \
+            "dist/$NAME.zip.sha256" \
+            --target "$GITHUB_SHA" \
+            --title "M-Ui v$VERSION" \
+            --generate-notes
