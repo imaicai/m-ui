@@ -484,6 +484,16 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	if !s.startedAt.IsZero() {
 		st.PanelUptimeSeconds = uint64(time.Since(s.startedAt).Seconds())
 	}
+	snapshot := s.store.Snapshot()
+	st.NodeTraffic = make(map[string]NodeTrafficStat, len(snapshot.Nodes))
+	for _, node := range snapshot.Nodes {
+		st.ProxyUplinkBytes += node.UplinkBytes
+		st.ProxyDownlinkBytes += node.DownlinkBytes
+		st.NodeTraffic[node.ID] = NodeTrafficStat{
+			UplinkBytes:   node.UplinkBytes,
+			DownlinkBytes: node.DownlinkBytes,
+		}
+	}
 	writeJSON(w, 200, st)
 }
 
