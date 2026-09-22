@@ -15,7 +15,8 @@ const state = {
   busy: false,
   timer: null,
   clockTimer: null,
-  panelUptimeAnchor: null
+  panelUptimeAnchor: null,
+  contentOnly: false
 };
 
 const icons={
@@ -27,6 +28,7 @@ const icons={
  edit:`<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg>`,
  trash:`<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 10v7M14 10v7"/></svg>`,
  power:`<svg viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M6.2 5.8a8 8 0 1 0 11.6 0"/></svg>`,
+ user:`<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>`,
  stop:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>`,
  play:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m10 8.8 5 3.2-5 3.2z"/></svg>`,
  plus:`<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>`,
@@ -86,18 +88,22 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(){return `<img src="${panelURL('assets/app-icon.png?v=1.5.2')}" alt="${esc(brandName())}" class="brand-image">`}
+function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.3')}" width="128" height="128" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
 
-function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon()}<div><strong>${esc(brandName())}</strong><small>最简单的代理面板</small></div></div><nav class="nav">
+function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon('sidebar')}<div><strong class="brand-title">${esc(brandName())}</strong><small>最简单的代理面板</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
 </nav><div class="sidebar-bottom"><div class="system-pill"><div class="statusline stable-runtime">${icon('clock')}<span>面板累计运行</span><b id="stableUptime">${fmtStableClock(currentPanelUptimeSeconds())}</b></div><div class="service-copy"><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer" title="打开 M-Ui GitHub 源码" aria-label="打开 M-Ui GitHub 源码">${icon('github')}</a><span>M-Ui：最简单的代理面板</span></div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/MiniJet" target="_blank" rel="noopener noreferrer" title="打开 MiniJet GitHub 源码" aria-label="打开 MiniJet GitHub 源码">${icon('github')}</a><span>小飞机：最简单的代理客户端</span></div><div class="service-copyright">© 2026 <a href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer">M-Ui</a> v${ver}</div></div></div><button class="sidebar-restart" id="restartPanelSidebar" type="button"><span class="restart-mark">${icon('restart')}</span><span>重启面板</span></button></div></aside>`}
-function layout(content){const [title,sub]=routeTitle(state.route), user=state.boot?.settings?.admin_user||'admin';return `<div class="shell">${nav()}<main class="main"><header class="topbar"><div class="page-heading-inline"><h1>${title}</h1><span>${sub}</span></div><div class="userbox-inline"><span>管理员账号：<b>${esc(user)}</b></span><span class="sep">·</span><button class="icon-btn subtle" id="logout" title="退出" aria-label="退出">${icon('power')}</button></div></header><div class="content">${content}</div></main></div>`}
+function layout(content){
+  if(state.contentOnly)return content;
+  const [title,sub]=routeTitle(state.route), user=state.boot?.settings?.admin_user||'admin';
+  return `<div class="shell">${nav()}<main class="main"><header class="topbar"><div class="page-heading-inline"><h1>${title}</h1><span>${sub}</span></div><div class="userbox-inline"><span class="admin-account" title="管理员账号" aria-label="管理员账号">${icon('user')}<b>${esc(user)}</b></span><span class="sep">·</span><button class="icon-btn subtle" id="logout" title="退出" aria-label="退出">${icon('power')}</button></div></header><div class="content">${content}</div></main></div>`;
+}
 
-function login(){return `<div class="login-shell"><form class="login-card refined" id="loginForm"><div class="login-card-head">${brandIcon()}<h1>${esc(brandName())}</h1><p>最简单的代理面板</p></div><div class="field"><label>用户名</label><input class="input" name="user" autocomplete="username" autofocus></div><div class="field"><label>密码</label><input class="input" name="pass" type="password" autocomplete="current-password"></div><button class="btn btn-primary btn-lg" type="submit">登录面板</button><div class="security-note">仅限管理员访问</div></form></div>`}
+function login(){return `<div class="login-shell"><form class="login-card refined" id="loginForm"><div class="login-card-head">${brandIcon('login')}<h1>${esc(brandName())}</h1><p>最简单的代理面板</p></div><div class="field"><label>用户名</label><input class="input" name="user" autocomplete="username" autofocus></div><div class="field"><label>密码</label><input class="input" name="pass" type="password" autocomplete="current-password"></div><button class="btn btn-primary btn-lg" type="submit">登录面板</button><div class="security-note">仅限管理员访问</div></form></div>`}
 
 function stat(label,value,sub,cls,symbol){return `<div class="card stat"><div><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div><div class="badgeicon ${cls}">${symbol}</div></div>`}
 function fmtPercent(pct){pct=Math.max(0,Math.min(100,Number(pct)||0));return (pct<10?pct.toFixed(1):pct.toFixed(0))+'%'}
-function ring(label,pct,sub,color='var(--blue)'){pct=Math.max(0,Math.min(100,Number(pct)||0));return `<div class="resource"><b>${label}</b><div class="ring" style="--p:${pct.toFixed(1)};--c:${color}"><b>${fmtPercent(pct)}</b></div><small>${sub}</small></div>`}
+function ring(label,pct,sub,color='var(--blue)',display=''){pct=Math.max(0,Math.min(100,Number(pct)||0));return `<div class="resource"><b>${label}</b><div class="ring" style="--p:${pct.toFixed(1)};--c:${color}"><b>${display||fmtPercent(pct)}</b></div><small>${sub}</small></div>`}
 function chart(){const hist=state.netHistory.slice(-30);if(hist.length<2)return `<div class="chart-empty">等待网络采样…</div>`;const max=Math.max(1,...hist.flatMap(x=>[x.rx,x.tx]));const pts=(key)=>hist.map((x,i)=>`${(i/(hist.length-1))*700},${220-(x[key]/max)*180}`).join(' ');return `<div class="chart"><svg viewBox="0 0 700 240" preserveAspectRatio="none"><polyline points="${pts('rx')}" fill="none" stroke="#00B176" stroke-width="4"/><polyline points="${pts('tx')}" fill="none" stroke="#67CFA9" stroke-width="3"/></svg><div class="chart-legend"><span><i class="legend blue"></i>下载 ${fmtRate(hist.at(-1).rx)}</span><span><i class="legend green"></i>上传 ${fmtRate(hist.at(-1).tx)}</span></div></div>`}
 
 
@@ -120,6 +126,8 @@ function dashboardHealth(st){
   if(cpu>=90)issues.push(`CPU 使用率较高（${Math.round(cpu)}%）`);
   if(memory>=90)issues.push(`内存使用率较高（${Math.round(memory)}%）`);
   if(disk>=85)issues.push(`磁盘使用率较高（${Math.round(disk)}%）`);
+  const swap=Number(st.swap_percent||0), swapTotal=Number(st.swap_total||0);
+  if(swapTotal>0&&swap>=80)issues.push(`SWAP 使用率较高（${Math.round(swap)}%）`);
   return {
     label:issues.length?'需要关注':'运行正常',
     sub:`CPU ${fmtPercent(cpu)} · 内存 ${fmtPercent(memory)} · 磁盘 ${fmtPercent(disk)}`,
@@ -136,9 +144,6 @@ function dashboardAlerts(st,nodes,health){
   alerts.push(...health.issues);
   if(!alerts.length)return '';
   return `<div class="dashboard-alert" role="status"><div class="dashboard-alert-icon">!</div><div><b>需要注意</b><span>${alerts.map(esc).join(' · ')}</span></div></div>`;
-}
-function networkResource(st){
-  return `<div class="resource network-resource"><b>网络</b><div class="ring network-ring"><b>实时</b></div><small class="network-rate-line"><span>↓ ${fmtRate(st.rx_rate)}</span><span>↑ ${fmtRate(st.tx_rate)}</span></small></div>`;
 }
 function dashboardNodeRows(nodes){
   const ordered=[...nodes].sort((a,b)=>{
@@ -164,7 +169,7 @@ function dashboard(){
   const trafficSub=`节点累计 · ↓${fmtBytes(traffic.downlink)} · ↑${fmtBytes(traffic.uplink)}`;
   return layout(`<div class="grid stats">${stat('代理服务',serviceValue,serviceSub,st.xray_running?'i-green':'i-orange',icon('pulse'))}${stat('节点状态',nodeValue,nodeSub,'i-blue',icon('serverStack'))}${stat('代理流量',fmtBytes(traffic.total),trafficSub,'i-purple',icon('network'))}${stat('服务器状态',health.label,health.sub,health.cls,icon('shieldCheck'))}</div>
 ${dashboardAlerts(st,nodes,health)}
-<section class="card section-card dashboard-resources"><div class="section-title"><h2>服务器资源</h2><small>实时数据</small></div><div class="resources">${ring('CPU',st.cpu_percent,'系统处理器')}${ring('内存',st.memory_percent,`${fmtBytes(st.memory_used)} / ${fmtBytes(st.memory_total)}`,'var(--green)')}${ring('磁盘',st.disk_percent,`${fmtBytes(st.disk_used)} / ${fmtBytes(st.disk_total)}`,'var(--purple)')}${networkResource(st)}</div></section>
+<section class="card section-card dashboard-resources"><div class="section-title"><h2>服务器资源</h2><small>实时数据</small></div><div class="resources">${ring('CPU',st.cpu_percent,'系统处理器','#5B8FF9')}${ring('内存',st.memory_percent,`${fmtBytes(st.memory_used)} / ${fmtBytes(st.memory_total)}`,'#8B7CF6')}${ring('磁盘',st.disk_percent,`${fmtBytes(st.disk_used)} / ${fmtBytes(st.disk_total)}`,'#F0A15A')}${ring('SWAP',st.swap_percent,Number(st.swap_total||0)>0?`${fmtBytes(st.swap_used)} / ${fmtBytes(st.swap_total)}`:'未启用','#D06BA8',Number(st.swap_total||0)>0?'':'未启用')}</div></section>
 <div class="grid dashboard-bottom"><section class="card section-card"><div class="section-title"><h2>服务器实时网络</h2><small>服务器网卡 · 最近 30 次采样</small></div>${chart()}</section><section class="card section-card dashboard-node-overview"><div class="section-title"><h2>节点概览</h2><button class="link-btn" data-route="nodes">查看全部 →</button></div><div class="table-wrap"><table class="table dashboard-node-table"><thead><tr><th>节点</th><th>状态</th><th>流量</th><th>端口</th><th>操作</th></tr></thead><tbody>${dashboardNodeRows(nodes)}</tbody></table></div></section></div>`);
 }
 function nodeModal(){return `<div class="modal-backdrop"><div class="modal"><div class="modal-head"><div class="modal-title"><div class="badgeicon i-blue">◆</div><div><h2>一键添加节点</h2><p>系统自动完成国家识别和推荐配置</p></div></div><button class="close" id="closeModal">×</button></div><div class="form-grid"><label>节点名称</label><input class="input readonly" value="自动生成：国家代码 + 序号（如 US01）" readonly><div class="helper">同一服务器继续添加时自动递增为 US02、US03…</div><label>推荐配置</label><input class="input readonly" value="VLESS + RAW + REALITY + XTLS Vision" readonly><label>服务器地址</label><input class="input readonly" value="自动识别当前服务器公网 IP" readonly><label>监听端口</label><input class="input readonly" value="自动选择可用端口" readonly><label>UUID</label><input class="input readonly" value="自动生成" readonly><label>REALITY</label><input class="input readonly" value="密钥、Short ID、SNI 自动生成/配置" readonly></div><div class="tip"><b>新建节点不再要求先设置域名或 TLS 证书。</b><br><small>现有 TLS 节点仍会继续保留并使用系统设置中的域名和证书，不会被强制转换。</small></div><div class="modal-actions"><button class="btn btn-outline" id="cancelModal">取消</button><button class="btn btn-primary" id="createNode">立即创建</button></div></div></div>`}
@@ -284,10 +289,41 @@ async function restartPanel(){
   setTimeout(()=>{location.href=target.toString()},4200);
 }
 
-function render(){document.title=brandName()+' · MiniJet';const app=$('#app');if(!state.loggedIn){app.innerHTML=login();bindLogin();return}if(!state.boot){app.innerHTML=`<div class="loading">正在载入 m-ui…</div>`;return}let html=state.route==='nodes'?nodes():state.route==='subscriptions'?subscriptions():state.route==='settings'?settings():dashboard();app.innerHTML=html;bindCommon();if(state.route==='nodes')bindNodes();if(state.route==='subscriptions')bindSubs();if(state.route==='settings')bindSettings()}
+function syncShellChrome(){
+  document.title=brandName()+' · MiniJet';
+  const [title,sub]=routeTitle(state.route), user=state.boot?.settings?.admin_user||'admin';
+  const h=$('.page-heading-inline h1'), p=$('.page-heading-inline span');
+  if(h)h.textContent=title;
+  if(p)p.textContent=sub;
+  $('.nav [data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route===state.route));
+  const brand=$('.brand-title'); if(brand)brand.textContent=brandName();
+  const account=$('.admin-account b'); if(account)account.textContent=user;
+  const image=$('.brand-logo-sidebar .brand-image'); if(image)image.alt=brandName();
+}
+function render(){
+  document.title=brandName()+' · MiniJet';
+  const app=$('#app');
+  if(!state.loggedIn){state.contentOnly=false;app.innerHTML=login();bindLogin();return}
+  if(!state.boot){state.contentOnly=false;app.innerHTML=`<div class="loading">正在载入 m-ui…</div>`;return}
+  const partial=!!app.querySelector('.shell .content');
+  state.contentOnly=partial;
+  let html=state.route==='nodes'?nodes():state.route==='subscriptions'?subscriptions():state.route==='settings'?settings():dashboard();
+  state.contentOnly=false;
+  if(partial){
+    const content=$('.shell .content');
+    if(content)content.innerHTML=html;
+    syncShellChrome();
+  }else{
+    app.innerHTML=html;
+  }
+  bindCommon();
+  if(state.route==='nodes')bindNodes();
+  if(state.route==='subscriptions')bindSubs();
+  if(state.route==='settings')bindSettings();
+}
 
 function bindLogin(){$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const fd=new FormData(e.target);try{await api('/api/login',{method:'POST',body:JSON.stringify({username:fd.get('user'),password:fd.get('pass')})});state.loggedIn=true;await loadBootstrap();startPolling();render()}catch(err){toast(err.message,false)}})}
-function bindCommon(){$$('[data-route]').forEach(b=>b.onclick=()=>{state.route=b.dataset.route;location.hash='#/'+state.route;render()});$('#restartPanelSidebar')?.addEventListener('click',restartPanel);$('#logout')?.addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;stopTimers();render()});$$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'))}
+function bindCommon(){$('[data-route]').forEach(b=>b.onclick=()=>{state.route=b.dataset.route;location.hash='#/'+state.route;render()});const restart=$('#restartPanelSidebar');if(restart)restart.onclick=restartPanel;const logout=$('#logout');if(logout)logout.onclick=async()=>{try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;stopTimers();render()};$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'))}
 function openNodeModal(){document.body.insertAdjacentHTML('beforeend',nodeModal());const close=()=>$('.modal-backdrop')?.remove();$('#closeModal').onclick=close;$('#cancelModal').onclick=close;$('.modal-backdrop').addEventListener('click',e=>{if(e.target.classList.contains('modal-backdrop'))close()});$('#createNode').onclick=async()=>{const btn=$('#createNode');btn.disabled=true;btn.textContent='正在识别并创建…';try{const out=await api('/api/nodes/default',{method:'POST'});close();await loadBootstrap();render();toast(out.warning?`${out.node.name} 已创建；${out.warning}`:`${out.node.name} 已创建并生效`)}catch(err){btn.disabled=false;btn.textContent='立即创建';toast(err.message,false)}}}
 function bindNodes(){
   $('#addNode')?.addEventListener('click',openNodeModal);
