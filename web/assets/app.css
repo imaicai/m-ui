@@ -352,7 +352,7 @@ button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!impo
 @media(max-width:760px){
   .dashboard-alert{align-items:flex-start}
   .dashboard-alert>div:last-child{display:grid;gap:3px}
-  .network-rate-pair{width:min(260px,100%)}
+  .network-rate-line{gap:7px;font-size:11px}
   .dashboard-node-table{min-width:520px}
 }
 
