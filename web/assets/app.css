@@ -72,12 +72,13 @@ button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!impo
 .page-heading-inline span{font-size:14px;color:var(--muted);white-space:nowrap}
 .userbox-inline{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
 .userbox-inline b{color:var(--text);font-weight:700}
-.admin-account{height:32px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;min-width:0;border:1px solid var(--line);border-radius:9px;background:#fff;color:#50645c;transition:.15s}
+.admin-account{height:32px;box-sizing:border-box;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:0;border:1px solid var(--line);border-radius:9px;background:#fff;color:#50645c;font:inherit;line-height:1;cursor:pointer;appearance:none;transition:.15s}
 .admin-account>.icon{width:17px;height:17px;flex:0 0 17px;color:currentColor}
 .admin-account b{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font-weight:700}
 .admin-account:hover{border-color:#a9dcca;color:var(--primary);background:var(--primary-soft);transform:translateY(-1px)}
+.admin-account:focus-visible{outline:2px solid rgba(0,177,118,.28);outline-offset:2px}
 .userbox-inline .sep{color:#aab8b2}
-.userbox-inline .icon-btn{width:32px;height:32px;border-radius:9px}
+.userbox-inline .icon-btn{width:32px;height:32px;box-sizing:border-box;border-radius:9px}
 .content{padding-top:20px}
 
 .login-shell{padding:32px;background:radial-gradient(circle at 10% 12%,#edf9f4 0 12%,transparent 12.2%),radial-gradient(circle at 92% 88%,#eaf8f2 0 17%,transparent 17.2%),linear-gradient(145deg,#fbfdfc,#f2f7f4)}
@@ -405,3 +406,7 @@ html,body,#app{max-width:100%;overflow-x:hidden}
 
 /* v1.5.6 dashboard card alignment refinement */
 .userbox-inline{align-items:center}
+
+
+/* v1.5.7 admin navigation refinement */
+.admin-account,.userbox-inline .icon-btn{height:32px}
