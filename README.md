@@ -1,240 +1,443 @@
+<div align="center">
+
+<img src="web/assets/app-icon.png" width="96" alt="M-Ui Logo">
+
 # M-Ui
 
-**最简单的代理面板**
+### **最简单的代理面板**
 
-M-Ui 是一个面向个人服务器的轻量级 Xray 管理面板，重点是安装简单、节点创建快速，并尽量把安全、稳定和性能优化放在后台自动完成。
+**轻量 · 安全 · 稳定 · 易维护**
 
-项目地址：https://github.com/imaicai/m-ui
+面向个人服务器的轻量级 Xray Web 管理面板。  
+前后端由一个 Go 服务承载，默认围绕 **VLESS + RAW + REALITY + XTLS Vision** 提供节点创建、订阅管理、运行监控与服务器管理能力。
 
-## v1.5.0 安全稳定性能版
+[GitHub 项目主页](https://github.com/imaicai/m-ui) · [提交问题](https://github.com/imaicai/m-ui/issues)
 
-v1.5.0 保持既定节点预设和客户端使用方式不变：
+</div>
 
-```text
+---
+
+## ✨ 项目定位
+
+M-Ui 不追求堆叠大量协议和复杂选项，而是尽量把常用、可靠的代理服务器管理流程做得更简单。
+
+它更关注：
+
+- **开箱即用**：一条命令完成安装，前端、后端和管理脚本一起部署。
+- **少配置**：新建节点时自动完成公网 IP、国家代码、节点名称、端口、UUID、REALITY 密钥和 Short ID。
+- **低干扰**：节点修改优先热更新对应 Xray inbound，尽量避免影响其他节点。
+- **安全默认值**：密码、Session、CSRF、配置文件权限和 systemd 运行参数默认采用更严格的策略。
+- **稳定优先**：普通更新不盲目追新 Xray；完整更新才主动刷新核心，并提供校验与回滚。
+- **轻量部署**：Go 单服务运行，不需要 Node.js、npm 或额外 Web 运行时。
+- **适合共存**：默认使用独立端口，不强占 80 / 443，可与 1Panel、Nginx、其他网站和服务共存。
+
+---
+
+## 🚀 核心能力
+
+| 模块 | 能力 |
+|---|---|
+| 🧩 **节点管理** | 创建、编辑、启停、删除、复制节点链接、累计流量统计与清零 |
+| 🔐 **REALITY** | 自动生成 X25519 密钥、Short ID、SNI 与客户端分享参数 |
+| ⚡ **热更新** | 优先通过 Xray HandlerService 仅替换受影响 inbound |
+| 🔗 **订阅管理** | 默认订阅自动聚合全部节点，自定义订阅可选择节点范围 |
+| 📊 **仪表盘** | 代理服务、节点状态、代理流量、服务器状态、CPU、磁盘、内存、SWAP、实时网络 |
+| 🖥️ **系统设置** | 面板名称、端口、管理路径、域名、证书、管理员账号与密码 |
+| 🛡️ **安全保护** | Argon2id、CSRF、同源校验、安全 Cookie、权限收紧、登录失败限制 |
+| 🌐 **网络优化** | 原版 BBR + FQ、PMTU 探测、保守 TCP KeepAlive |
+| 🔄 **升级回滚** | Xray 版本锁定、配置校验、启动健康检查、失败自动回滚 |
+| 🧰 **SSH 管理** | 安装、更新、卸载、状态、日志、重启、Xray 与网络优化管理 |
+
+---
+
+## 🧩 默认节点方案
+
+新建节点默认采用：
+
+~~~text
 VLESS + RAW + REALITY + XTLS Vision
-```
+~~~
 
-主要升级集中在服务端底层：
+创建节点时，M-Ui 会自动完成：
 
-- **Xray 节点热更新**：新增、启停、删除或修改运行参数时优先通过 HandlerService 只替换对应 inbound；热更新失败才回退完整重启。
-- **面板重启不再等于 Xray 重启**：M-Ui 启动时先比较配置并做健康检查，运行配置一致时不会无条件重启 Xray。
-- **完整健康检查**：配置先经过 `xray run -test`；运行后继续检查 Stats API 和所有已启用节点监听端口。
-- **RAW TCP KeepAlive**：服务端入站默认启用保守的 TCP KeepAlive，提升长连接、移动网络和 NAT 环境下的稳定性。
-- **REALITY fallback 参数去统一指纹**：每个节点使用稳定但不同的限速参数，不再让所有 M-Ui 节点使用完全相同的一组固定值。
-- **Xray 最小权限**：REALITY-only 安装默认使用专用 `xray` 系统用户；检测到历史 TLS 节点时优先兼容，不强制破坏现有证书读取权限。
-- **Xray 配置权限收紧**：配置文件默认 `0600`；专用 xray 用户场景使用 `root:xray + 0640`。
-- **Xray 稳定版本锁定与回滚**：普通重复安装不会盲目追新；“完整更新”才主动刷新 Xray。升级前保存旧二进制，配置校验或启动失败会自动回滚。
-- **BBR + FQ + PMTU**：内核支持时自动启用原版 BBR + FQ，并启用 `tcp_mtu_probing=1`；不安装第三方魔改内核。
-- **防火墙生命周期同步**：节点改端口或删除后自动尝试回收旧 UFW / firewalld 端口规则。
-- **Argon2id 密码存储**：新密码使用 Argon2id；旧版密码仍可登录，并在成功登录后自动升级哈希。
-- **CSRF / 同源保护**：管理操作增加 CSRF token、Origin / Sec-Fetch-Site 校验；HTTPS 响应启用 HSTS。
-- **首次随机密码**：全新安装不再使用固定 `minijet/minijet` 密码，终端会生成并显示高强度随机密码。
-- **订阅地址更高熵**：新建或主动修改的自定义订阅后缀至少 20 位；历史短地址继续兼容，不会升级后失效。
+1. 🌍 识别服务器公网 IP 与两位国家代码；
+2. 🏷️ 自动生成节点名称，例如 **US01 / JP01 / DE01**；
+3. 🔌 自动选择可用高位端口；
+4. 🔑 自动生成 UUID；
+5. 🔐 自动生成 REALITY X25519 密钥和 Short ID；
+6. 🌐 默认使用 **www.apple.com:443** 作为 REALITY 目标；
+7. ✅ 使用当前 Xray 执行真实配置校验；
+8. 💾 保存持久配置；
+9. ⚡ 优先通过 HandlerService 热更新目标 inbound；
+10. 🛟 热更新不可用时自动回退完整 Xray 应用流程。
 
-## 主要优势
+节点名称、分享地址等纯展示信息发生变化时，如果不影响实际 Xray inbound，不会为了这些改动无意义地重载节点。
 
-- **Go 单服务运行**：前后端一体化，Web UI 直接内嵌，无需 Node.js / npm 运行环境。
-- **默认 REALITY + Vision**：新建节点采用 VLESS + RAW + REALITY + XTLS Vision。
-- **自动生成节点参数**：公网 IP、国家代码、节点名、UUID、端口、REALITY 密钥、Short ID 自动处理。
-- **创建前真实校验**：关键配置写入前使用当前 Xray 做真实配置自检。
-- **节点变更尽量无感**：优先热更新目标 inbound，避免操作一个节点影响其他节点。
-- **订阅按需分发**：默认订阅自动包含全部节点；自定义订阅可选择节点范围。
-- **轻量状态监控**：显示 Xray 状态、节点数量、CPU、内存、磁盘、网络速率和面板运行时间。
-- **独立管理入口**：支持随机面板 URL 根路径。
-- **适合与 1Panel 共存**：默认独立端口，不要求占用 80 / 443。
+---
 
-## 节点管理
+## 📊 仪表盘
 
-新建节点默认配置：
+仪表盘用于快速确认代理与服务器状态。
 
-```text
-VLESS + RAW + REALITY + XTLS Vision
-```
+### 顶部概览
 
-系统自动完成：
+- **代理服务**：Xray 是否正常运行、服务器运行时间；
+- **节点状态**：节点总数、启用和停用数量；
+- **代理流量**：全部节点累计上下行代理流量；
+- **服务器状态**：综合 CPU、内存和磁盘负载提示。
 
-1. 识别服务器公网 IP 和两位国家代码；
-2. 自动生成 US01、JP01 等节点名称；
-3. 自动选择可用高位端口；
-4. 自动生成 UUID；
-5. 自动生成 REALITY X25519 密钥与 Short ID；
-6. 默认使用 `www.apple.com:443` 作为 REALITY 伪装目标；
-7. 生成完整 Xray 配置并真实校验；
-8. 保存持久配置；
-9. 优先通过 HandlerService 热更新目标 inbound；
-10. 热更新不可用时自动回退完整 Xray 重载。
+### 服务器资源
 
-节点页面支持编辑名称、连接地址、端口和 REALITY 伪装域名，支持启停、复制、删除以及累计流量查看/清零。
+当前按以下顺序显示：
 
-> 节点名称和分享地址本身不影响 Xray inbound 时，不会为了这类纯展示/分享信息变更而重载节点。
+~~~text
+CPU → 磁盘 → 内存 → SWAP
+~~~
 
-## 订阅管理
+资源区域用于观察服务器即时负载；下方的 **服务器实时网络** 单独展示服务器网卡最近采样的上下行变化。
 
-M-Ui 首次初始化自动创建一个 **默认订阅**。默认订阅始终排在第一位、不能删除，并自动跟踪当前全部节点。
+### 节点概览
 
-自定义订阅可以单独选择节点。系统自动生成高熵订阅地址；新建或主动修改自定义后缀时要求 20–80 位，仅允许字母、数字、`-` 和 `_`。历史版本已经存在的短订阅地址继续保留。
+仪表盘直接展示常用节点信息，包括：
 
-订阅地址格式：
+- 节点名称与国家标识；
+- 启用 / 停用状态；
+- 节点累计流量；
+- 端口；
+- 快速复制节点链接。
 
-```text
+---
+
+## 🔗 订阅管理
+
+首次初始化时，M-Ui 会自动创建一个 **默认订阅**。
+
+默认订阅：
+
+- 始终排在第一位；
+- 不允许删除；
+- 自动跟踪当前全部节点。
+
+自定义订阅可以单独选择需要包含的节点。
+
+新建或主动修改订阅后缀时，使用高熵随机地址，并限制为 **20–80 位**，允许：
+
+~~~text
+字母 / 数字 / - / _
+~~~
+
+订阅地址示例：
+
+~~~text
 https://你的域名或IP:端口/sub/随机后缀
-```
+~~~
 
-## 一键安装 / 更新
+历史已经存在的订阅地址会继续兼容，不会因为更新而强制失效。
 
-推荐系统：
+---
+
+## ⚙️ 一键安装
+
+### 推荐系统
 
 - Ubuntu
 - Debian
 - Rocky Linux
 - AlmaLinux
 
-要求系统支持 systemd。
+系统需要支持 **systemd**。
 
-使用 wget：
+### 使用 wget
 
-```bash
+~~~bash
 bash <(wget -qO- https://raw.githubusercontent.com/imaicai/m-ui/main/install.sh)
-```
+~~~
 
-或 curl：
+### 使用 curl
 
-```bash
+~~~bash
 bash <(curl -fsSL https://raw.githubusercontent.com/imaicai/m-ui/main/install.sh)
-```
+~~~
 
-重复执行普通安装命令会更新 M-Ui 程序并保留已有数据，同时优先保持已经锁定且验证过的 Xray 版本。
+安装器会自动处理：
 
-SSH 菜单中的：
+- M-Ui 编译与部署；
+- Xray 安装与版本管理；
+- systemd 服务；
+- 管理数据目录；
+- 防火墙端口；
+- 安全权限；
+- 网络基础优化；
+- 首次管理员初始化。
 
-```text
-完整更新 m-ui 【前端、后端、脚本、Xray】
-```
+---
 
-会显式刷新 Xray 到官方稳定版本；更新前会备份旧二进制，新的 Xray 必须通过现有配置校验和启动检查，否则自动尝试回滚。
-
-更新会保留登录账号、节点、订阅、面板设置、证书路径和累计流量。
-
-## 首次登录
+## 🔐 首次登录
 
 全新安装默认：
 
-```text
-用户名：minijet
-密码：安装时自动生成的高强度随机密码
-默认端口：16800
-```
+| 项目 | 默认值 |
+|---|---|
+| 👤 用户名 | **minijet** |
+| 🔑 密码 | 安装时自动生成的高强度随机密码 |
+| 🌐 面板端口 | **16800** |
+| 🧭 管理路径 | 自动生成随机路径 |
 
-终端会直接显示管理员密码和完整面板地址，请保存首次生成的密码。
+终端安装完成后会直接显示管理员密码和完整面板地址。
 
-全新安装还会自动生成随机管理根路径，例如：
+随机管理路径示例：
 
-```text
+~~~text
 /a8f3k2m9x7qz/
-```
+~~~
 
-## 自定义安装参数
+请保存首次生成的管理员密码。
 
-```bash
+---
+
+## 🛠️ 自定义安装参数
+
+例如自定义面板端口、用户名和密码：
+
+~~~bash
 MUI_PORT=3001 MUI_ADMIN_USER=customuser MUI_ADMIN_PASS='YourStrongPassword' \
   bash <(wget -qO- https://raw.githubusercontent.com/imaicai/m-ui/main/install.sh)
-```
+~~~
 
 高级兼容参数：
 
-```bash
+~~~bash
 MUI_XRAY_USER=root ...
-```
+~~~
 
-可强制保留 root 运行 Xray；一般 REALITY-only 部署无需设置。历史 TLS 节点会由安装器自动优先采用兼容模式。
+一般 **REALITY-only** 部署无需手动指定 Xray 用户。
 
-## 网络性能策略
+检测到历史 TLS 节点时，安装器会优先采用兼容方式，避免破坏现有证书读取权限。
 
-M-Ui v1.5.0 只使用保守、可解释的网络参数：
+---
 
-```text
-net.core.default_qdisc=fq                  # 内核支持 BBR 时
-net.ipv4.tcp_congestion_control=bbr        # 内核支持 BBR 时
+## 🔄 更新与维护
+
+### 普通更新
+
+重复执行安装命令即可更新 M-Ui：
+
+~~~bash
+bash <(curl -fsSL https://raw.githubusercontent.com/imaicai/m-ui/main/install.sh)
+~~~
+
+普通更新会保留：
+
+- 管理员账号；
+- 节点；
+- 订阅；
+- 面板设置；
+- 证书路径；
+- 累计流量；
+- 已锁定并验证过的 Xray 版本。
+
+### 完整更新
+
+SSH 管理菜单提供：
+
+~~~text
+完整更新 m-ui 【前端、后端、脚本、Xray】
+~~~
+
+完整更新会主动刷新 Xray。
+
+更新前会保留旧 Xray 二进制；新版本必须通过现有配置测试和启动检查，否则会自动尝试回滚。
+
+---
+
+## ⚡ Xray 运行机制
+
+M-Ui 尽量减少一次普通管理操作对其他节点的影响。
+
+### 节点变更
+
+新增、启停、删除或修改运行参数时：
+
+1. 生成新的完整配置；
+2. 使用 **xray run -test** 校验；
+3. 计算受影响的 inbound；
+4. 优先使用 **HandlerService** 热更新；
+5. 持久化完整配置；
+6. 热更新失败时才进入完整应用 / 恢复流程。
+
+### 面板重启
+
+M-Ui 面板进程重启和 Xray 重启是两件事。
+
+如果运行配置没有变化且 Xray 健康，重启面板不会无条件重启 Xray。
+
+---
+
+## 🛡️ 安全设计
+
+| 项目 | 当前策略 |
+|---|---|
+| 🔑 **密码** | Argon2id |
+| 🎲 **首次密码** | 安装时随机生成，不使用固定默认密码 |
+| 🍪 **Session** | HttpOnly + SameSite=Strict |
+| 🧷 **写操作** | CSRF Token + Origin / Sec-Fetch-Site 同源校验 |
+| 🔒 **HTTPS** | 有效证书下支持 HTTPS，并发送 HSTS |
+| 📁 **数据文件** | /etc/m-ui/state.json，权限 0600 |
+| ⚙️ **Xray 配置** | root 场景 0600；专用 xray 用户场景 root:xray + 0640 |
+| 👤 **Xray 用户** | REALITY-only 默认优先使用专用 xray 系统用户 |
+| 🚦 **登录失败** | 按来源限制并控制失败状态缓存规模 |
+| 🩺 **健康接口** | 仅返回最小健康状态，不公开版本 |
+| 🧱 **systemd** | NoNewPrivileges、PrivateTmp、ProtectKernelTunables 等限制 |
+| 🎯 **订阅地址** | 新建 / 修改地址使用高熵随机后缀 |
+
+旧密码数据仍可兼容登录，验证成功后会自动迁移到新的 Argon2id 哈希。
+
+---
+
+## 🌐 网络与稳定性策略
+
+M-Ui 只使用相对保守、可解释的系统参数。
+
+内核支持时使用：
+
+~~~text
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
 net.ipv4.tcp_mtu_probing=1
-```
+~~~
 
-不会自动安装第三方魔改内核，也不会写入大批来源不明的 TCP 参数。
+RAW 入站使用：
 
-节点 RAW 入站还会启用：
-
-```text
+~~~text
 tcpKeepAliveIdle     = 60
 tcpKeepAliveInterval = 15
-```
+~~~
 
-## 安全机制
+M-Ui **不会自动安装第三方魔改内核**，也不会批量写入来源不明的 TCP 调优参数。
 
-- 管理数据文件：`/etc/m-ui/state.json`，权限 `0600`。
-- Xray 配置：root 场景 `0600`；专用 xray 用户场景 `root:xray 0640`。
-- 新密码：Argon2id。
-- 旧密码：兼容验证，成功登录后无感迁移到 Argon2id。
-- Session：HttpOnly + SameSite=Strict。
-- 写操作：CSRF token + 同源校验。
-- HTTPS：有效证书存在时支持 HTTPS，并为 HTTPS 响应发送 HSTS。
-- 登录失败：按来源地址限流并限制失败状态缓存规模。
-- 健康接口：只返回 `{"ok":true}`，不公开面板版本。
-- Xray systemd：增加 NoNewPrivileges、PrivateTmp、ProtectKernelTunables 等防护。
+---
 
-## 系统设置
+## 🧠 Xray 版本策略
 
-Web 面板支持调整：
+普通更新不会盲目追随最新 Xray。
 
-- 面板名称；
-- 面板端口；
-- 面板 URL 根路径；
-- 节点域名；
-- TLS 证书路径；
-- 登录用户名；
-- 登录密码。
+M-Ui 会记录已验证版本：
 
-修改普通设置直接生效；修改根路径后自动切换入口；修改账号需要重新登录；修改面板端口会重启面板进程。面板自身重启不会再无条件重启 Xray。
+~~~text
+/etc/m-ui/xray-version.lock
+~~~
 
-## SSH 管理菜单
+普通重复安装优先继续使用该版本。
 
-安装完成后运行：
+只有显式执行完整更新时才主动刷新 Xray。刷新过程中会：
 
-```bash
+1. 备份旧二进制；
+2. 安装目标版本；
+3. 使用现有节点配置真实测试；
+4. 重启并检查服务；
+5. 失败时自动尝试恢复上一版本。
+
+---
+
+## 🖥️ 系统设置
+
+Web 面板可以调整：
+
+- 🏷️ 面板名称；
+- 🔌 面板端口；
+- 🧭 面板 URL 根路径；
+- 🌐 节点域名；
+- 🔐 TLS 证书路径；
+- 👤 管理员用户名；
+- 🔑 管理员密码。
+
+修改普通设置直接生效。
+
+修改管理路径后会自动切换入口；修改管理员账号后需要重新登录；修改面板端口时会重启面板进程。
+
+右上角的 **管理员账号区域** 可以直接进入系统设置。
+
+---
+
+## ⌨️ SSH 管理菜单
+
+安装完成后执行：
+
+~~~bash
 m-ui
-```
+~~~
 
-可进行安装/更新、彻底卸载、面板账号与入口修改、服务控制、日志查看、原版 BBR + FQ + PMTU 加速以及参数刷新。
+可以管理：
+
+- 安装 / 更新；
+- 完整更新；
+- 卸载；
+- 面板账号；
+- 面板入口；
+- 服务状态；
+- 服务重启；
+- 日志；
+- Xray；
+- 原版 BBR + FQ + PMTU。
 
 常用命令：
 
-```bash
+~~~bash
 m-ui
 m-ui-ctl status
 m-ui-ctl restart
 m-ui-ctl logs
 m-ui-ctl update
 m-ui-ctl xray
-```
+~~~
 
-## 数据与目录
+---
 
-```text
-/etc/m-ui/state.json                                # 面板设置、节点、订阅和累计流量
-/etc/m-ui/xray-version.lock                         # 已验证 Xray 版本锁
-/usr/local/bin/m-ui                                 # SSH 管理菜单
-/usr/local/bin/m-ui-server                          # M-Ui 后端
-/usr/local/bin/m-ui-ctl                             # 控制命令
-/etc/systemd/system/m-ui.service                    # M-Ui systemd 服务
+## 📁 数据与目录
+
+~~~text
+/etc/m-ui/state.json
+    面板设置、节点、订阅和累计流量
+
+/etc/m-ui/xray-version.lock
+    已验证 Xray 版本锁
+
+/usr/local/bin/m-ui
+    SSH 管理菜单
+
+/usr/local/bin/m-ui-server
+    M-Ui 后端
+
+/usr/local/bin/m-ui-ctl
+    控制命令
+
+/etc/systemd/system/m-ui.service
+    M-Ui systemd 服务
+
 /etc/systemd/system/xray.service.d/20-m-ui-hardening.conf
-/etc/sysctl.d/99-m-ui-network.conf                  # 保守网络优化
-/usr/local/bin/xray                                 # Xray Core
-/usr/local/etc/xray/config.json                     # M-Ui 生成的 Xray 配置
+    Xray systemd 加固
+
+/etc/sysctl.d/99-m-ui-network.conf
+    保守网络优化
+
+/usr/local/bin/xray
+    Xray Core
+
+/usr/local/etc/xray/config.json
+    M-Ui 生成的 Xray 配置
+
 <SSH_HOME>/minijet/ssh/m-ui/fullchain.pem
 <SSH_HOME>/minijet/ssh/m-ui/privkey.pem
-```
+    面板 / 历史 TLS 节点证书路径
+~~~
 
-## 开发与测试
+---
 
-```bash
+## 🧪 开发与测试
+
+本地常用检查：
+
+~~~bash
 go test ./...
 go vet ./...
 node --check web/assets/app.js
@@ -242,12 +445,41 @@ bash -n install.sh
 bash -n m-ui
 bash -n m-ui-ctl
 bash -n uninstall.sh
-```
+~~~
 
-GitHub Actions 会安装当前官方 Xray，并用真实的 `xray run -test` 校验 M-Ui 生成的 REALITY + HandlerService 配置，同时检查前端绑定、Shell 脚本和 v1.5.0 安全性能约束。
+GitHub Actions 会继续执行：
 
-## License
+- ✅ Go 单元测试；
+- ✅ Go vet；
+- ✅ 当前 Xray 下的真实配置验证；
+- ✅ HandlerService 热更新 smoke test；
+- ✅ 前端语法与事件绑定检查；
+- ✅ 安装 / 管理 Shell 脚本检查；
+- ✅ 安全、性能和品牌资源回归检查。
 
-MIT License
+---
+
+## 🎯 适合谁
+
+M-Ui 更适合希望：
+
+- 用较少配置快速管理个人 Xray 服务器；
+- 以 **REALITY + Vision** 为主要节点方案；
+- 不想维护复杂前端依赖；
+- 希望多个节点操作之间尽量互不影响；
+- 希望与 1Panel、网站、反向代理等服务共存；
+- 更重视稳定、安全和可维护性，而不是协议数量。
+
+---
+
+## 📄 License
+
+**MIT License**
 
 Author: **MiniJet**
+
+<div align="center">
+
+**M-Ui · 让代理管理更简单**
+
+</div>

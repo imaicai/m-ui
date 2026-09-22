@@ -219,15 +219,23 @@ jobs:
           assert 'fmtPercent' in app and '面板累计运行' in app
           assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
           assert 'contentOnly' in app and 'syncShellChrome' in app and 'app.querySelector(\'.shell .content\')' in app
-          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.6' in app
+          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.7' in app
           assert 'admin-account' in app and "icon('user')" in app and '管理员账号：' not in app
+          assert 'class="admin-account" data-route="settings" type="button"' in app
+          assert 'title="管理员账号 · 系统设置"' in app
           assert "stat('代理流量',fmtBytes(traffic.total),trafficSub,'i-green'" in app and "trafficSub,'i-purple'" not in app
           resource_block = app[app.index('<section class=\"card section-card dashboard-resources\"'):app.index('<div class=\"grid dashboard-bottom\"')]
           assert resource_block.index("ring('CPU'") < resource_block.index("ring('磁盘'") < resource_block.index("ring('内存'") < resource_block.index("ring('SWAP'")
           assert "ring('SWAP'" in app and 'networkResource' not in app
           assert '#B8C2CC' in css and '#F2F5F8' in css and '#EDF2F8' in css
-          assert '.admin-account{height:32px;padding:0 10px' in css and 'border-radius:9px;background:#fff' in css
+          assert '.admin-account{height:32px;box-sizing:border-box;padding:0 10px' in css
+          assert '.admin-account,.userbox-inline .icon-btn{height:32px}' in css
+          assert 'border-radius:9px;background:#fff' in css
           assert 'hsl(216 82% 62%)' in app and 'hsl(258 72% 62%)' in app and 'hsl(32 82% 62%)' in app and 'hsl(335 62% 62%)' in app
+          readme = Path("README.md").read_text(encoding="utf-8")
+          assert "## v1.5.0" not in readme and "安全稳定性能版" not in readme
+          assert "## 🚀 核心能力" in readme and "## ⚙️ 一键安装" in readme and "## 🛡️ 安全设计" in readme
+          assert '<img src="web/assets/app-icon.png"' in readme
           release = Path('.github/workflows/release.yml').read_text(encoding='utf-8')
           assert 'workflow_dispatch:' in release and '  push:' not in release
           system = Path("system.go").read_text(encoding="utf-8")
@@ -295,6 +303,11 @@ jobs:
           grep -q 'stateVersion = 6' store.go
           ! grep -q '管理员账号：' web/assets/app.js
           grep -q 'admin-account' web/assets/app.js
+          grep -q 'data-route="settings"' web/assets/app.js
+          grep -q 'v1.5.7 admin navigation refinement' web/assets/app.css
+          ! grep -q '## v1.5.0' README.md
+          grep -q '## 🚀 核心能力' README.md
+          grep -q '## ⚙️ 一键安装' README.md
           grep -q "trafficSub,'i-green'" web/assets/app.js
           grep -q 'v1.5.6 dashboard card alignment refinement' web/assets/app.css
           grep -q 'workflow_dispatch:' .github/workflows/release.yml
@@ -322,4 +335,4 @@ jobs:
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
           test -f web/assets/app-icon.png
           test ! -e app-icon.png
-          grep -q '^1\.5\.6$' VERSION
+          grep -q '^1\.5\.7$' VERSION
