@@ -86,7 +86,7 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(){return `<img src="${panelURL('assets/app-icon.png?v=1.5.0')}" alt="${esc(brandName())}" class="brand-image">`}
+function brandIcon(){return `<img src="${panelURL('assets/app-icon.png?v=1.5.1')}" alt="${esc(brandName())}" class="brand-image">`}
 
 function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon()}<div><strong>${esc(brandName())}</strong><small>最简单的代理面板</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
@@ -99,10 +99,73 @@ function stat(label,value,sub,cls,symbol){return `<div class="card stat"><div><d
 function ring(label,pct,sub,color='var(--blue)'){pct=Math.max(0,Math.min(100,Number(pct)||0));return `<div class="resource"><b>${label}</b><div class="ring" style="--p:${pct.toFixed(0)};--c:${color}"><b>${pct.toFixed(0)}%</b></div><small>${sub}</small></div>`}
 function chart(){const hist=state.netHistory.slice(-30);if(hist.length<2)return `<div class="chart-empty">等待网络采样…</div>`;const max=Math.max(1,...hist.flatMap(x=>[x.rx,x.tx]));const pts=(key)=>hist.map((x,i)=>`${(i/(hist.length-1))*700},${220-(x[key]/max)*180}`).join(' ');return `<div class="chart"><svg viewBox="0 0 700 240" preserveAspectRatio="none"><polyline points="${pts('rx')}" fill="none" stroke="#00B176" stroke-width="4"/><polyline points="${pts('tx')}" fill="none" stroke="#67CFA9" stroke-width="3"/></svg><div class="chart-legend"><span><i class="legend blue"></i>下载 ${fmtRate(hist.at(-1).rx)}</span><span><i class="legend green"></i>上传 ${fmtRate(hist.at(-1).tx)}</span></div></div>`}
 
-function dashboard(){const st=state.stats||{}, nodes=state.boot?.nodes||[], enabled=nodes.filter(n=>n.enabled).length;const recent=nodes.slice(0,5).map(n=>`<tr><td>${esc(n.name)}</td><td>${protocolLabel(n)}</td><td>${n.port}</td><td>${n.enabled?'<span class="dot"></span> <span class="online">启用</span>':'<span class="muted">停用</span>'}</td><td><button class="icon-btn copy-uri" data-uri="${esc(n.uri)}" title="复制" aria-label="复制">${icon('copy')}</button></td></tr>`).join('')||`<tr><td colspan="5" class="empty">还没有节点，请到“节点管理”创建节点。</td></tr>`;
-return layout(`<div class="grid stats">${stat('Xray 运行状态',st.xray_running?'运行中':'未运行',st.xray_running?`服务器已运行 ${fmtUptime(st.uptime_seconds)}`:'请检查 Xray 服务',st.xray_running?'i-green':'i-orange',icon('pulse'))}${stat('节点总数',nodes.length,`${enabled} 个已启用`,'i-blue',icon('serverStack'))}${stat('推荐配置','REALITY','VLESS · RAW · Vision','i-purple',icon('shieldCheck'))}${stat('系统网络',fmtBytes((st.rx_bytes||0)+(st.tx_bytes||0)),'自开机累计','i-orange',icon('network'))}</div>
-<section class="card section-card dashboard-resources"><div class="section-title"><h2>服务器资源</h2><small>实时数据</small></div><div class="resources">${ring('CPU',st.cpu_percent,'系统处理器')}${ring('内存',st.memory_percent,`${fmtBytes(st.memory_used)} / ${fmtBytes(st.memory_total)}`,'var(--green)')}${ring('磁盘',st.disk_percent,`${fmtBytes(st.disk_used)} / ${fmtBytes(st.disk_total)}`,'var(--purple)')}<div class="resource"><b>网络</b><div class="ring" style="--p:0"><b>实时</b></div><small>↓${fmtRate(st.rx_rate)} ↑${fmtRate(st.tx_rate)}</small></div></div></section>
-<div class="grid dashboard-bottom"><section class="card section-card"><div class="section-title"><h2>实时网络</h2><small>最近采样</small></div>${chart()}</section><section class="card section-card"><div class="section-title"><h2>最近节点</h2><button class="link-btn" data-route="nodes">查看全部 →</button></div><div class="table-wrap"><table class="table"><thead><tr><th>名称</th><th>协议</th><th>端口</th><th>状态</th><th>操作</th></tr></thead><tbody>${recent}</tbody></table></div></section></div>`)}
+
+function dashboardProxyTraffic(nodes,st={}){
+  let uplink=0,downlink=0;
+  if(st.proxy_uplink_bytes!=null||st.proxy_downlink_bytes!=null){
+    uplink=Number(st.proxy_uplink_bytes||0);
+    downlink=Number(st.proxy_downlink_bytes||0);
+  }else{
+    for(const n of nodes){
+      uplink+=Number(n.uplink_bytes||0);
+      downlink+=Number(n.downlink_bytes||0);
+    }
+  }
+  return {uplink,downlink,total:uplink+downlink};
+}
+function dashboardHealth(st){
+  const cpu=Number(st.cpu_percent||0), memory=Number(st.memory_percent||0), disk=Number(st.disk_percent||0);
+  const issues=[];
+  if(cpu>=90)issues.push(`CPU 使用率较高（${Math.round(cpu)}%）`);
+  if(memory>=90)issues.push(`内存使用率较高（${Math.round(memory)}%）`);
+  if(disk>=85)issues.push(`磁盘使用率较高（${Math.round(disk)}%）`);
+  return {
+    label:issues.length?'需要关注':'运行正常',
+    sub:`CPU ${Math.round(cpu)}% · 内存 ${Math.round(memory)}% · 磁盘 ${Math.round(disk)}%`,
+    cls:issues.length?'i-orange':'i-green',
+    issues
+  };
+}
+function dashboardAlerts(st,nodes,health){
+  const alerts=[];
+  const enabled=nodes.filter(n=>n.enabled).length;
+  if(!st.xray_running)alerts.push('Xray 服务未运行');
+  if(nodes.length===0)alerts.push('尚未创建代理节点');
+  else if(enabled===0)alerts.push('当前没有启用节点');
+  alerts.push(...health.issues);
+  if(!alerts.length)return '';
+  return `<div class="dashboard-alert" role="status"><div class="dashboard-alert-icon">!</div><div><b>需要注意</b><span>${alerts.map(esc).join(' · ')}</span></div></div>`;
+}
+function networkResource(st){
+  return `<div class="resource network-resource"><b>网络</b><div class="network-rate-pair"><div><span>↓</span><strong>${fmtRate(st.rx_rate)}</strong><small>下载</small></div><div><span>↑</span><strong>${fmtRate(st.tx_rate)}</strong><small>上传</small></div></div><small>服务器实时网卡速率</small></div>`;
+}
+function dashboardNodeRows(nodes){
+  const ordered=[...nodes].sort((a,b)=>{
+    if(Boolean(a.enabled)!==Boolean(b.enabled))return a.enabled?-1:1;
+    const at=Number(a.uplink_bytes||0)+Number(a.downlink_bytes||0);
+    const bt=Number(b.uplink_bytes||0)+Number(b.downlink_bytes||0);
+    if(bt!==at)return bt-at;
+    return String(a.name||'').localeCompare(String(b.name||''),'zh-CN');
+  });
+  return ordered.slice(0,5).map(n=>{
+    const up=Number(n.uplink_bytes||0),down=Number(n.downlink_bytes||0),total=up+down;
+    return `<tr><td><div class="dashboard-node-main">${nodeNameHTML(n)}<small>${n.security==='reality'?'REALITY · Vision':'TLS · Vision'}</small></div></td><td>${n.enabled?'<span class="dot"></span> <span class="online">启用</span>':'<span class="muted">停用</span>'}</td><td><div class="dashboard-traffic-cell"><b>${fmtBytes(total)}</b><small>↓${fmtBytes(down)} · ↑${fmtBytes(up)}</small></div></td><td>${n.port}</td><td><button class="icon-btn copy-uri" data-uri="${esc(n.uri)}" title="复制节点链接" aria-label="复制节点链接">${icon('copy')}</button></td></tr>`;
+  }).join('')||`<tr><td colspan="5" class="empty">还没有节点，请到“节点管理”创建节点。</td></tr>`;
+}
+function dashboard(){
+  const st=state.stats||{},nodes=state.boot?.nodes||[];
+  const enabled=nodes.filter(n=>n.enabled).length,disabled=nodes.length-enabled;
+  const traffic=dashboardProxyTraffic(nodes,st),health=dashboardHealth(st);
+  const serviceValue=st.xray_running?'运行正常':'服务异常';
+  const serviceSub=st.xray_running?`Xray 正常 · 服务器运行 ${fmtUptime(st.uptime_seconds)}`:'请检查 Xray 服务';
+  const nodeValue=nodes.length?`${nodes.length} 个节点`:'暂无节点';
+  const nodeSub=`${enabled} 启用 · ${disabled} 停用`;
+  const trafficSub=`节点累计 · ↓${fmtBytes(traffic.downlink)} · ↑${fmtBytes(traffic.uplink)}`;
+  return layout(`<div class="grid stats">${stat('代理服务',serviceValue,serviceSub,st.xray_running?'i-green':'i-orange',icon('pulse'))}${stat('节点状态',nodeValue,nodeSub,'i-blue',icon('serverStack'))}${stat('代理流量',fmtBytes(traffic.total),trafficSub,'i-purple',icon('network'))}${stat('服务器状态',health.label,health.sub,health.cls,icon('shieldCheck'))}</div>
+${dashboardAlerts(st,nodes,health)}
+<section class="card section-card dashboard-resources"><div class="section-title"><h2>服务器资源</h2><small>实时数据</small></div><div class="resources">${ring('CPU',st.cpu_percent,'系统处理器')}${ring('内存',st.memory_percent,`${fmtBytes(st.memory_used)} / ${fmtBytes(st.memory_total)}`,'var(--green)')}${ring('磁盘',st.disk_percent,`${fmtBytes(st.disk_used)} / ${fmtBytes(st.disk_total)}`,'var(--purple)')}${networkResource(st)}</div></section>
+<div class="grid dashboard-bottom"><section class="card section-card"><div class="section-title"><h2>服务器实时网络</h2><small>服务器网卡 · 最近 30 次采样</small></div>${chart()}</section><section class="card section-card dashboard-node-overview"><div class="section-title"><h2>节点概览</h2><button class="link-btn" data-route="nodes">查看全部 →</button></div><div class="table-wrap"><table class="table dashboard-node-table"><thead><tr><th>节点</th><th>状态</th><th>流量</th><th>端口</th><th>操作</th></tr></thead><tbody>${dashboardNodeRows(nodes)}</tbody></table></div></section></div>`);
+}
 function nodeModal(){return `<div class="modal-backdrop"><div class="modal"><div class="modal-head"><div class="modal-title"><div class="badgeicon i-blue">◆</div><div><h2>一键添加节点</h2><p>系统自动完成国家识别和推荐配置</p></div></div><button class="close" id="closeModal">×</button></div><div class="form-grid"><label>节点名称</label><input class="input readonly" value="自动生成：国家代码 + 序号（如 US01）" readonly><div class="helper">同一服务器继续添加时自动递增为 US02、US03…</div><label>推荐配置</label><input class="input readonly" value="VLESS + RAW + REALITY + XTLS Vision" readonly><label>服务器地址</label><input class="input readonly" value="自动识别当前服务器公网 IP" readonly><label>监听端口</label><input class="input readonly" value="自动选择可用端口" readonly><label>UUID</label><input class="input readonly" value="自动生成" readonly><label>REALITY</label><input class="input readonly" value="密钥、Short ID、SNI 自动生成/配置" readonly></div><div class="tip"><b>新建节点不再要求先设置域名或 TLS 证书。</b><br><small>现有 TLS 节点仍会继续保留并使用系统设置中的域名和证书，不会被强制转换。</small></div><div class="modal-actions"><button class="btn btn-outline" id="cancelModal">取消</button><button class="btn btn-primary" id="createNode">立即创建</button></div></div></div>`}
 function editNodeModal(n){const reality=n.security==='reality';return `<div class="modal-backdrop" id="editNodeBackdrop"><div class="modal"><div class="modal-head"><div class="modal-title"><div class="badgeicon i-blue">✎</div><div><h2>编辑节点</h2><p>只开放日常确实需要调整的项目</p></div></div><button class="close" id="closeEditNode">×</button></div><div class="form-grid"><label>节点名称</label><input class="input" id="editNodeName" value="${esc(n.name)}"><label>连接地址</label><input class="input" id="editNodeAddress" value="${esc(n.address||'')}" placeholder="vpn.example.com 或服务器公网 IP"><div class="helper">填写域名后，分享链接和订阅都会使用该域名。</div><label>监听端口</label><input class="input" id="editNodePort" type="number" min="1024" max="65535" value="${n.port}">${reality?`<label>REALITY 伪装域名</label><input class="input" id="editRealityServerName" value="${esc(n.reality_server_name||'www.apple.com')}" placeholder="www.apple.com"><div class="helper">修改后服务端目标会自动同步为该域名的 443 端口。</div>`:''}<label>协议配置</label><input class="input readonly" value="${reality?'VLESS + RAW + REALITY + XTLS Vision':'VLESS + RAW + TLS + XTLS Vision'}" readonly></div><div class="tip"><b>UUID、REALITY 密钥、Short ID、协议和 Vision 流控不会在这里开放修改。</b><br><small>这些参数没有日常修改必要，误改反而会让已有客户端立即失效。</small></div><div class="modal-actions"><button class="btn btn-outline" id="cancelEditNode">取消</button><button class="btn btn-primary" id="saveEditNode">保存并重载</button></div></div></div>`}
 
@@ -202,7 +265,7 @@ function confirmBox(message, yes){state.modal='confirm';document.body.insertAdja
 
 async function loadPanelInfo(){try{state.publicInfo=await api('/api/panel-info')}catch{}}
 async function loadBootstrap(){state.boot=await api('/api/bootstrap');state.publicInfo={name:state.boot?.settings?.panel_name||'m-ui',version:state.boot?.version||''};document.title=brandName()+' · MiniJet'}
-async function loadStats(){try{const st=await api('/api/system/stats');state.stats=st;state.panelUptimeAnchor={seconds:Number(st.panel_uptime_seconds||0),at:Date.now()};state.netHistory.push({rx:st.rx_rate||0,tx:st.tx_rate||0});if(state.netHistory.length>30)state.netHistory.shift();if(state.route==='dashboard')render();updateStableClock()}catch(e){console.warn(e)}}
+async function loadStats(){try{const st=await api('/api/system/stats');state.stats=st;const traffic=st.node_traffic||{};for(const n of state.boot?.nodes||[]){const t=traffic[n.id];if(!t)continue;n.uplink_bytes=Number(t.uplink_bytes||0);n.downlink_bytes=Number(t.downlink_bytes||0)}state.panelUptimeAnchor={seconds:Number(st.panel_uptime_seconds||0),at:Date.now()};state.netHistory.push({rx:st.rx_rate||0,tx:st.tx_rate||0});if(state.netHistory.length>30)state.netHistory.shift();if(state.route==='dashboard')render();updateStableClock()}catch(e){console.warn(e)}}
 function startPolling(){stopTimers();loadStats();state.timer=setInterval(loadStats,5000);state.clockTimer=setInterval(updateStableClock,1000)}
 
 async function restartPanel(){
