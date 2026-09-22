@@ -86,17 +86,18 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(){return `<img src="${panelURL('assets/app-icon.png?v=1.5.1')}" alt="${esc(brandName())}" class="brand-image">`}
+function brandIcon(){return `<img src="${panelURL('assets/app-icon.png?v=1.5.2')}" alt="${esc(brandName())}" class="brand-image">`}
 
 function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon()}<div><strong>${esc(brandName())}</strong><small>最简单的代理面板</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
-</nav><div class="sidebar-bottom"><div class="system-pill"><div class="statusline stable-runtime">${icon('clock')}<span>累计稳定运行</span><b id="stableUptime">${fmtStableClock(currentPanelUptimeSeconds())}</b></div><div class="service-copy"><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer" title="打开 M-Ui GitHub 源码" aria-label="打开 M-Ui GitHub 源码">${icon('github')}</a><span>M-Ui：最简单的代理面板</span></div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/MiniJet" target="_blank" rel="noopener noreferrer" title="打开 MiniJet GitHub 源码" aria-label="打开 MiniJet GitHub 源码">${icon('github')}</a><span>小飞机：最简单的代理客户端</span></div><div class="service-copyright">© 2026 <a href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer">M-Ui</a> v${ver}</div></div></div><button class="sidebar-restart" id="restartPanelSidebar" type="button"><span class="restart-mark">${icon('restart')}</span><span>重启面板</span></button></div></aside>`}
+</nav><div class="sidebar-bottom"><div class="system-pill"><div class="statusline stable-runtime">${icon('clock')}<span>面板累计运行</span><b id="stableUptime">${fmtStableClock(currentPanelUptimeSeconds())}</b></div><div class="service-copy"><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer" title="打开 M-Ui GitHub 源码" aria-label="打开 M-Ui GitHub 源码">${icon('github')}</a><span>M-Ui：最简单的代理面板</span></div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/MiniJet" target="_blank" rel="noopener noreferrer" title="打开 MiniJet GitHub 源码" aria-label="打开 MiniJet GitHub 源码">${icon('github')}</a><span>小飞机：最简单的代理客户端</span></div><div class="service-copyright">© 2026 <a href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer">M-Ui</a> v${ver}</div></div></div><button class="sidebar-restart" id="restartPanelSidebar" type="button"><span class="restart-mark">${icon('restart')}</span><span>重启面板</span></button></div></aside>`}
 function layout(content){const [title,sub]=routeTitle(state.route), user=state.boot?.settings?.admin_user||'admin';return `<div class="shell">${nav()}<main class="main"><header class="topbar"><div class="page-heading-inline"><h1>${title}</h1><span>${sub}</span></div><div class="userbox-inline"><span>管理员账号：<b>${esc(user)}</b></span><span class="sep">·</span><button class="icon-btn subtle" id="logout" title="退出" aria-label="退出">${icon('power')}</button></div></header><div class="content">${content}</div></main></div>`}
 
 function login(){return `<div class="login-shell"><form class="login-card refined" id="loginForm"><div class="login-card-head">${brandIcon()}<h1>${esc(brandName())}</h1><p>最简单的代理面板</p></div><div class="field"><label>用户名</label><input class="input" name="user" autocomplete="username" autofocus></div><div class="field"><label>密码</label><input class="input" name="pass" type="password" autocomplete="current-password"></div><button class="btn btn-primary btn-lg" type="submit">登录面板</button><div class="security-note">仅限管理员访问</div></form></div>`}
 
 function stat(label,value,sub,cls,symbol){return `<div class="card stat"><div><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div><div class="badgeicon ${cls}">${symbol}</div></div>`}
-function ring(label,pct,sub,color='var(--blue)'){pct=Math.max(0,Math.min(100,Number(pct)||0));return `<div class="resource"><b>${label}</b><div class="ring" style="--p:${pct.toFixed(0)};--c:${color}"><b>${pct.toFixed(0)}%</b></div><small>${sub}</small></div>`}
+function fmtPercent(pct){pct=Math.max(0,Math.min(100,Number(pct)||0));return (pct<10?pct.toFixed(1):pct.toFixed(0))+'%'}
+function ring(label,pct,sub,color='var(--blue)'){pct=Math.max(0,Math.min(100,Number(pct)||0));return `<div class="resource"><b>${label}</b><div class="ring" style="--p:${pct.toFixed(1)};--c:${color}"><b>${fmtPercent(pct)}</b></div><small>${sub}</small></div>`}
 function chart(){const hist=state.netHistory.slice(-30);if(hist.length<2)return `<div class="chart-empty">等待网络采样…</div>`;const max=Math.max(1,...hist.flatMap(x=>[x.rx,x.tx]));const pts=(key)=>hist.map((x,i)=>`${(i/(hist.length-1))*700},${220-(x[key]/max)*180}`).join(' ');return `<div class="chart"><svg viewBox="0 0 700 240" preserveAspectRatio="none"><polyline points="${pts('rx')}" fill="none" stroke="#00B176" stroke-width="4"/><polyline points="${pts('tx')}" fill="none" stroke="#67CFA9" stroke-width="3"/></svg><div class="chart-legend"><span><i class="legend blue"></i>下载 ${fmtRate(hist.at(-1).rx)}</span><span><i class="legend green"></i>上传 ${fmtRate(hist.at(-1).tx)}</span></div></div>`}
 
 
@@ -121,7 +122,7 @@ function dashboardHealth(st){
   if(disk>=85)issues.push(`磁盘使用率较高（${Math.round(disk)}%）`);
   return {
     label:issues.length?'需要关注':'运行正常',
-    sub:`CPU ${Math.round(cpu)}% · 内存 ${Math.round(memory)}% · 磁盘 ${Math.round(disk)}%`,
+    sub:`CPU ${fmtPercent(cpu)} · 内存 ${fmtPercent(memory)} · 磁盘 ${fmtPercent(disk)}`,
     cls:issues.length?'i-orange':'i-green',
     issues
   };
@@ -137,7 +138,7 @@ function dashboardAlerts(st,nodes,health){
   return `<div class="dashboard-alert" role="status"><div class="dashboard-alert-icon">!</div><div><b>需要注意</b><span>${alerts.map(esc).join(' · ')}</span></div></div>`;
 }
 function networkResource(st){
-  return `<div class="resource network-resource"><b>网络</b><div class="network-rate-pair"><div><span>↓</span><strong>${fmtRate(st.rx_rate)}</strong><small>下载</small></div><div><span>↑</span><strong>${fmtRate(st.tx_rate)}</strong><small>上传</small></div></div><small>服务器实时网卡速率</small></div>`;
+  return `<div class="resource network-resource"><b>网络</b><div class="ring network-ring"><b>实时</b></div><small class="network-rate-line"><span>↓ ${fmtRate(st.rx_rate)}</span><span>↑ ${fmtRate(st.tx_rate)}</span></small></div>`;
 }
 function dashboardNodeRows(nodes){
   const ordered=[...nodes].sort((a,b)=>{

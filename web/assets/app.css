@@ -331,11 +331,11 @@ button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!impo
 .dashboard-alert span{font-size:13px;line-height:1.55;color:#8a6136}
 .dashboard-resources{margin-top:18px}
 .network-resource{display:flex;flex-direction:column;justify-content:center;min-height:130px}
-.network-rate-pair{width:min(230px,100%);margin:13px auto 10px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.network-rate-pair>div{padding:10px 7px;border:1px solid var(--line);border-radius:11px;background:#f8fbfa;display:grid;grid-template-columns:auto 1fr;align-items:center;column-gap:5px;text-align:left}
-.network-rate-pair span{grid-row:1/3;color:var(--primary);font-size:16px;font-weight:800}
-.network-rate-pair strong{font-size:14px;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
-.network-rate-pair small{font-size:10.5px;color:var(--muted)}
+.network-ring{--p:100!important;--c:#cfeee2!important}
+.network-ring b{font-size:15px;color:#28775b}
+.network-rate-line{display:flex;justify-content:center;align-items:center;gap:10px;font-size:11.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.network-rate-line span:first-child{color:#237a5c}
+.network-rate-line span:last-child{color:#4d7e6c}
 .dashboard-bottom{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)}
 .dashboard-node-table{min-width:540px}
 .dashboard-node-main{display:grid;gap:4px}
@@ -352,6 +352,36 @@ button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!impo
 @media(max-width:760px){
   .dashboard-alert{align-items:flex-start}
   .dashboard-alert>div:last-child{display:grid;gap:3px}
-  .network-rate-pair{width:min(260px,100%)}
+  .network-rate-line{gap:7px;font-size:11px}
   .dashboard-node-table{min-width:520px}
 }
+
+
+/* v1.5.2 resource sampling and sidebar interaction refinement */
+.sidebar-restart{
+  position:relative;
+  overflow:hidden;
+  isolation:isolate;
+  background:#fff!important;
+  transition:color .15s ease,border-color .15s ease,box-shadow .15s ease!important;
+}
+.sidebar-restart::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:linear-gradient(135deg,#ff6a6a,#d9363e);
+  opacity:0;
+  transition:opacity .15s ease;
+}
+.sidebar-restart>span{position:relative;z-index:1}
+.sidebar-restart:hover{
+  background:#fff!important;
+  border-color:transparent!important;
+  color:#fff!important;
+  box-shadow:0 8px 18px rgba(217,54,62,.22);
+}
+.sidebar-restart:hover::before{opacity:1}
+.restart-mark{transition:color .15s ease!important}
+.sidebar-restart:hover .restart-mark{color:#fff!important}

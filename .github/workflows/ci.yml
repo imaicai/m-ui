@@ -151,7 +151,7 @@ jobs:
           assert 'reset-node-traffic' in app
           assert '<th>流量</th>' in app
           assert '稳定运行中' not in app
-          assert '累计稳定运行' in app and 'id="stableUptime"' in app
+          assert '面板累计运行' in app and '累计稳定运行' not in app and 'id="stableUptime"' in app
           assert 'M-Ui：最简单的代理面板' in app
           assert '小飞机：最简单的代理客户端' in app
           assert 'MiniJet | 小飞机：最简单的代理客户端' not in app
@@ -213,9 +213,14 @@ jobs:
           assert '服务器实时网络' in app and '节点概览' in app
           assert 'dashboardProxyTraffic' in app and 'dashboardAlerts' in app and 'dashboardNodeRows' in app
           assert '推荐配置' not in app[app.index('function dashboard()'):app.index('function nodeModal()')]
-          assert 'dashboard-alert' in css and 'network-rate-pair' in css and 'v1.5.1 proxy-first dashboard refinement' in css
+          assert 'dashboard-alert' in css and 'network-ring' in css and 'v1.5.1 proxy-first dashboard refinement' in css
+          assert 'v1.5.2 resource sampling and sidebar interaction refinement' in css
+          assert 'fmtPercent' in app and '面板累计运行' in app
+          assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
           system = Path("system.go").read_text(encoding="utf-8")
           assert 'ProxyUplinkBytes' in system and 'ProxyDownlinkBytes' in system and 'NodeTraffic' in system
+          assert 'cpuPercentBetween' in system and 'time.Sleep(90 * time.Millisecond)' not in system
+          assert 'lastCPU   cpuSample' in server and 'readSystemStats(&s.lastNet, &s.lastCPU)' in server
           assert 'st.NodeTraffic = make(map[string]NodeTrafficStat' in server
           assert 'st.node_traffic||{}' in app and 'proxy_uplink_bytes' in app and 'proxy_downlink_bytes' in app
           assert 'Cache-Control' in server and 'no-store' in server
@@ -285,7 +290,8 @@ jobs:
           grep -q '+新建节点' web/assets/app.js
           grep -q 'repo-icon-link' web/assets/app.js
           grep -q '/api/system/restart' server.go
-          grep -q '累计稳定运行' web/assets/app.js
+          grep -q '面板累计运行' web/assets/app.js
+          ! grep -q '累计稳定运行' web/assets/app.js
           ! grep -q 'id="panelUptime"' web/assets/app.js
           grep -q "[$][$]('.copy-sub').forEach" web/assets/app.js
           grep -q "[$][$]('.toggle-sub').forEach" web/assets/app.js
@@ -295,4 +301,4 @@ jobs:
           grep -q '//go:embed VERSION' main.go
           test -s go.sum
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
-          grep -q '^1\.5\.1$' VERSION
+          grep -q '^1\.5\.2$' VERSION

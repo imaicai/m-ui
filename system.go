@@ -46,37 +46,52 @@ type netSample struct {
 	at time.Time
 }
 
-func readSystemStats(prev *netSample) (SystemStats, netSample) {
+type cpuSample struct {
+	idle  uint64
+	total uint64
+}
+
+func readSystemStats(prevNet *netSample, prevCPU *cpuSample) (SystemStats, netSample, cpuSample) {
 	var st SystemStats
-	st.CPUPercent = cpuPercent()
+	cpuValue, prevCPUValue := cpuPercent(prevCPU)
+	st.CPUPercent = cpuValue
 	st.MemoryUsed, st.MemoryTotal, st.MemoryPercent = memoryStats()
 	st.DiskUsed, st.DiskTotal, st.DiskPercent = diskStats()
 	rx, tx := networkBytes()
 	now := time.Now()
 	st.RXBytes, st.TXBytes = rx, tx
-	if prev != nil && !prev.at.IsZero() {
-		sec := now.Sub(prev.at).Seconds()
+	if prevNet != nil && !prevNet.at.IsZero() {
+		sec := now.Sub(prevNet.at).Seconds()
 		if sec > 0 {
-			if rx >= prev.rx {
-				st.RXRate = float64(rx-prev.rx) / sec
+			if rx >= prevNet.rx {
+				st.RXRate = float64(rx-prevNet.rx) / sec
 			}
-			if tx >= prev.tx {
-				st.TXRate = float64(tx-prev.tx) / sec
+			if tx >= prevNet.tx {
+				st.TXRate = float64(tx-prevNet.tx) / sec
 			}
 		}
 	}
 	st.UptimeSeconds = uptimeSeconds()
 	st.XrayRunning = serviceActive("xray")
-	return st, netSample{rx: rx, tx: tx, at: now}
+	return st, netSample{rx: rx, tx: tx, at: now}, prevCPUValue
 }
 
-func cpuPercent() float64 {
-	idle1, total1 := readCPU()
-	time.Sleep(90 * time.Millisecond)
-	idle2, total2 := readCPU()
-	dt := total2 - total1
-	di := idle2 - idle1
-	if dt == 0 {
+func cpuPercent(prev *cpuSample) (float64, cpuSample) {
+	idle, total := readCPU()
+	current := cpuSample{idle: idle, total: total}
+	if prev == nil {
+		return 0, current
+	}
+	return cpuPercentBetween(*prev, current), current
+}
+
+func cpuPercentBetween(prev, current cpuSample) float64 {
+	if prev.total == 0 || current.total <= prev.total || current.idle < prev.idle {
+		return 0
+	}
+	dt := current.total - prev.total
+	di := current.idle - prev.idle
+	if dt == 0 || di > dt {
 		return 0
 	}
 	return float64(dt-di) * 100 / float64(dt)
@@ -93,7 +108,8 @@ func readCPU() (idle, total uint64) {
 		return 0, 0
 	}
 	fs := strings.Fields(sc.Text())
-	for i := 1; i < len(fs); i++ {
+	// /proc/stat 的 guest/guest_nice 已包含在 user/nice 中，不能重复计入总时间。
+	for i := 1; i < len(fs) && i <= 8; i++ {
 		v, _ := strconv.ParseUint(fs[i], 10, 64)
 		total += v
 		if i == 4 || i == 5 {

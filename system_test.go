@@ -47,3 +47,15 @@ func TestApplyNodeCountryBackfill(t *testing.T) {
 	}
 }
 
+
+
+func TestCPUPercentBetween(t *testing.T) {
+	prev := cpuSample{idle: 700, total: 1000}
+	current := cpuSample{idle: 770, total: 1100}
+	if got := cpuPercentBetween(prev, current); got != 30 {
+		t.Fatalf("got %.2f%%, want 30%%", got)
+	}
+	if got := cpuPercentBetween(current, prev); got != 0 {
+		t.Fatalf("counter rollback must return 0, got %.2f%%", got)
+	}
+}

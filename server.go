@@ -35,6 +35,7 @@ type Server struct {
 	statsMu   sync.Mutex
 	trafficMu sync.Mutex
 	lastNet   netSample
+	lastCPU   cpuSample
 	startedAt time.Time
 	loginMu  sync.Mutex
 	failures   map[string]*loginFailure
@@ -81,7 +82,16 @@ type Bootstrap struct {
 }
 
 func NewServer(store *Store, cfg ServerConfig) *Server {
-	return &Server{store: store, xray: NewXrayManager(cfg.XrayBin, cfg.XrayConfig), cfg: cfg, startedAt: time.Now(), failures: map[string]*loginFailure{}, loginSlots: make(chan struct{}, 2)}
+	idle, total := readCPU()
+	return &Server{
+		store:      store,
+		xray:       NewXrayManager(cfg.XrayBin, cfg.XrayConfig),
+		cfg:        cfg,
+		lastCPU:    cpuSample{idle: idle, total: total},
+		startedAt:  time.Now(),
+		failures:   map[string]*loginFailure{},
+		loginSlots: make(chan struct{}, 2),
+	}
 }
 
 func (s *Server) panelPath() string {
@@ -478,8 +488,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.statsMu.Lock()
-	st, sample := readSystemStats(&s.lastNet)
-	s.lastNet = sample
+	st, netSampleValue, cpuSampleValue := readSystemStats(&s.lastNet, &s.lastCPU)
+	s.lastNet = netSampleValue
+	s.lastCPU = cpuSampleValue
 	s.statsMu.Unlock()
 	if !s.startedAt.IsZero() {
 		st.PanelUptimeSeconds = uint64(time.Since(s.startedAt).Seconds())
