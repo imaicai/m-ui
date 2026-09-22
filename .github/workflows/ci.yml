@@ -209,6 +209,11 @@ jobs:
           assert 'realityFallbackLimit' in xray
           assert 'golang.org/x/crypto/argon2' in store
           assert 'loginSlots' in server
+          assert '代理服务' in app and '节点状态' in app and '代理流量' in app and '服务器状态' in app
+          assert '服务器实时网络' in app and '节点概览' in app
+          assert 'dashboardProxyTraffic' in app and 'dashboardAlerts' in app and 'dashboardNodeRows' in app
+          assert '推荐配置' not in app[app.index('function dashboard()'):app.index('function nodeModal()')]
+          assert 'dashboard-alert' in css and 'network-rate-pair' in css and 'v1.5.1 proxy-first dashboard refinement' in css
           assert 'Cache-Control' in server and 'no-store' in server
           panel_tls = Path("panel_tls.go").read_text(encoding="utf-8")
           assert 'MaxHeaderBytes' in panel_tls
@@ -286,4 +291,5 @@ jobs:
           grep -q '//go:embed VERSION' main.go
           test -s go.sum
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
-          grep -q '^1\.5\.0$' VERSION
+          grep -q '^1\.5\.1
+ VERSION
