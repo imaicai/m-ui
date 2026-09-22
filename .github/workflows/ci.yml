@@ -301,5 +301,4 @@ jobs:
           grep -q '//go:embed VERSION' main.go
           test -s go.sum
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
-          grep -q '^1\.5\.2
- VERSION
+          grep -q '^1\.5\.2$' VERSION
