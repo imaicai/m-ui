@@ -219,7 +219,7 @@ jobs:
           assert 'fmtPercent' in app and '面板累计运行' in app
           assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
           assert 'contentOnly' in app and 'syncShellChrome' in app and 'app.querySelector(\'.shell .content\')' in app
-          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.5' in app
+          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.6' in app
           assert 'admin-account' in app and "icon('user')" in app and '管理员账号：' not in app
           assert "stat('代理流量',fmtBytes(traffic.total),trafficSub,'i-green'" in app and "trafficSub,'i-purple'" not in app
           resource_block = app[app.index('<section class=\"card section-card dashboard-resources\"'):app.index('<div class=\"grid dashboard-bottom\"')]
