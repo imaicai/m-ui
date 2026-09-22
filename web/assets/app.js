@@ -295,7 +295,7 @@ function syncShellChrome(){
   const h=$('.page-heading-inline h1'), p=$('.page-heading-inline span');
   if(h)h.textContent=title;
   if(p)p.textContent=sub;
-  $('.nav [data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route===state.route));
+  $$('.nav [data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route===state.route));
   const brand=$('.brand-title'); if(brand)brand.textContent=brandName();
   const account=$('.admin-account b'); if(account)account.textContent=user;
   const image=$('.brand-logo-sidebar .brand-image'); if(image)image.alt=brandName();
@@ -323,7 +323,7 @@ function render(){
 }
 
 function bindLogin(){$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const fd=new FormData(e.target);try{await api('/api/login',{method:'POST',body:JSON.stringify({username:fd.get('user'),password:fd.get('pass')})});state.loggedIn=true;await loadBootstrap();startPolling();render()}catch(err){toast(err.message,false)}})}
-function bindCommon(){$('[data-route]').forEach(b=>b.onclick=()=>{state.route=b.dataset.route;location.hash='#/'+state.route;render()});const restart=$('#restartPanelSidebar');if(restart)restart.onclick=restartPanel;const logout=$('#logout');if(logout)logout.onclick=async()=>{try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;stopTimers();render()};$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'))}
+function bindCommon(){$$('[data-route]').forEach(b=>b.onclick=()=>{state.route=b.dataset.route;location.hash='#/'+state.route;render()});const restart=$('#restartPanelSidebar');if(restart)restart.onclick=restartPanel;const logout=$('#logout');if(logout)logout.onclick=async()=>{try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;stopTimers();render()};$$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'))}
 function openNodeModal(){document.body.insertAdjacentHTML('beforeend',nodeModal());const close=()=>$('.modal-backdrop')?.remove();$('#closeModal').onclick=close;$('#cancelModal').onclick=close;$('.modal-backdrop').addEventListener('click',e=>{if(e.target.classList.contains('modal-backdrop'))close()});$('#createNode').onclick=async()=>{const btn=$('#createNode');btn.disabled=true;btn.textContent='正在识别并创建…';try{const out=await api('/api/nodes/default',{method:'POST'});close();await loadBootstrap();render();toast(out.warning?`${out.node.name} 已创建；${out.warning}`:`${out.node.name} 已创建并生效`)}catch(err){btn.disabled=false;btn.textContent='立即创建';toast(err.message,false)}}}
 function bindNodes(){
   $('#addNode')?.addEventListener('click',openNodeModal);
