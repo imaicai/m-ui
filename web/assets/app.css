@@ -321,3 +321,37 @@ button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!impo
 .stable-runtime span{font-weight:700}
 .stable-runtime b{font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.02em;color:var(--text)}
 
+
+
+/* v1.5.1 proxy-first dashboard refinement */
+.dashboard-alert{margin-top:18px;min-height:54px;padding:12px 15px;border:1px solid #f0d2a8;border-radius:12px;background:#fff8ee;color:#7b532a;display:flex;align-items:center;gap:11px}
+.dashboard-alert-icon{width:28px;height:28px;min-width:28px;border-radius:50%;display:grid;place-items:center;background:#ffe6bd;color:#9a641f;font-weight:900}
+.dashboard-alert>div:last-child{min-width:0;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.dashboard-alert b{color:#7b4b17}
+.dashboard-alert span{font-size:13px;line-height:1.55;color:#8a6136}
+.dashboard-resources{margin-top:18px}
+.network-resource{display:flex;flex-direction:column;justify-content:center;min-height:130px}
+.network-rate-pair{width:min(230px,100%);margin:13px auto 10px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.network-rate-pair>div{padding:10px 7px;border:1px solid var(--line);border-radius:11px;background:#f8fbfa;display:grid;grid-template-columns:auto 1fr;align-items:center;column-gap:5px;text-align:left}
+.network-rate-pair span{grid-row:1/3;color:var(--primary);font-size:16px;font-weight:800}
+.network-rate-pair strong{font-size:14px;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
+.network-rate-pair small{font-size:10.5px;color:var(--muted)}
+.dashboard-bottom{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)}
+.dashboard-node-table{min-width:540px}
+.dashboard-node-main{display:grid;gap:4px}
+.dashboard-node-main>small{padding-left:31px;color:var(--muted);font-size:10.5px;white-space:nowrap}
+.dashboard-traffic-cell{display:grid;gap:3px;min-width:112px}
+.dashboard-traffic-cell b{font-size:13px;color:var(--text);font-variant-numeric:tabular-nums}
+.dashboard-traffic-cell small{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dashboard-node-overview .table th,.dashboard-node-overview .table td{padding-left:10px;padding-right:10px}
+.dashboard-node-overview .dot{vertical-align:1px}
+
+@media(max-width:1180px){
+  .dashboard-bottom{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .dashboard-alert{align-items:flex-start}
+  .dashboard-alert>div:last-child{display:grid;gap:3px}
+  .network-rate-pair{width:min(260px,100%)}
+  .dashboard-node-table{min-width:520px}
+}
