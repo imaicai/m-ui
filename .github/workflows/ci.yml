@@ -244,6 +244,8 @@ jobs:
           assert "高级控制脚本（为自动化和兼容已有运维流程保留）" in readme
           release = Path('.github/workflows/release.yml').read_text(encoding='utf-8')
           assert 'workflow_dispatch:' in release and '  push:' not in release
+          assert 'release_notes:' in release and '--notes-file /tmp/release-notes.md' in release
+          assert '--generate-notes' not in release
           system = Path("system.go").read_text(encoding="utf-8")
           assert 'ProxyUplinkBytes' in system and 'ProxyDownlinkBytes' in system and 'NodeTraffic' in system
           assert 'SwapPercent' in system and 'SwapUsed' in system and 'SwapTotal' in system and 'memorySwapStats' in system
@@ -327,7 +329,11 @@ jobs:
           grep -q "trafficSub,'i-green'" web/assets/app.js
           grep -q 'v1.5.6 dashboard card alignment refinement' web/assets/app.css
           grep -q 'workflow_dispatch:' .github/workflows/release.yml
+          grep -q 'release_notes:' .github/workflows/release.yml
+          grep -q -- '--notes-file /tmp/release-notes.md' .github/workflows/release.yml
+          ! grep -q -- '--generate-notes' .github/workflows/release.yml
           ! grep -q '^  push:' .github/workflows/release.yml
+          grep -q '## 📦 Releases' README.md
           ! grep -q 'restartPanelTop' web/assets/app.js
           ! grep -q 'restartPanelSettings' web/assets/app.js
           grep -q 'restartPanelSidebar' web/assets/app.js
