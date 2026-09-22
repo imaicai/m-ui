@@ -349,5 +349,4 @@ jobs:
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
           test -f web/assets/app-icon.png
           test ! -e app-icon.png
-          grep -q '^1\.5\.8
- VERSION
+          grep -q '^1\.5\.8$' VERSION
