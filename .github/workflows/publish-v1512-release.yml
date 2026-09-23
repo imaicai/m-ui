@@ -1,0 +1,108 @@
+name: Publish v1.5.12 Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/publish-v1512-release.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify version
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(tr -d '[:space:]' < VERSION)" = "1.5.12"
+
+      - name: Ensure release does not already exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view v1.5.12 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v1.5.12 release already exists" >&2
+            exit 1
+          fi
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build Linux amd64 server
+        shell: bash
+        run: |
+          set -euo pipefail
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=1.5.12" -o /tmp/m-ui-server
+
+      - name: Package ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAME="m-ui-v1.5.12"
+          ROOT="dist/$NAME"
+          mkdir -p "$ROOT"
+          cp README.md LICENSE VERSION Makefile go.mod go.sum "$ROOT/"
+          cp ./*.go "$ROOT/"
+          cp install.sh uninstall.sh m-ui m-ui-ctl "$ROOT/"
+          cp -R web "$ROOT/"
+          install -m 0755 /tmp/m-ui-server "$ROOT/m-ui-server-linux-amd64"
+          (
+            cd dist
+            zip -qr "$NAME.zip" "$NAME"
+          )
+          sha256sum "dist/$NAME.zip" > "dist/$NAME.zip.sha256"
+
+      - name: Remove one-time workflow from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATH_IN_REPO=".github/workflows/publish-v1512-release.yml"
+          SHA="$(gh api "repos/$GITHUB_REPOSITORY/contents/$PATH_IN_REPO?ref=main" --jq .sha)"
+          gh api --method DELETE "repos/$GITHUB_REPOSITORY/contents/$PATH_IN_REPO" \
+            -f message="清理一次性 v1.5.12 发布工作流" \
+            -f sha="$SHA" \
+            -f branch="main" >/dev/null
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          cat > /tmp/release-notes.md <<'EOF'
+          ## v1.5.12
+
+          - “完整更新 m-ui”新增真实阶段与进度百分比显示，可查看当前更新到哪里。
+          - 更新任务状态跨面板重启保留，m-ui 重启或当前页面刷新后仍可继续恢复进度。
+          - 只有后台明确完成到 100% 后，页面才自动返回登录界面重新登录。
+          - 更新失败时显示失败阶段与状态，不再长期停留在无法判断是否完成的静态提示页。
+          - 更新脚本改为完整下载成功后再执行，降低网络异常导致误判更新结果的风险。
+          EOF
+
+          gh release create v1.5.12 \
+            "dist/m-ui-v1.5.12.zip" \
+            "dist/m-ui-v1.5.12.zip.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_SHA" \
+            --title "M-Ui v1.5.12" \
+            --notes-file /tmp/release-notes.md
