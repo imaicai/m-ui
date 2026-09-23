@@ -219,6 +219,7 @@ func (s *Server) Run() error {
 	panelMux.HandleFunc("/api/bootstrap", s.auth(s.handleBootstrap))
 	panelMux.HandleFunc("/api/system/stats", s.auth(s.handleStats))
 	panelMux.HandleFunc("/api/system/restart", s.auth(s.handlePanelRestart))
+	panelMux.HandleFunc("/api/system/full-update", s.auth(s.handleFullUpdate))
 	panelMux.HandleFunc("/api/settings", s.auth(s.handleSettings))
 	panelMux.HandleFunc("/api/nodes/default", s.auth(s.handleCreateDefaultNode))
 	panelMux.HandleFunc("/api/nodes/reset-traffic", s.auth(s.handleResetAllTraffic))
@@ -526,6 +527,52 @@ func (s *Server) handlePanelRestart(w http.ResponseWriter, r *http.Request) {
 		// non-zero exit restarts only the panel process without touching Xray.
 		os.Exit(42)
 	}()
+}
+
+func (s *Server) handleFullUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	const (
+		unitName = "m-ui-full-update.service"
+		menuBin  = "/usr/local/bin/m-ui"
+	)
+	if st, err := os.Stat(menuBin); err != nil || st.IsDir() {
+		writeError(w, http.StatusInternalServerError, "未找到 m-ui 管理脚本，无法启动完整更新")
+		return
+	}
+	systemdRun, err := exec.LookPath("systemd-run")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "当前系统缺少 systemd-run，无法从网页启动完整更新")
+		return
+	}
+	if out, err := exec.Command("systemctl", "show", "-p", "ActiveState", "--value", unitName).Output(); err == nil {
+		switch strings.TrimSpace(string(out)) {
+		case "active", "activating", "reloading":
+			writeError(w, http.StatusConflict, "完整更新正在进行中，请勿重复启动")
+			return
+		}
+	}
+	cmd := exec.Command(systemdRun,
+		"--unit=m-ui-full-update",
+		"--collect",
+		"--description=m-ui full update",
+		menuBin,
+		"--full-update",
+	)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		writeError(w, http.StatusInternalServerError, "启动完整更新失败："+msg)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"ok":      true,
+		"message": "完整更新已在后台启动",
+	})
 }
 
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
