@@ -258,7 +258,7 @@ jobs:
           assert '.node-toolbar .new-node-btn{' in node_mobile and 'grid-column:2' in node_mobile and 'grid-row:2' in node_mobile
           nodes_html = app[app.index('function nodes()'):app.index('function subscriptionURL')]
           assert nodes_html.index('node-guide') < nodes_html.index('nodeSearch') < nodes_html.index('resetAllTraffic') < nodes_html.index('addNode') < nodes_html.index('node-table-card')
-          assert 'id="fullUpdatePanel"' in app and "api('/api/system/full-update',{method:'POST'})" in app
+          assert 'id="fullUpdatePanel"' in app and "api('/api/system/full-update',{method:'POST',body:JSON.stringify({update_id:updateID})})" in app
           assert "api('/api/system/update-info')" in app and 'refreshSystemUpdateInfo' in app and 'paintSystemUpdateInfo' in app
           assert 'preloadSystemUpdateInfo' in app and 'await preloadSystemUpdateInfo()' in app
           assert 'maintenanceCurrentVersion' in app and 'maintenanceLatestVersion' in app and 'update_available' in app
