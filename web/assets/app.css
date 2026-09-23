@@ -574,3 +574,40 @@ html,body,#app{max-width:100%;overflow-x:hidden}
   .update-progress-card>strong{font-size:19px}
   .update-progress-return{width:100%;justify-self:stretch}
 }
+
+
+/* v1.5.13 mobile node-management layout only */
+@media(max-width:760px){
+  .node-toolbar{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    gap:8px!important;
+    width:100%;
+  }
+  .node-toolbar .search{
+    grid-column:1 / -1;
+    grid-row:1;
+    width:100%;
+    min-width:0;
+  }
+  .node-toolbar .clear-all-traffic-btn{
+    grid-column:1;
+    grid-row:2;
+    width:100%;
+    min-width:0;
+    height:44px;
+    padding:0 10px;
+    justify-content:center;
+    font-size:12px;
+  }
+  .node-toolbar .clear-all-traffic-btn span{display:inline!important}
+  .node-toolbar .new-node-btn{
+    grid-column:2;
+    grid-row:2;
+    width:100%;
+    min-width:0;
+    height:44px;
+    padding:0 10px;
+    justify-content:center;
+  }
+}
