@@ -358,6 +358,7 @@ function ensureUpdateProgressModal(initial){
 
 function beginFullUpdateProgress(updateID, initial){
   sessionStorage.setItem('mui_full_update_id',updateID);
+  stopTimers();
   ensureUpdateProgressModal(initial);
   document.title='m-ui · 正在完整更新';
   let stopped=false;
