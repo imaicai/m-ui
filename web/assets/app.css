@@ -541,8 +541,8 @@ html,body,#app{max-width:100%;overflow-x:hidden}
   .main{padding-top:70px!important}
 
   .mobile-menu-wrap{display:block!important;margin-left:auto}
-  .mobile-nav-dropdown .mobile-nav-restart{color:#b8741d}
-  .mobile-nav-dropdown .mobile-nav-restart:hover{background:#fff7ea;color:#a86714}
+  .mobile-nav-dropdown .mobile-nav-restart{color:#50645c}
+  .mobile-nav-dropdown .mobile-nav-restart:hover{background:#f2f8f5;color:var(--primary)}
 
   /* Mobile only: server resources are a 2 x 2 grid. */
   .dashboard-resources .resources{grid-template-columns:repeat(2,minmax(0,1fr))!important}
@@ -723,4 +723,11 @@ html,body,#app{max-width:100%;overflow-x:hidden}
 @media(max-width:760px){
   .update-confirm-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}
   .update-confirm-actions .btn{width:100%}
+}
+
+
+/* v1.5.21 restore mobile restart neutral color */
+@media(max-width:760px){
+  .mobile-nav-dropdown .mobile-nav-restart{color:#50645c}
+  .mobile-nav-dropdown .mobile-nav-restart:hover{background:#f2f8f5;color:var(--primary)}
 }
