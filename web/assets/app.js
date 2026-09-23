@@ -90,19 +90,19 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.14')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
+function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.15')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
 
 function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon('sidebar')}<div><strong class="brand-title">${esc(brandName())}</strong><small>最简单的代理面板</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
 </nav><div class="sidebar-bottom"><div class="system-pill"><div class="statusline stable-runtime">${icon('clock')}<span>面板累计运行</span><b id="stableUptime">${fmtStableClock(currentPanelUptimeSeconds())}</b></div><div class="service-copy"><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer" title="打开 M-Ui GitHub 源码" aria-label="打开 M-Ui GitHub 源码">${icon('github')}</a><span>M-Ui：最简单的代理面板</span></div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/MiniJet" target="_blank" rel="noopener noreferrer" title="打开 MiniJet GitHub 源码" aria-label="打开 MiniJet GitHub 源码">${icon('github')}</a><span>小飞机：最简单的代理客户端</span></div><div class="service-copyright">© 2026 <a href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer">M-Ui</a> v${ver}</div></div></div><button class="sidebar-restart" id="restartPanelSidebar" type="button"><span class="restart-mark">${icon('restart')}</span><span>重启面板</span></button></div></aside>`}
 function mobileHeader(){
   const items=[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']];
-  return `<div class="mobile-header-brand">${brandIcon('mobile')}<strong class="mobile-brand-title">${esc(brandName())}</strong></div><div class="mobile-menu-wrap"><button class="mobile-restart-btn" id="mobileRestart" type="button" title="重启面板" aria-label="重启面板">${icon('restart')}</button><button class="mobile-menu-toggle" id="mobileMenuToggle" type="button" aria-label="打开导航菜单" aria-expanded="false">${icon('menu')}</button><div class="mobile-nav-dropdown" id="mobileNavDropdown" hidden>${items.map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}<div class="mobile-nav-separator"></div><button class="mobile-nav-logout" id="mobileLogout" type="button">${icon('power')}<span>退出登录</span></button></div></div>`;
+  return `<div class="mobile-header-brand">${brandIcon('mobile')}<strong class="mobile-brand-title">${esc(brandName())}</strong></div><div class="mobile-menu-wrap"><button class="mobile-menu-toggle" id="mobileMenuToggle" type="button" aria-label="打开导航菜单" aria-expanded="false">${icon('menu')}</button><div class="mobile-nav-dropdown" id="mobileNavDropdown" hidden>${items.map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}<button class="mobile-nav-restart" id="mobileRestart" type="button">${icon('restart')}<span>重启面板</span></button><div class="mobile-nav-separator"></div><button class="mobile-nav-logout" id="mobileLogout" type="button">${icon('power')}<span>退出登录</span></button></div></div>`;
 }
 function layout(content){
   if(state.contentOnly)return content;
   const [title,sub]=routeTitle(state.route), user=state.boot?.settings?.admin_user||'admin';
-  return `<div class="shell">${nav()}<main class="main"><header class="topbar">${mobileHeader()}<div class="page-heading-inline"><h1>${title}</h1><span>${sub}</span></div><div class="userbox-inline"><button class="admin-account" data-route="settings" type="button" title="管理员账号 · 系统设置" aria-label="管理员账号，打开系统设置">${icon('user')}<b>${esc(user)}</b></button><span class="sep">·</span><button class="icon-btn subtle" id="logout" title="退出" aria-label="退出">${icon('power')}</button></div></header><div class="content">${content}</div></main></div>`;
+  return `<div class="shell">${nav()}<main class="main"><header class="topbar">${mobileHeader()}<div class="page-heading-inline"><h1>${title}</h1><span>${sub}</span></div><div class="userbox-inline"><button class="admin-account" data-route="settings" type="button" title="管理员账号 · 系统设置" aria-label="管理员账号，打开系统设置">${icon('user')}<b>${esc(user)}</b></button><button class="icon-btn subtle" id="logout" title="退出" aria-label="退出">${icon('power')}</button></div></header><div class="content">${content}</div></main></div>`;
 }
 
 function login(){return `<div class="login-shell"><form class="login-card refined" id="loginForm"><div class="login-card-head">${brandIcon('login')}<h1>${esc(brandName())}</h1><p>最简单的代理面板</p></div><div class="field"><label>用户名</label><input class="input" name="user" autocomplete="username" autofocus></div><div class="field"><label>密码</label><input class="input" name="pass" type="password" autocomplete="current-password"></div><button class="btn btn-primary btn-lg" type="submit">登录面板</button><div class="security-note">仅限管理员访问</div></form></div>`}
@@ -478,7 +478,11 @@ function bindCommon(){
   $$('[data-route]').forEach(b=>b.onclick=()=>{closeMobileMenu();state.route=b.dataset.route;location.hash='#/'+state.route;render()});
   const restart=$('#restartPanelSidebar');if(restart)restart.onclick=restartPanel;const mobileRestart=$('#mobileRestart');if(mobileRestart)mobileRestart.onclick=restartPanel;
   const toggle=$('#mobileMenuToggle'),menu=$('#mobileNavDropdown');
-  if(toggle&&menu)toggle.onclick=()=>{const opening=menu.hidden;menu.hidden=!opening;toggle.setAttribute('aria-expanded',opening?'true':'false')};
+  if(toggle&&menu){
+    toggle.onclick=e=>{e.stopPropagation();const opening=menu.hidden;menu.hidden=!opening;toggle.setAttribute('aria-expanded',opening?'true':'false')};
+    menu.onclick=e=>e.stopPropagation();
+    document.onclick=e=>{if(!menu.hidden&&!menu.contains(e.target)&&!toggle.contains(e.target))closeMobileMenu()};
+  }
   const logoutAction=async()=>{closeMobileMenu();try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;stopTimers();render()};
   const logout=$('#logout');if(logout)logout.onclick=logoutAction;
   const mobileLogout=$('#mobileLogout');if(mobileLogout)mobileLogout.onclick=logoutAction;
