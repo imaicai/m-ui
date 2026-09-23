@@ -346,7 +346,7 @@ function bindNodes(){
   $('#resetAllTraffic')?.addEventListener('click',()=>confirmBox('确认清空全部节点累计流量？该操作无法恢复。',async()=>{
     try{state.boot=await api('/api/nodes/reset-traffic',{method:'POST'});render();toast('全部节点流量已清空')}catch(e){toast(e.message,false)}
   }));
-  $$$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'));
+  $$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'));
   $$('.edit-node').forEach(b=>b.onclick=()=>openEditNodeModal(b.dataset.id));
   $$('.reset-node-traffic').forEach(b=>b.onclick=async()=>{
     b.disabled=true;
