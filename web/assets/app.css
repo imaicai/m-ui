@@ -526,7 +526,7 @@ html,body,#app{max-width:100%;overflow-x:hidden}
 .maintenance-version-item span{font-size:12px;color:var(--muted)}
 .maintenance-version-item b{font-size:15px;color:var(--text);font-variant-numeric:tabular-nums}
 .maintenance-version-arrow{color:#9aacA5;font-weight:700}
-.maintenance-controls{display:flex;align-items:center;justify-content:flex-end;gap:9px;margin-top:14px}
+.maintenance-controls{display:flex;align-items:flex-end;justify-content:flex-end;gap:9px;margin-top:14px}
 .maintenance-refresh{width:42px;height:42px;flex:0 0 42px}
 .maintenance-refresh .icon{width:18px;height:18px}
 .maintenance-refresh.is-loading .icon{animation:maintenance-spin .8s linear infinite}
@@ -730,4 +730,47 @@ html,body,#app{max-width:100%;overflow-x:hidden}
 @media(max-width:760px){
   .mobile-nav-dropdown .mobile-nav-restart{color:#50645c}
   .mobile-nav-dropdown .mobile-nav-restart:hover{background:#f2f8f5;color:var(--primary)}
+}
+
+
+/* v1.5.23 inline full-update progress */
+.maintenance-progress{
+  flex:1 1 360px;
+  min-width:240px;
+  display:grid;
+  gap:7px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#f8fbfa;
+}
+.maintenance-progress[hidden]{display:none!important}
+.maintenance-progress-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.maintenance-progress-head span{min-width:0;font-weight:700;color:#536760;overflow-wrap:anywhere}
+.maintenance-progress-head b{flex:0 0 auto;color:var(--primary);font-variant-numeric:tabular-nums}
+.maintenance-progress-track{height:8px;border-radius:999px;background:#e9f0ed;overflow:hidden}
+.maintenance-progress-track i{display:block;height:100%;border-radius:inherit;background:var(--primary);transition:width .3s ease}
+.maintenance-progress-copy{display:grid;gap:3px;min-width:0}
+.maintenance-progress-copy span{font-size:13px;color:#536760;line-height:1.55;overflow-wrap:anywhere}
+.maintenance-progress-copy small{font-size:12px;color:var(--muted);line-height:1.5;overflow-wrap:anywhere}
+.maintenance-progress.is-restarting{border-color:#cfe9df;background:#f5fbf8}
+.maintenance-progress.is-error{border-color:#efd3d7;background:#fff7f8}
+.maintenance-progress.is-error .maintenance-progress-head b,
+.maintenance-progress.is-error .maintenance-progress-head span{color:var(--danger)}
+.maintenance-progress.is-error .maintenance-progress-track i{background:var(--danger)}
+
+@media(max-width:760px){
+  .maintenance-controls{
+    display:grid;
+    grid-template-columns:44px minmax(0,1fr);
+    align-items:stretch;
+  }
+  .maintenance-progress{
+    grid-column:1 / -1;
+    grid-row:1;
+    min-width:0;
+    width:100%;
+  }
+  .maintenance-refresh{grid-column:1;grid-row:2}
+  .maintenance-update-btn{grid-column:2;grid-row:2}
 }
