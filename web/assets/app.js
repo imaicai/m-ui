@@ -309,13 +309,13 @@ async function fullUpdatePanel(){
       const check=async()=>{
         attempts++;
         try{
-          const res=await fetch(panelURL('/api/panel-info'),{cache:'no-store',credentials:'same-origin'});
-          if(res.ok){location.href=target.toString();return}
+          const res=await fetch(panelURL('/api/me'),{cache:'no-store',credentials:'same-origin'});
+          if(res.status===401){location.href=target.toString();return}
         }catch{}
-        if(attempts<120){setTimeout(check,3000)}
+        if(attempts<180){setTimeout(check,2000)}
         else{location.href=target.toString()}
       };
-      setTimeout(check,6000);
+      setTimeout(check,4000);
     }catch(e){
       if(btn){btn.disabled=false;btn.innerHTML=`${icon('restart')}<span>完整更新</span>`}
       toast(e.message,false);
