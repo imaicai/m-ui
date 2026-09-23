@@ -238,6 +238,15 @@ jobs:
           assert 'id="mobileRestart"' in app and "mobileRestart.onclick=restartPanel" in app
           assert 'position:sticky!important;top:0!important' in css
           assert '.dashboard-resources .resources{grid-template-columns:repeat(2,minmax(0,1fr))!important}' in css
+          assert 'v1.5.13 mobile node-management layout only' in css
+          node_mobile = css[css.index('/* v1.5.13 mobile node-management layout only */'):]
+          assert '.node-toolbar{' in node_mobile and 'grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important' in node_mobile
+          assert '.node-toolbar .search{' in node_mobile and 'grid-column:1 / -1' in node_mobile and 'grid-row:1' in node_mobile
+          assert '.node-toolbar .clear-all-traffic-btn{' in node_mobile and 'grid-column:1' in node_mobile and 'grid-row:2' in node_mobile
+          assert '.node-toolbar .clear-all-traffic-btn span{display:inline!important}' in node_mobile
+          assert '.node-toolbar .new-node-btn{' in node_mobile and 'grid-column:2' in node_mobile and 'grid-row:2' in node_mobile
+          nodes_html = app[app.index('function nodes()'):app.index('function subscriptionURL')]
+          assert nodes_html.index('node-guide') < nodes_html.index('nodeSearch') < nodes_html.index('resetAllTraffic') < nodes_html.index('addNode') < nodes_html.index('node-table-card')
           assert 'id="fullUpdatePanel"' in app and "api('/api/system/full-update',{method:'POST'})" in app
           assert 'function updateProgressScreen' in app and 'updateProgressBar' in app and 'updateProgressPercent' in app
           assert "sessionStorage.setItem('mui_full_update_id'" in app and 'resumeFullUpdateIfNeeded' in app
@@ -266,7 +275,7 @@ jobs:
           assert "## v1.5.0" not in readme and "安全稳定性能版" not in readme
           assert "## 🚀 核心能力" in readme and "## ⚙️ 一键安装" in readme and "## 🛡️ 安全设计" in readme
           assert '<img src="web/assets/app-icon.png"' in readme
-          assert "**当前版本：v1.5.12**" in readme
+          assert "**当前版本：v1.5.13**" in readme
           assert "请输入选项 [1-8，CTRL+C退出]" in readme
           assert "YOUR_SERVER_IP" in readme and "ADMIN_USER" in readme and "PANEL_PORT" in readme and "/PANEL_PATH/" in readme
           assert "实际内容由你的服务器动态读取" in readme
@@ -277,6 +286,7 @@ jobs:
           assert "重启 + 菜单的吸顶导航" in readme
           assert "完整更新 m-ui" in readme and "SSH 菜单“完整更新 m-ui”相同的更新流程" in readme
           assert "真实进度百分比" in readme and "自动返回登录界面" in readme
+          assert "新手说明 → 搜索框 → 清空全部节点流量 / +新建节点 → 节点列表" in readme
           release = Path('.github/workflows/release.yml').read_text(encoding='utf-8')
           assert 'workflow_dispatch:' in release and '  push:' not in release
           assert 'release_notes:' in release and '--notes-file /tmp/release-notes.md' in release
@@ -378,7 +388,7 @@ jobs:
           ! grep -q '## v1.5.0' README.md
           grep -q '## 🚀 核心能力' README.md
           grep -q '## ⚙️ 一键安装' README.md
-          grep -q '当前版本：v1.5.12' README.md
+          grep -q '当前版本：v1.5.13' README.md
           grep -Fq '请输入选项 [1-8，CTRL+C退出]' README.md
           ! grep -q 'm-ui-ctl status' README.md
           grep -q "trafficSub,'i-green'" web/assets/app.js
@@ -397,6 +407,9 @@ jobs:
           grep -q 'reloginRequired := accountChanged || restartRequired' server.go
 
           grep -q '+新建节点' web/assets/app.js
+          grep -q 'v1.5.13 mobile node-management layout only' web/assets/app.css
+          grep -q 'grid-column:1 / -1' web/assets/app.css
+          grep -q 'grid-column:2' web/assets/app.css
           grep -q 'repo-icon-link' web/assets/app.js
           grep -q '/api/system/restart' server.go
           grep -q '面板累计运行' web/assets/app.js
@@ -412,4 +425,4 @@ jobs:
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
           test -f web/assets/app-icon.png
           test ! -e app-icon.png
-          grep -q '^1\.5\.12$' VERSION
+          grep -q '^1\.5\.13$' VERSION
