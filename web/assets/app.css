@@ -736,20 +736,33 @@ html,body,#app{max-width:100%;overflow-x:hidden}
 
 /* v1.5.25 silent full-update flow */
 .maintenance-update-note{
-  display:block;
-  margin-top:9px;
+  flex:1 1 auto;
+  min-width:0;
+  margin:0;
   color:var(--muted);
   font-size:12px;
-  line-height:1.55;
+  line-height:1.45;
   text-align:right;
 }
 @media(max-width:760px){
   .maintenance-controls{
     display:grid;
-    grid-template-columns:44px minmax(0,1fr);
-    align-items:stretch;
+    grid-template-columns:minmax(0,1fr) 44px minmax(118px,auto);
+    align-items:center;
   }
-  .maintenance-refresh{grid-column:1}
-  .maintenance-update-btn{grid-column:2}
-  .maintenance-update-note{text-align:left}
+  .maintenance-update-note{
+    grid-column:1;
+    min-width:0;
+    text-align:left;
+    font-size:11px;
+    line-height:1.4;
+  }
+  .maintenance-refresh{grid-column:2}
+  .maintenance-update-btn{grid-column:3}
 }
+
+
+/* v1.5.26 update note before refresh */
+.maintenance-controls>.maintenance-update-note{order:1}
+.maintenance-controls>.maintenance-refresh{order:2}
+.maintenance-controls>.maintenance-update-btn{order:3}
