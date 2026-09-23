@@ -52,6 +52,15 @@ type session struct {
 	CSRF    string
 }
 
+type fullUpdateStatus struct {
+	UpdateID  string `json:"update_id"`
+	Status    string `json:"status"`
+	Progress  int    `json:"progress"`
+	Stage     string `json:"stage"`
+	Message   string `json:"message"`
+	UpdatedAt int64  `json:"updated_at"`
+}
+
 type PublicSettings struct {
 	PanelName       string `json:"panel_name"`
 	PanelPath       string `json:"panel_path"`
@@ -102,7 +111,10 @@ func (s *Server) panelPath() string {
 	return p
 }
 
-const mUIServicePath = "/etc/systemd/system/m-ui.service"
+const (
+	mUIServicePath     = "/etc/systemd/system/m-ui.service"
+	mUIUpdateStatusPath = "/etc/m-ui/update-status.json"
+)
 
 func (s *Server) runningPanelPort() int {
 	p, _ := strconv.Atoi(panelPort(s.cfg.Addr))
@@ -220,6 +232,7 @@ func (s *Server) Run() error {
 	panelMux.HandleFunc("/api/system/stats", s.auth(s.handleStats))
 	panelMux.HandleFunc("/api/system/restart", s.auth(s.handlePanelRestart))
 	panelMux.HandleFunc("/api/system/full-update", s.auth(s.handleFullUpdate))
+	panelMux.HandleFunc("/api/system/full-update-status", s.handleFullUpdateStatus)
 	panelMux.HandleFunc("/api/settings", s.auth(s.handleSettings))
 	panelMux.HandleFunc("/api/nodes/default", s.auth(s.handleCreateDefaultNode))
 	panelMux.HandleFunc("/api/nodes/reset-traffic", s.auth(s.handleResetAllTraffic))
@@ -529,6 +542,45 @@ func (s *Server) handlePanelRestart(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
+func writeFullUpdateStatus(st fullUpdateStatus) error {
+	if st.UpdatedAt == 0 {
+		st.UpdatedAt = time.Now().Unix()
+	}
+	if err := os.MkdirAll(filepath.Dir(mUIUpdateStatusPath), 0700); err != nil {
+		return err
+	}
+	b, err := json.Marshal(st)
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+	tmp := mUIUpdateStatusPath + ".tmp"
+	if err := os.WriteFile(tmp, b, 0600); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp, 0600); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, mUIUpdateStatusPath); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+func readFullUpdateStatus() (fullUpdateStatus, error) {
+	var st fullUpdateStatus
+	b, err := os.ReadFile(mUIUpdateStatusPath)
+	if err != nil {
+		return st, err
+	}
+	if err := json.Unmarshal(b, &st); err != nil {
+		return st, err
+	}
+	return st, nil
+}
+
 func (s *Server) handleFullUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		methodNotAllowed(w)
@@ -554,14 +606,36 @@ func (s *Server) handleFullUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	updateID := randomSessionToken()
+	initial := fullUpdateStatus{
+		UpdateID: updateID,
+		Status:   "running",
+		Progress: 2,
+		Stage:    "启动更新",
+		Message:  "正在创建独立后台更新任务",
+	}
+	if err := writeFullUpdateStatus(initial); err != nil {
+		writeError(w, http.StatusInternalServerError, "无法创建更新状态文件")
+		return
+	}
+
 	cmd := exec.Command(systemdRun,
 		"--unit=m-ui-full-update",
 		"--collect",
 		"--description=m-ui full update",
+		"--setenv=MUI_UPDATE_TOKEN="+updateID,
+		"--setenv=MUI_UPDATE_STATUS_FILE="+mUIUpdateStatusPath,
 		menuBin,
 		"--full-update",
 	)
 	if out, err := cmd.CombinedOutput(); err != nil {
+		failed := initial
+		failed.Status = "failed"
+		failed.Stage = "启动失败"
+		failed.Message = "后台更新任务启动失败"
+		failed.UpdatedAt = time.Now().Unix()
+		_ = writeFullUpdateStatus(failed)
 		msg := strings.TrimSpace(string(out))
 		if msg == "" {
 			msg = err.Error()
@@ -570,9 +644,51 @@ func (s *Server) handleFullUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]any{
-		"ok":      true,
-		"message": "完整更新已在后台启动",
+		"ok":        true,
+		"message":   "完整更新已在后台启动",
+		"update_id": updateID,
 	})
+}
+
+func (s *Server) handleFullUpdateStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	updateID := strings.TrimSpace(r.URL.Query().Get("update_id"))
+	if updateID == "" {
+		writeError(w, http.StatusBadRequest, "缺少更新任务编号")
+		return
+	}
+	st, err := readFullUpdateStatus()
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			writeError(w, http.StatusNotFound, "未找到更新任务")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "读取更新状态失败")
+		return
+	}
+	if !constantTokenEqual(updateID, st.UpdateID) {
+		writeError(w, http.StatusNotFound, "未找到更新任务")
+		return
+	}
+	if st.Status == "running" {
+		activeState := ""
+		if out, err := exec.Command("systemctl", "show", "-p", "ActiveState", "--value", "m-ui-full-update.service").Output(); err == nil {
+			activeState = strings.TrimSpace(string(out))
+			if activeState != "active" && activeState != "activating" && activeState != "reloading" && time.Now().Unix()-st.UpdatedAt > 5 {
+				st.Status = "failed"
+				st.Stage = "更新中止"
+				st.Message = "后台更新任务已停止，请查看系统日志后重试"
+			}
+		} else if time.Now().Unix()-st.UpdatedAt > 8 {
+			st.Status = "failed"
+			st.Stage = "更新中止"
+			st.Message = "后台更新任务已停止，请查看系统日志后重试"
+		}
+	}
+	writeJSON(w, http.StatusOK, st)
 }
 
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
