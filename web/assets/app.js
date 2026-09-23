@@ -90,7 +90,7 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.21')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
+function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.22')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
 
 function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><button class="brand brand-home" data-route="dashboard" type="button" aria-label="返回仪表盘">${brandIcon('sidebar')}<span class="brand-copy"><strong class="brand-title">${esc(brandName())}</strong><small>最简单的代理面板</small></span></button><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
@@ -309,9 +309,15 @@ function restartPanel(){
   });
 }
 
-function updateProgressScreen(st={progress:2,stage:'启动更新',message:'正在创建独立后台更新任务'}){
+function updateProgressCard(st={progress:2,stage:'启动更新',message:'正在创建独立后台更新任务'}){
   const progress=Math.max(0,Math.min(100,Number(st.progress)||0));
-  return `<div class="modal-backdrop update-progress-backdrop" id="updateProgressBackdrop"><div class="update-progress-card" role="dialog" aria-modal="true" aria-labelledby="updateProgressTitle"><strong id="updateProgressTitle">正在完整更新 m-ui</strong><div class="update-progress-head"><span id="updateProgressStage">${esc(st.stage||'更新中')}</span><b id="updateProgressPercent">${progress}%</b></div><div class="update-progress-track"><i id="updateProgressBar" style="width:${progress}%"></i></div><div class="update-progress-details"><span class="update-progress-message" id="updateProgressMessage">${esc(st.message||'正在更新，请稍候…')}</span><small>更新过程中面板可能短暂离线；进度会在面板恢复后继续同步。</small><button class="btn btn-outline update-progress-return" id="updateProgressReturn" type="button" hidden>关闭</button></div></div></div>`;
+  return `<div class="update-progress-card" role="dialog" aria-modal="true" aria-labelledby="updateProgressTitle"><strong id="updateProgressTitle">正在完整更新 m-ui</strong><div class="update-progress-head"><span id="updateProgressStage">${esc(st.stage||'更新中')}</span><b id="updateProgressPercent">${progress}%</b></div><div class="update-progress-track"><i id="updateProgressBar" style="width:${progress}%"></i></div><div class="update-progress-details"><span class="update-progress-message" id="updateProgressMessage">${esc(st.message||'正在更新，请稍候…')}</span><small>更新过程中面板可能短暂离线；进度会在面板恢复后继续同步。</small><button class="btn btn-outline update-progress-return" id="updateProgressReturn" type="button" hidden>关闭</button></div></div>`;
+}
+function updateProgressScreen(st){
+  return `<div class="modal-backdrop update-progress-backdrop" id="updateProgressBackdrop">${updateProgressCard(st)}</div>`;
+}
+function nextPaint(){
+  return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 }
 
 async function closeUpdateProgressAfterFailure(){
@@ -483,10 +489,10 @@ async function fullUpdatePanel(){
 
     if(backdrop){
       backdrop.classList.remove('update-confirm-backdrop');
-      backdrop.innerHTML=updateProgressScreen({progress:2,stage:'启动更新',message:'正在创建独立后台更新任务'})
-        .replace(/^<div class="modal-backdrop update-progress-backdrop" id="updateProgressBackdrop">/,'')
-        .replace(/<\/div>$/,'');
+      backdrop.innerHTML=updateProgressCard({progress:2,stage:'启动更新',message:'正在创建独立后台更新任务'});
     }
+
+    await nextPaint();
 
     try{
       const out=await api('/api/system/full-update',{method:'POST'});
