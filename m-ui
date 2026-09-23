@@ -30,7 +30,7 @@ write_update_status(){
   local progress="${1:-0}" stage="${2:-更新中}" message="${3:-}" status="${4:-running}"
   [[ -n "${MUI_UPDATE_STATUS_FILE:-}" && -n "${MUI_UPDATE_TOKEN:-}" ]] || return 0
   local tmp
-  tmp="${MUI_UPDATE_STATUS_FILE}.tmp.$"
+  tmp="${MUI_UPDATE_STATUS_FILE}.tmp"
   printf '{"update_id":"%s","status":"%s","progress":%d,"stage":"%s","message":"%s","updated_at":%d}\n' \
     "$MUI_UPDATE_TOKEN" "$status" "$progress" "$stage" "$message" "$(date +%s)" > "$tmp"
   chmod 600 "$tmp"
@@ -249,10 +249,22 @@ update_program(){
   write_update_status 5 "准备更新" "正在读取版本并准备完整更新"
   info "开始完整更新 m-ui：$current → $remote"
   info "将更新：后端程序、内嵌前端、SSH 菜单、控制脚本、Xray Core，并保留现有数据与设置。"
-  if ! MUI_XRAY_REFRESH=1 bash <(curl -fsSL --retry 3 "$RAW/install.sh"); then
+
+  local updater
+  updater="$(mktemp)"
+  write_update_status 7 "下载更新脚本" "正在下载并校验最新安装脚本"
+  if ! curl -fsSL --retry 3 "$RAW/install.sh" -o "$updater"; then
+    rm -f "$updater"
+    write_update_status 7 "下载失败" "无法下载最新安装脚本，请检查网络后重试" "failed"
+    err "无法下载最新安装脚本。"
+    return 1
+  fi
+  if ! MUI_XRAY_REFRESH=1 bash "$updater"; then
+    rm -f "$updater"
     err "完整更新失败。"
     return 1
   fi
+  rm -f "$updater"
 
   local after
   after="$("$SERVER_BIN" --version 2>/dev/null | awk '{print $2}' || true)"
