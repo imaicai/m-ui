@@ -526,29 +526,23 @@ html,body,#app{max-width:100%;overflow-x:hidden}
 .maintenance-version-item span{font-size:12px;color:var(--muted)}
 .maintenance-version-item b{font-size:15px;color:var(--text);font-variant-numeric:tabular-nums}
 .maintenance-version-arrow{color:#9aacA5;font-weight:700}
-.maintenance-action{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 0 2px}
-.maintenance-action>div{min-width:0;display:grid;gap:5px}
-.maintenance-action b{font-size:14px;color:var(--text)}
-.maintenance-action small{color:var(--muted);line-height:1.55}
-.maintenance-action .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;min-width:118px}
-.maintenance-action .btn .icon{width:16px;height:16px}
-.maintenance-update-status{margin-top:10px;padding:10px 12px;border-radius:9px;background:#f7faf9;color:var(--muted);font-size:12px;line-height:1.55}
-.maintenance-update-status.is-ready{background:#ecfaf5;color:#177253}
-.maintenance-update-status.is-error{background:#fff7f1;color:#9d6421}
-.maintenance-action .btn:disabled{transform:none;filter:none}
+.maintenance-controls{display:flex;align-items:center;justify-content:flex-end;gap:9px;margin-top:14px}
+.maintenance-refresh{width:42px;height:42px;flex:0 0 42px}
+.maintenance-refresh .icon{width:18px;height:18px}
+.maintenance-refresh.is-loading .icon{animation:maintenance-spin .8s linear infinite}
+.maintenance-update-btn{min-width:142px;height:42px;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+.maintenance-update-btn.btn-primary{color:#fff}
+.maintenance-update-btn:disabled{transform:none;filter:none}
+@keyframes maintenance-spin{to{transform:rotate(360deg)}}
 
 @media(max-width:760px){
-  /* Mobile only: keep the header pinned while page content scrolls. */
-  .topbar{position:sticky!important;top:0!important;z-index:50!important}
+  /* Mobile only: keep the header permanently visible while page content scrolls. */
+  .topbar{position:fixed!important;top:0!important;left:0!important;right:0!important;width:100%!important;height:70px!important;min-height:70px!important;z-index:50!important}
+  .main{padding-top:70px!important}
 
-  /* Mobile only: restart icon sits immediately left of the menu icon. */
-  .mobile-menu-wrap{display:flex!important;align-items:center;gap:8px}
-  .mobile-restart-btn{
-    width:40px;height:40px;padding:0;border:1px solid var(--line);border-radius:10px;background:#fff;color:#50645c;
-    display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s
-  }
-  .mobile-restart-btn .icon{width:19px;height:19px}
-  .mobile-restart-btn:hover{border-color:#efc9c9;background:#fff8f8;color:#a94444}
+  .mobile-menu-wrap{display:block!important;margin-left:auto}
+  .mobile-nav-dropdown .mobile-nav-restart{color:#50645c}
+  .mobile-nav-dropdown .mobile-nav-restart:hover{background:#f2f8f5;color:var(--primary)}
 
   /* Mobile only: server resources are a 2 x 2 grid. */
   .dashboard-resources .resources{grid-template-columns:repeat(2,minmax(0,1fr))!important}
@@ -556,8 +550,9 @@ html,body,#app{max-width:100%;overflow-x:hidden}
   .dashboard-resources .resource:nth-child(odd){border-right:1px solid var(--line)}
   .dashboard-resources .resource:nth-child(-n+2){border-bottom:1px solid var(--line)}
 
-  .maintenance-action{align-items:stretch;flex-direction:column;gap:12px}
-  .maintenance-action .btn{width:100%}
+  .maintenance-controls{width:100%;justify-content:stretch}
+  .maintenance-refresh{width:44px;flex:0 0 44px}
+  .maintenance-update-btn{flex:1;min-width:0}
 }
 
 
@@ -629,4 +624,10 @@ html,body,#app{max-width:100%;overflow-x:hidden}
   .maintenance-version-item{min-width:0}
   .maintenance-version-item:last-child{text-align:right}
   .maintenance-action .btn{width:100%}
+}
+
+
+/* v1.5.15 mobile menu and upgrade-maintenance refinement */
+@media(max-width:760px){
+  .mobile-nav-dropdown{position:fixed;right:12px;top:62px}
 }
