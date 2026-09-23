@@ -66,7 +66,8 @@ BLUE='\033[0;34m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC
 info(){ echo -e "${BLUE}[m-ui]${NC} $*"; }
 ok(){ echo -e "${GREEN}[m-ui]${NC} $*"; }
 warn(){ echo -e "${YELLOW}[m-ui]${NC} $*"; }
-die(){ echo -e "${RED}[m-ui]${NC} $*" >&2; update_progress "$CURRENT_UPDATE_PROGRESS" "$CURRENT_UPDATE_STAGE" "更新失败，请查看系统日志后重试" "failed" || true; exit 1; }
+err(){ echo -e "${RED}[m-ui]${NC} $*" >&2; }
+die(){ err "$*"; update_progress "$CURRENT_UPDATE_PROGRESS" "$CURRENT_UPDATE_STAGE" "更新失败，请查看系统日志后重试" "failed" || true; exit 1; }
 
 [[ ${EUID:-$(id -u)} -eq 0 ]] || die "请使用 root 用户执行安装。"
 command -v systemctl >/dev/null 2>&1 || die "当前系统不支持 systemd，暂不支持安装。"
