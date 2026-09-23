@@ -731,3 +731,21 @@ html,body,#app{max-width:100%;overflow-x:hidden}
   .mobile-nav-dropdown .mobile-nav-restart{color:#50645c}
   .mobile-nav-dropdown .mobile-nav-restart:hover{background:#f2f8f5;color:var(--primary)}
 }
+
+
+/* v1.5.22 desktop update progress visibility */
+@media(min-width:761px){
+  .update-progress-backdrop{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+  }
+  .update-progress-backdrop .update-progress-card{
+    display:grid!important;
+    opacity:1!important;
+    visibility:visible!important;
+  }
+}
