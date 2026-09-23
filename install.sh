@@ -28,7 +28,7 @@ update_progress(){
   local dir tmp
   dir="$(dirname "$MUI_UPDATE_STATUS_FILE")"
   mkdir -p "$dir"
-  tmp="${MUI_UPDATE_STATUS_FILE}.tmp.$"
+  tmp="${MUI_UPDATE_STATUS_FILE}.tmp"
   printf '{"update_id":"%s","status":"%s","progress":%d,"stage":"%s","message":"%s","updated_at":%d}\n' \
     "$MUI_UPDATE_TOKEN" "$status" "$progress" "$stage" "$message" "$(date +%s)" > "$tmp"
   chmod 600 "$tmp"
