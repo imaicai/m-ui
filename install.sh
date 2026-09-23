@@ -17,6 +17,34 @@ DATA_FILE="${DATA_DIR}/state.json"
 SERVICE="/etc/systemd/system/m-ui.service"
 XRAY_CONFIG="/usr/local/etc/xray/config.json"
 
+CURRENT_UPDATE_PROGRESS=0
+CURRENT_UPDATE_STAGE="准备更新"
+
+update_progress(){
+  local progress="${1:-0}" stage="${2:-更新中}" message="${3:-}" status="${4:-running}"
+  [[ -n "${MUI_UPDATE_STATUS_FILE:-}" && -n "${MUI_UPDATE_TOKEN:-}" ]] || return 0
+  CURRENT_UPDATE_PROGRESS="$progress"
+  CURRENT_UPDATE_STAGE="$stage"
+  local dir tmp
+  dir="$(dirname "$MUI_UPDATE_STATUS_FILE")"
+  mkdir -p "$dir" 2>/dev/null || return 0
+  tmp="${MUI_UPDATE_STATUS_FILE}.tmp"
+  printf '{"update_id":"%s","status":"%s","progress":%d,"stage":"%s","message":"%s","updated_at":%d}\n' \
+    "$MUI_UPDATE_TOKEN" "$status" "$progress" "$stage" "$message" "$(date +%s)" > "$tmp" || return 0
+  chmod 600 "$tmp" 2>/dev/null || { rm -f "$tmp"; return 0; }
+  mv -f "$tmp" "$MUI_UPDATE_STATUS_FILE" 2>/dev/null || { rm -f "$tmp"; return 0; }
+  return 0
+}
+
+on_update_error(){
+  local rc=$?
+  if [[ -n "${MUI_UPDATE_STATUS_FILE:-}" && -n "${MUI_UPDATE_TOKEN:-}" ]]; then
+    update_progress "$CURRENT_UPDATE_PROGRESS" "$CURRENT_UPDATE_STAGE" "更新在当前阶段失败，请查看系统日志后重试" "failed" || true
+  fi
+  exit "$rc"
+}
+trap on_update_error ERR
+
 SSH_USER="${SUDO_USER:-}"
 if [[ -z "$SSH_USER" || "$SSH_USER" == "root" ]]; then
   SSH_USER="$(logname 2>/dev/null || true)"
@@ -38,7 +66,7 @@ BLUE='\033[0;34m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC
 info(){ echo -e "${BLUE}[m-ui]${NC} $*"; }
 ok(){ echo -e "${GREEN}[m-ui]${NC} $*"; }
 warn(){ echo -e "${YELLOW}[m-ui]${NC} $*"; }
-die(){ echo -e "${RED}[m-ui]${NC} $*" >&2; exit 1; }
+die(){ echo -e "${RED}[m-ui]${NC} $*" >&2; update_progress "$CURRENT_UPDATE_PROGRESS" "$CURRENT_UPDATE_STAGE" "更新失败，请查看系统日志后重试" "failed" || true; exit 1; }
 
 [[ ${EUID:-$(id -u)} -eq 0 ]] || die "请使用 root 用户执行安装。"
 command -v systemctl >/dev/null 2>&1 || die "当前系统不支持 systemd，暂不支持安装。"
@@ -131,10 +159,12 @@ xray_version(){
   /usr/local/bin/xray version 2>/dev/null | awk 'NR==1{v=$2; sub(/^v/,"",v); print "v" v}'
 }
 
+update_progress 10 "准备环境" "检查系统依赖与运行环境"
 info "检查基础环境…"
 install_packages
 command -v go >/dev/null 2>&1 || die "Go 安装失败。"
 
+update_progress 18 "系统准备" "基础依赖完成，正在应用网络配置与备份"
 apply_network_profile
 
 mkdir -p "$DATA_DIR" "$CERT_DIR" /var/log/m-ui
@@ -163,6 +193,7 @@ if [[ -f "$XRAY_CONFIG" ]]; then
   cp -a "$XRAY_CONFIG" "$DATA_DIR/backup/xray-config.before-m-ui.$(date +%Y%m%d-%H%M%S).json" || true
 fi
 
+update_progress 28 "更新 Xray" "正在备份并更新 Xray Core"
 info "安装/校验 Xray Core…"
 ensure_xray_user
 XRAY_RUN_USER="$(detect_xray_run_user)"
@@ -209,6 +240,7 @@ else
   info "Xray 已处于锁定稳定版本 $CURRENT_XRAY，本次不追新。"
 fi
 rm -f "$XRAY_SCRIPT"
+update_progress 46 "校验 Xray" "Xray Core 已更新，正在校验现有配置与服务"
 [[ -x /usr/local/bin/xray ]] || { restore_xray; rm -rf "$XRAY_BACKUP_DIR"; die "Xray 安装失败。"; }
 
 harden_xray_service
@@ -230,15 +262,18 @@ INSTALLED_XRAY="$(xray_version || true)"
 [[ -n "$INSTALLED_XRAY" ]] && { printf '%s\n' "$INSTALLED_XRAY" > "$XRAY_LOCK_FILE"; chmod 0600 "$XRAY_LOCK_FILE"; }
 rm -rf "$XRAY_BACKUP_DIR"
 
+update_progress 60 "获取源码" "正在获取最新 m-ui 源码"
 info "获取 m-ui 最新源码…"
 rm -rf "$INSTALL_SRC"
 git clone --depth 1 --branch "$BRANCH" "$REPO" "$INSTALL_SRC" >/dev/null 2>&1 || die "无法获取 m-ui 源码。"
 
+update_progress 72 "编译程序" "源码获取完成，正在编译最新 m-ui 后端"
 info "编译 m-ui…"
 cd "$INSTALL_SRC"
 APP_VERSION="$(tr -d '[:space:]' < VERSION)"
 [[ -n "$APP_VERSION" ]] || APP_VERSION="1.5.0"
 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${APP_VERSION}" -o /tmp/m-ui-server-build .
+update_progress 82 "安装程序" "编译完成，正在替换前端、后端与管理脚本"
 install -m 0755 /tmp/m-ui-server-build "$SERVER_BIN"
 rm -f /tmp/m-ui-server-build
 install -m 0755 "$INSTALL_SRC/m-ui" "$MENU_BIN"
@@ -284,11 +319,13 @@ UMask=0077
 WantedBy=multi-user.target
 SERVICEEOF
 
+update_progress 90 "重启服务" "程序安装完成，正在重新加载 systemd 并重启面板"
 systemctl daemon-reload
 systemctl enable m-ui >/dev/null 2>&1
 systemctl restart m-ui
 sleep 1
 systemctl is-active --quiet m-ui || { journalctl -u m-ui --no-pager -n 40; die "m-ui 启动失败。"; }
+update_progress 97 "验证服务" "面板已重新启动，正在完成最后检查"
 
 open_port(){
   local port="$1"
@@ -308,6 +345,7 @@ SERVER_IP="$(curl -4 -fsS --max-time 4 https://api.ipify.org 2>/dev/null || true
 [[ -n "$SERVER_IP" ]] || SERVER_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 [[ -n "$SERVER_IP" ]] || SERVER_IP="你的服务器IP"
 
+update_progress 99 "完成安装" "安装流程已完成，正在返回最终状态"
 ok "m-ui 安装完成"
 echo
 echo "  面板地址: http://${SERVER_IP}:${PANEL_PORT}${PANEL_PATH}"

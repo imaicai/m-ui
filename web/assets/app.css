@@ -550,3 +550,27 @@ html,body,#app{max-width:100%;overflow-x:hidden}
   .maintenance-action{align-items:stretch;flex-direction:column;gap:12px}
   .maintenance-action .btn{width:100%}
 }
+
+
+/* v1.5.12 full-update progress */
+.update-progress-screen{padding:20px;box-sizing:border-box}
+.update-progress-card{
+  width:min(520px,calc(100vw - 32px));box-sizing:border-box;padding:28px;border:1px solid var(--line);border-radius:16px;
+  background:#fff;box-shadow:0 20px 60px rgba(29,55,46,.14);display:grid;gap:14px;color:var(--text)
+}
+.update-progress-card>strong{font-size:21px;line-height:1.25}
+.update-progress-head{display:flex;align-items:center;justify-content:space-between;gap:14px;color:#536760}
+.update-progress-head span{font-weight:700}
+.update-progress-head b{font-size:15px;color:var(--primary);font-variant-numeric:tabular-nums}
+.update-progress-track{height:10px;border-radius:999px;background:#EDF2F8;overflow:hidden}
+.update-progress-track i{display:block;height:100%;border-radius:inherit;background:var(--primary);transition:width .3s ease}
+.update-progress-message{min-height:22px;color:#536760;line-height:1.6}
+.update-progress-card small{color:var(--muted);line-height:1.55}
+.update-progress-return{margin-top:4px;justify-self:start}
+
+@media(max-width:760px){
+  .update-progress-screen{padding:14px}
+  .update-progress-card{width:100%;padding:22px 18px;border-radius:14px}
+  .update-progress-card>strong{font-size:19px}
+  .update-progress-return{width:100%;justify-self:stretch}
+}
