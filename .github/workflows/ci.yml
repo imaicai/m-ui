@@ -239,6 +239,7 @@ jobs:
           assert 'position:sticky!important;top:0!important' in css
           assert '.dashboard-resources .resources{grid-template-columns:repeat(2,minmax(0,1fr))!important}' in css
           assert 'id="fullUpdatePanel"' in app and "api('/api/system/full-update',{method:'POST'})" in app
+          assert "fetch(panelURL('/api/me')" in app and "res.status===401" in app
           assert '/api/system/full-update' in server and 'handleFullUpdate' in server
           assert 'systemd-run' in server and 'm-ui-full-update' in server
           menu_script = Path("m-ui").read_text(encoding="utf-8")
@@ -262,7 +263,7 @@ jobs:
           assert "实际内容由你的服务器动态读取" in readme
           assert "m-ui-ctl status" not in readme
           assert "高级控制脚本（为自动化和兼容已有运维流程保留）" in readme
-          assert "📱 **移动适配**" in readme and "手机端使用 Logo + 网站名称 + 菜单" in readme
+          assert "📱 **移动适配**" in readme and "手机端使用 Logo + 网站名称 + 重启 + 菜单" in readme
           assert "输入说明会排列在对应输入框下方" in readme
           assert "重启 + 菜单的吸顶导航" in readme
           assert "完整更新 m-ui" in readme and "SSH 菜单“完整更新 m-ui”相同的更新流程" in readme
@@ -393,5 +394,4 @@ jobs:
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
           test -f web/assets/app-icon.png
           test ! -e app-icon.png
-          grep -q '^1\.5\.11
- VERSION
+          grep -q '^1\.5\.11$' VERSION
