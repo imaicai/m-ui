@@ -219,7 +219,7 @@ jobs:
           assert 'fmtPercent' in app and '面板累计运行' in app
           assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
           assert 'contentOnly' in app and 'syncShellChrome' in app and 'app.querySelector(\'.shell .content\')' in app
-          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.21' in app
+          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.22' in app
           assert 'admin-account' in app and "icon('user')" in app and '管理员账号：' not in app
           assert 'class="admin-account" data-route="settings" type="button"' in app
           assert 'title="管理员账号 · 系统设置"' in app
@@ -258,7 +258,7 @@ jobs:
           assert '.node-toolbar .new-node-btn{' in node_mobile and 'grid-column:2' in node_mobile and 'grid-row:2' in node_mobile
           nodes_html = app[app.index('function nodes()'):app.index('function subscriptionURL')]
           assert nodes_html.index('node-guide') < nodes_html.index('nodeSearch') < nodes_html.index('resetAllTraffic') < nodes_html.index('addNode') < nodes_html.index('node-table-card')
-          assert 'id="fullUpdatePanel"' in app and "api('/api/system/full-update',{method:'POST'})" in app
+          assert 'id="fullUpdatePanel"' in app and "api('/api/system/full-update',{method:'POST',body:JSON.stringify({update_id:updateID})})" in app
           assert "api('/api/system/update-info')" in app and 'refreshSystemUpdateInfo' in app and 'paintSystemUpdateInfo' in app
           assert 'preloadSystemUpdateInfo' in app and 'await preloadSystemUpdateInfo()' in app
           assert 'maintenanceCurrentVersion' in app and 'maintenanceLatestVersion' in app and 'update_available' in app
@@ -269,10 +269,13 @@ jobs:
           assert 'function updateProgressScreen' in app and 'updateProgressBar' in app and 'updateProgressPercent' in app
           assert 'id="updateProgressBackdrop"' in app and 'update-progress-backdrop' in app
           assert '确认并开始更新' in app and 'update-confirm-card' in app
+          assert 'function newUpdateRequestID()' in app and 'function isNetworkFetchError(err)' in app
+          assert "JSON.stringify({update_id:updateID})" in app
+          assert "后台更新可能仍在继续" in app
           assert "confirmBox(`已检测版本" not in app
           full_update = app[app.index('async function fullUpdatePanel()'):app.index('function syncShellChrome()')]
           assert "backdrop.innerHTML=updateProgressScreen" in full_update
-          assert "api('/api/system/full-update',{method:'POST'})" in full_update
+          assert "api('/api/system/full-update',{method:'POST',body:JSON.stringify({update_id:updateID})})" in full_update
           assert "$('#app').innerHTML=updateProgressScreen" not in app
           assert 'document.body.insertAdjacentHTML(\'beforeend\',updateProgressScreen(initial))' in app
           assert 'stopTimers();' in app[app.index('function beginFullUpdateProgress'):app.index('function resumeFullUpdateIfNeeded')]
@@ -290,6 +293,8 @@ jobs:
           assert "sessionStorage.setItem('mui_full_update_id'" in app and 'resumeFullUpdateIfNeeded' in app
           assert "full-update-status?update_id=" in app and "st.status==='completed'" in app
           assert '/api/system/full-update-status' in server and 'handleFullUpdateStatus' in server
+          assert 'func validUpdateRequestID' in server and 'UpdateID string `json:"update_id"`' in server
+          assert 'updateID := requestedUpdateID' in server
           assert '/api/system/update-info' in server and 'handleUpdateInfo' in server
           assert 'compareSemanticVersions' in server and 'fetchLatestMUIVersion' in server and 'UpdateAvailable' in server
           assert 'writeFullUpdateStatus' in server and 'readFullUpdateStatus' in server
@@ -334,7 +339,7 @@ jobs:
           assert "## v1.5.0" not in readme and "安全稳定性能版" not in readme
           assert "## 🚀 核心能力" in readme and "## ⚙️ 一键安装" in readme and "## 🛡️ 安全设计" in readme
           assert '<img src="web/assets/app-icon.png"' in readme
-          assert "**当前版本：v1.5.21**" in readme
+          assert "**当前版本：v1.5.22**" in readme
           assert "请输入选项 [1-8，CTRL+C退出]" in readme
           assert "YOUR_SERVER_IP" in readme and "ADMIN_USER" in readme and "PANEL_PORT" in readme and "/PANEL_PATH/" in readme
           assert "实际内容由你的服务器动态读取" in readme
@@ -429,6 +434,9 @@ jobs:
           grep -q 'brand-home' web/assets/app.js
           grep -q '确认并开始更新' web/assets/app.js
           grep -q 'update-confirm-card' web/assets/app.js
+          grep -q 'newUpdateRequestID' web/assets/app.js
+          grep -q 'isNetworkFetchError' web/assets/app.js
+          grep -q '后台更新可能仍在继续' web/assets/app.js
           grep -q 'mobileRestart' web/assets/app.js
           ! grep -q 'mobile-restart-btn' web/assets/app.js
           ! grep -q '<span class="sep">·</span>' web/assets/app.js
@@ -458,6 +466,8 @@ jobs:
           grep -q '#confirmBackdrop' web/assets/app.css
           grep -q 'full-update-status' web/assets/app.js
           grep -q 'handleFullUpdateStatus' server.go
+          grep -q 'validUpdateRequestID' server.go
+          grep -q 'requestedUpdateID' server.go
           grep -q 'handleUpdateInfo' server.go
           grep -q 'compareSemanticVersions' server.go
           grep -q 'MUI_UPDATE_STATUS_FILE' install.sh
@@ -497,7 +507,7 @@ jobs:
           ! grep -q '## v1.5.0' README.md
           grep -q '## 🚀 核心能力' README.md
           grep -q '## ⚙️ 一键安装' README.md
-          grep -q '当前版本：v1.5.21' README.md
+          grep -q '当前版本：v1.5.22' README.md
           grep -Fq '请输入选项 [1-8，CTRL+C退出]' README.md
           ! grep -q 'm-ui-ctl status' README.md
           grep -q "trafficSub,'i-green'" web/assets/app.js
@@ -534,4 +544,4 @@ jobs:
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
           test -f web/assets/app-icon.png
           test ! -e app-icon.png
-          grep -q '^1\.5\.21$' VERSION
+          grep -q '^1\.5\.22$' VERSION
