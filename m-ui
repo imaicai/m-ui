@@ -26,6 +26,17 @@ warn(){ echo -e "${YELLOW}[m-ui]${NC} $*"; }
 err(){ echo -e "${RED}[m-ui]${NC} $*" >&2; }
 pause(){ echo; read -r -p "按回车键返回菜单..." _ || true; }
 
+write_update_status(){
+  local progress="${1:-0}" stage="${2:-更新中}" message="${3:-}" status="${4:-running}"
+  [[ -n "${MUI_UPDATE_STATUS_FILE:-}" && -n "${MUI_UPDATE_TOKEN:-}" ]] || return 0
+  local tmp
+  tmp="${MUI_UPDATE_STATUS_FILE}.tmp.$"
+  printf '{"update_id":"%s","status":"%s","progress":%d,"stage":"%s","message":"%s","updated_at":%d}\n' \
+    "$MUI_UPDATE_TOKEN" "$status" "$progress" "$stage" "$message" "$(date +%s)" > "$tmp"
+  chmod 600 "$tmp"
+  mv -f "$tmp" "$MUI_UPDATE_STATUS_FILE"
+}
+
 if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
   if command -v sudo >/dev/null 2>&1; then
     exec sudo "$0" "$@"
@@ -235,14 +246,19 @@ update_program(){
   [[ -n "$current" ]] || current="未知"
   [[ -n "$remote" ]] || remote="未知"
 
+  write_update_status 5 "准备更新" "正在读取版本并准备完整更新"
   info "开始完整更新 m-ui：$current → $remote"
   info "将更新：后端程序、内嵌前端、SSH 菜单、控制脚本、Xray Core，并保留现有数据与设置。"
-  MUI_XRAY_REFRESH=1 bash <(curl -fsSL --retry 3 "$RAW/install.sh")
+  if ! MUI_XRAY_REFRESH=1 bash <(curl -fsSL --retry 3 "$RAW/install.sh"); then
+    err "完整更新失败。"
+    return 1
+  fi
 
   local after
   after="$("$SERVER_BIN" --version 2>/dev/null | awk '{print $2}' || true)"
   [[ -n "$after" ]] || after="未知"
   ok "完整更新完成，当前运行版本：$after"
+  write_update_status 100 "更新完成" "完整更新已完成，面板可以重新登录" "completed"
   if [[ "${MUI_NONINTERACTIVE_UPDATE:-0}" == "1" ]]; then
     return 0
   fi
