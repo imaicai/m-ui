@@ -90,14 +90,14 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.19')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
+function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.20')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
 
-function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon('sidebar')}<div><strong class="brand-title">${esc(brandName())}</strong><small>最简单的代理面板</small></div></div><nav class="nav">
+function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><button class="brand brand-home" data-route="dashboard" type="button" aria-label="返回仪表盘">${brandIcon('sidebar')}<span class="brand-copy"><strong class="brand-title">${esc(brandName())}</strong><small>最简单的代理面板</small></span></button><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
 </nav><div class="sidebar-bottom"><div class="system-pill"><div class="statusline stable-runtime">${icon('clock')}<span>面板累计运行</span><b id="stableUptime">${fmtStableClock(currentPanelUptimeSeconds())}</b></div><div class="service-copy"><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer" title="打开 M-Ui GitHub 源码" aria-label="打开 M-Ui GitHub 源码">${icon('github')}</a><span>M-Ui：最简单的代理面板</span></div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/MiniJet" target="_blank" rel="noopener noreferrer" title="打开 MiniJet GitHub 源码" aria-label="打开 MiniJet GitHub 源码">${icon('github')}</a><span>小飞机：最简单的代理客户端</span></div><div class="service-copyright">© 2026 <a href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer">M-Ui</a> v${ver}</div></div></div><button class="sidebar-restart" id="restartPanelSidebar" type="button"><span class="restart-mark">${icon('restart')}</span><span>重启面板</span></button></div></aside>`}
 function mobileHeader(){
   const items=[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']];
-  return `<div class="mobile-header-brand">${brandIcon('mobile')}<strong class="mobile-brand-title">${esc(brandName())}</strong></div><div class="mobile-menu-wrap"><button class="mobile-menu-toggle" id="mobileMenuToggle" type="button" aria-label="打开导航菜单" aria-expanded="false">${icon('menu')}</button><div class="mobile-nav-dropdown" id="mobileNavDropdown" hidden>${items.map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}<div class="mobile-nav-separator"></div><button class="mobile-nav-restart" id="mobileRestart" type="button">${icon('restart')}<span>重启面板</span></button><button class="mobile-nav-logout" id="mobileLogout" type="button">${icon('power')}<span>退出登录</span></button></div></div>`;
+  return `<button class="mobile-header-brand brand-home" data-route="dashboard" type="button" aria-label="返回仪表盘">${brandIcon('mobile')}<strong class="mobile-brand-title">${esc(brandName())}</strong></button><div class="mobile-menu-wrap"><button class="mobile-menu-toggle" id="mobileMenuToggle" type="button" aria-label="打开导航菜单" aria-expanded="false">${icon('menu')}</button><div class="mobile-nav-dropdown" id="mobileNavDropdown" hidden>${items.map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}<div class="mobile-nav-separator"></div><button class="mobile-nav-restart" id="mobileRestart" type="button">${icon('restart')}<span>重启面板</span></button><button class="mobile-nav-logout" id="mobileLogout" type="button">${icon('power')}<span>退出登录</span></button></div></div>`;
 }
 function layout(content){
   if(state.contentOnly)return content;
@@ -453,21 +453,64 @@ async function fullUpdatePanel(){
   const info=state.updateInfo;
   if(!info?.update_available)return;
   const from=displayVersion(info.current_version), to=displayVersion(info.latest_version);
-  confirmBox(`已检测版本：${from} → ${to}。完整更新会更新前端、后端、SSH 管理脚本和 Xray Core，过程中面板会重启。确认现在开始？`,async()=>{
+
+  $('#updateProgressBackdrop')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    `<div class="modal-backdrop update-progress-backdrop update-confirm-backdrop" id="updateProgressBackdrop">
+      <div class="update-progress-card update-confirm-card" role="dialog" aria-modal="true" aria-labelledby="updateConfirmTitle">
+        <strong id="updateConfirmTitle">确认完整更新</strong>
+        <div class="update-confirm-copy">
+          <p>已检测版本：<b>${esc(from)}</b> → <b>${esc(to)}</b></p>
+          <small>将更新前端、后端、SSH 管理脚本和 Xray Core；更新过程中面板会重启。</small>
+        </div>
+        <div class="update-confirm-actions">
+          <button class="btn btn-outline" id="cancelFullUpdate" type="button">取消</button>
+          <button class="btn btn-primary" id="confirmFullUpdate" type="button">确认并开始更新</button>
+        </div>
+      </div>
+    </div>`);
+
+  const backdrop=$('#updateProgressBackdrop');
+  const cancel=$('#cancelFullUpdate');
+  const confirm=$('#confirmFullUpdate');
+  const close=()=>backdrop?.remove();
+  if(cancel)cancel.onclick=close;
+
+  if(confirm)confirm.onclick=async()=>{
     const btn=$('#fullUpdatePanel'), textEl=$('#fullUpdatePanelText');
     if(btn)btn.disabled=true;
     if(textEl)textEl.textContent='正在启动…';
+
+    if(backdrop){
+      backdrop.classList.remove('update-confirm-backdrop');
+      backdrop.innerHTML=updateProgressScreen({progress:2,stage:'启动更新',message:'正在创建独立后台更新任务'})
+        .replace(/^<div class="modal-backdrop update-progress-backdrop" id="updateProgressBackdrop">/,'')
+        .replace(/<\/div>$/,'');
+    }
+
     try{
       const out=await api('/api/system/full-update',{method:'POST'});
       const updateID=String(out?.update_id||'');
       if(!updateID)throw new Error('后台未返回更新任务编号');
       beginFullUpdateProgress(updateID,{progress:2,stage:'启动更新',message:out?.message||'完整更新已在后台启动'});
     }catch(e){
+      sessionStorage.removeItem('mui_full_update_id');
+      const currentBackdrop=$('#updateProgressBackdrop');
+      if(currentBackdrop){
+        currentBackdrop.innerHTML=`<div class="update-progress-card update-failed-card" role="dialog" aria-modal="true">
+          <strong>更新启动失败</strong>
+          <div class="update-progress-details">
+            <span class="update-progress-message">${esc(e.message||'无法启动完整更新')}</span>
+            <button class="btn btn-outline update-progress-return" id="updateProgressReturn" type="button">关闭</button>
+          </div>
+        </div>`;
+        const back=$('#updateProgressReturn');
+        if(back)back.onclick=()=>currentBackdrop.remove();
+      }
       if(btn)btn.disabled=false;
       if(textEl)textEl.textContent='进行完整更新';
-      toast(e.message,false);
     }
-  });
+  };
 }
 
 function syncShellChrome(){
