@@ -734,11 +734,6 @@ html,body,#app{max-width:100%;overflow-x:hidden}
 
 
 
-  .maintenance-update-btn{grid-row:1}
-  .maintenance-progress{grid-row:2}
-}
-
-
 /* v1.5.25 silent full-update flow */
 .maintenance-update-note{
   display:block;
