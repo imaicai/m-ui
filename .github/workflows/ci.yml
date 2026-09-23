@@ -219,7 +219,7 @@ jobs:
           assert 'fmtPercent' in app and '面板累计运行' in app
           assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
           assert 'contentOnly' in app and 'syncShellChrome' in app and 'app.querySelector(\'.shell .content\')' in app
-          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.10' in app
+          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.11' in app
           assert 'admin-account' in app and "icon('user')" in app and '管理员账号：' not in app
           assert 'class="admin-account" data-route="settings" type="button"' in app
           assert 'title="管理员账号 · 系统设置"' in app
@@ -235,6 +235,14 @@ jobs:
           assert '.grid,.stats,.resources,.subs-top,.dashboard-middle,.dashboard-bottom,.feature-row,.settings-layout' in mobile_css
           assert '.table-wrap{width:100%;max-width:100%;overflow-x:auto' in mobile_css
           assert '.setting-row small,.setting-row .cert-status' in mobile_css
+          assert 'id="mobileRestart"' in app and "mobileRestart.onclick=restartPanel" in app
+          assert 'position:sticky!important;top:0!important' in css
+          assert '.dashboard-resources .resources{grid-template-columns:repeat(2,minmax(0,1fr))!important}' in css
+          assert 'id="fullUpdatePanel"' in app and "api('/api/system/full-update',{method:'POST'})" in app
+          assert '/api/system/full-update' in server and 'handleFullUpdate' in server
+          assert 'systemd-run' in server and 'm-ui-full-update' in server
+          menu_script = Path("m-ui").read_text(encoding="utf-8")
+          assert '--full-update' in menu_script and 'MUI_NONINTERACTIVE_UPDATE=1 update_program' in menu_script
           assert "stat('代理流量',fmtBytes(traffic.total),trafficSub,'i-green'" in app and "trafficSub,'i-purple'" not in app
           resource_block = app[app.index('<section class=\"card section-card dashboard-resources\"'):app.index('<div class=\"grid dashboard-bottom\"')]
           assert resource_block.index("ring('CPU'") < resource_block.index("ring('磁盘'") < resource_block.index("ring('内存'") < resource_block.index("ring('SWAP'")
@@ -248,7 +256,7 @@ jobs:
           assert "## v1.5.0" not in readme and "安全稳定性能版" not in readme
           assert "## 🚀 核心能力" in readme and "## ⚙️ 一键安装" in readme and "## 🛡️ 安全设计" in readme
           assert '<img src="web/assets/app-icon.png"' in readme
-          assert "**当前版本：v1.5.10**" in readme
+          assert "**当前版本：v1.5.11**" in readme
           assert "请输入选项 [1-8，CTRL+C退出]" in readme
           assert "YOUR_SERVER_IP" in readme and "ADMIN_USER" in readme and "PANEL_PORT" in readme and "/PANEL_PATH/" in readme
           assert "实际内容由你的服务器动态读取" in readme
@@ -256,6 +264,8 @@ jobs:
           assert "高级控制脚本（为自动化和兼容已有运维流程保留）" in readme
           assert "📱 **移动适配**" in readme and "手机端使用 Logo + 网站名称 + 菜单" in readme
           assert "输入说明会排列在对应输入框下方" in readme
+          assert "重启 + 菜单的吸顶导航" in readme
+          assert "完整更新 m-ui" in readme and "SSH 菜单“完整更新 m-ui”相同的更新流程" in readme
           release = Path('.github/workflows/release.yml').read_text(encoding='utf-8')
           assert 'workflow_dispatch:' in release and '  push:' not in release
           assert 'release_notes:' in release and '--notes-file /tmp/release-notes.md' in release
@@ -336,12 +346,20 @@ jobs:
           grep -q 'mobileMenuToggle' web/assets/app.js
           grep -q 'mobileNavDropdown' web/assets/app.js
           grep -q 'mobileLogout' web/assets/app.js
+          grep -q 'mobileRestart' web/assets/app.js
+          grep -q 'fullUpdatePanel' web/assets/app.js
+          grep -q '/api/system/full-update' server.go
+          grep -q 'handleFullUpdate' server.go
+          grep -q 'systemd-run' server.go
+          grep -q -- '--full-update' m-ui
+          grep -q 'MUI_NONINTERACTIVE_UPDATE=1 update_program' m-ui
+          grep -q 'v1.5.11 maintenance action and mobile-only refinements' web/assets/app.css
           grep -q 'v1.5.10 mobile responsive navigation and single-column layout' web/assets/app.css
           grep -q 'v1.5.7 admin navigation refinement' web/assets/app.css
           ! grep -q '## v1.5.0' README.md
           grep -q '## 🚀 核心能力' README.md
           grep -q '## ⚙️ 一键安装' README.md
-          grep -q '当前版本：v1.5.10' README.md
+          grep -q '当前版本：v1.5.11' README.md
           grep -Fq '请输入选项 [1-8，CTRL+C退出]' README.md
           ! grep -q 'm-ui-ctl status' README.md
           grep -q "trafficSub,'i-green'" web/assets/app.js
@@ -375,4 +393,5 @@ jobs:
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
           test -f web/assets/app-icon.png
           test ! -e app-icon.png
-          grep -q '^1\.5\.10$' VERSION
+          grep -q '^1\.5\.11
+ VERSION
