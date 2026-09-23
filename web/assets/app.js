@@ -90,19 +90,19 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.14')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
+function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.15')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
 
 function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon('sidebar')}<div><strong class="brand-title">${esc(brandName())}</strong><small>最简单的代理面板</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
 </nav><div class="sidebar-bottom"><div class="system-pill"><div class="statusline stable-runtime">${icon('clock')}<span>面板累计运行</span><b id="stableUptime">${fmtStableClock(currentPanelUptimeSeconds())}</b></div><div class="service-copy"><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer" title="打开 M-Ui GitHub 源码" aria-label="打开 M-Ui GitHub 源码">${icon('github')}</a><span>M-Ui：最简单的代理面板</span></div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/MiniJet" target="_blank" rel="noopener noreferrer" title="打开 MiniJet GitHub 源码" aria-label="打开 MiniJet GitHub 源码">${icon('github')}</a><span>小飞机：最简单的代理客户端</span></div><div class="service-copyright">© 2026 <a href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer">M-Ui</a> v${ver}</div></div></div><button class="sidebar-restart" id="restartPanelSidebar" type="button"><span class="restart-mark">${icon('restart')}</span><span>重启面板</span></button></div></aside>`}
 function mobileHeader(){
   const items=[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']];
-  return `<div class="mobile-header-brand">${brandIcon('mobile')}<strong class="mobile-brand-title">${esc(brandName())}</strong></div><div class="mobile-menu-wrap"><button class="mobile-restart-btn" id="mobileRestart" type="button" title="重启面板" aria-label="重启面板">${icon('restart')}</button><button class="mobile-menu-toggle" id="mobileMenuToggle" type="button" aria-label="打开导航菜单" aria-expanded="false">${icon('menu')}</button><div class="mobile-nav-dropdown" id="mobileNavDropdown" hidden>${items.map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}<div class="mobile-nav-separator"></div><button class="mobile-nav-logout" id="mobileLogout" type="button">${icon('power')}<span>退出登录</span></button></div></div>`;
+  return `<div class="mobile-header-brand">${brandIcon('mobile')}<strong class="mobile-brand-title">${esc(brandName())}</strong></div><div class="mobile-menu-wrap"><button class="mobile-menu-toggle" id="mobileMenuToggle" type="button" aria-label="打开导航菜单" aria-expanded="false">${icon('menu')}</button><div class="mobile-nav-dropdown" id="mobileNavDropdown" hidden>${items.map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}<div class="mobile-nav-separator"></div><button class="mobile-nav-restart" id="mobileRestart" type="button">${icon('restart')}<span>重启面板</span></button><button class="mobile-nav-logout" id="mobileLogout" type="button">${icon('power')}<span>退出登录</span></button></div></div>`;
 }
 function layout(content){
   if(state.contentOnly)return content;
   const [title,sub]=routeTitle(state.route), user=state.boot?.settings?.admin_user||'admin';
-  return `<div class="shell">${nav()}<main class="main"><header class="topbar">${mobileHeader()}<div class="page-heading-inline"><h1>${title}</h1><span>${sub}</span></div><div class="userbox-inline"><button class="admin-account" data-route="settings" type="button" title="管理员账号 · 系统设置" aria-label="管理员账号，打开系统设置">${icon('user')}<b>${esc(user)}</b></button><span class="sep">·</span><button class="icon-btn subtle" id="logout" title="退出" aria-label="退出">${icon('power')}</button></div></header><div class="content">${content}</div></main></div>`;
+  return `<div class="shell">${nav()}<main class="main"><header class="topbar">${mobileHeader()}<div class="page-heading-inline"><h1>${title}</h1><span>${sub}</span></div><div class="userbox-inline"><button class="admin-account" data-route="settings" type="button" title="管理员账号 · 系统设置" aria-label="管理员账号，打开系统设置">${icon('user')}<b>${esc(user)}</b></button><button class="icon-btn subtle" id="logout" title="退出" aria-label="退出">${icon('power')}</button></div></header><div class="content">${content}</div></main></div>`;
 }
 
 function login(){return `<div class="login-shell"><form class="login-card refined" id="loginForm"><div class="login-card-head">${brandIcon('login')}<h1>${esc(brandName())}</h1><p>最简单的代理面板</p></div><div class="field"><label>用户名</label><input class="input" name="user" autocomplete="username" autofocus></div><div class="field"><label>密码</label><input class="input" name="pass" type="password" autocomplete="current-password"></div><button class="btn btn-primary btn-lg" type="submit">登录面板</button><div class="security-note">仅限管理员访问</div></form></div>`}
@@ -277,16 +277,19 @@ function settings(){
   const s=state.boot?.settings||{};
   const u=state.updateInfo;
   const currentVersion=displayVersion(u?.current_version||state.boot?.version);
-  const latestVersion=u?.latest_version?displayVersion(u.latest_version):(u?.error?'检测失败':'检测中…');
+  const latestVersion=u?.latest_version?displayVersion(u.latest_version):(u?.error?'检测失败':'未检测');
   const updateReady=u?.update_available===true;
-  const updateButtonText=!u?'正在检测…':u.error?'暂不可用':updateReady?'完整更新':'已是最新版本';
-  const updateHint=!u?'正在读取开源仓库版本…':u.error?u.error:updateReady?`检测到新版本 ${latestVersion}，可以执行完整更新。`:'当前版本已与开源仓库一致，无需更新。';
-  return layout(`<section class="card info-card settings-advice"><h3>使用建议</h3><p>新建节点默认使用 <b>VLESS + RAW + REALITY + XTLS Vision</b>。如果填写“节点域名”，新建节点会优先使用该域名作为连接地址；未填写时才使用服务器公网 IP。TLS 证书路径主要用于兼容已有 TLS 节点。建议使用独立根路径保护管理入口。证书有效且匹配节点域名时，HTTP 会自动切换到 HTTPS。</p></section><div class="settings-stack"><section class="card settings-card"><h2>基础设置</h2><p>管理入口与节点域名设置。</p><div class="setting-row"><label>面板名称</label><input class="input" id="setName" value="${esc(s.panel_name||'m-ui')}"><small>显示在页面标题中</small></div><div class="setting-row"><label>面板端口</label><input class="input" id="setPort" type="number" min="1024" max="65535" value="${Number(s.panel_port||location.port||16800)}"><small>修改端口后会自动重启面板，并需要重新登录</small></div><div class="setting-row"><label>面板 URL 根路径</label><input class="input" id="setPath" value="${esc(s.panel_path||'/')}" placeholder="/a8f3k2m9/"><small>修改根路径后直接切换到新入口，不需要重启面板</small></div><div class="setting-row"><label>默认协议</label><input class="input readonly" value="VLESS + RAW + REALITY + XTLS Vision" readonly><small>新建节点固定使用当前推荐配置</small></div><div class="setting-row"><label>节点域名</label><input class="input" id="setDomain" value="${esc(s.domain||'')}" placeholder="vpn.example.com（可留空）"><small>可留空；填写后新建 REALITY 节点的分享地址也会优先使用该域名</small></div></section><section class="card settings-card"><h2>证书路径</h2><p>面板 HTTPS 与 TLS 节点共用证书文件。</p><div class="setting-row"><label>证书文件</label><input class="input" id="setCert" value="${esc(s.cert_file||'~/minijet/ssh/m-ui/fullchain.pem')}"><span class="cert-status">${s.cert_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div><div class="setting-row"><label>私钥文件</label><input class="input" id="setKey" value="${esc(s.key_file||'~/minijet/ssh/m-ui/privkey.pem')}"><span class="cert-status">${s.key_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div></section><section class="card settings-card"><h2>登录账号</h2><p>修改登录名或密码时必须输入当前密码，保存后需要重新登录。</p><div class="setting-row"><label>登录名</label><input class="input" id="setUser" value="${esc(s.admin_user||'admin')}"><small>仅修改时需要重新登录</small></div><div class="setting-row"><label>当前密码</label><input class="input" id="setCurrentPass" type="password" autocomplete="current-password"><small>仅修改账号信息时需要填写</small></div><div class="setting-row"><label>新密码</label><input class="input" id="setPass" type="password" autocomplete="new-password" placeholder="至少 8 位"><small>不修改密码可留空</small></div><div class="setting-row"><label>确认新密码</label><input class="input" id="setPass2" type="password" autocomplete="new-password"><small>与新密码保持一致</small></div></section><section class="card settings-card maintenance-card"><h2>系统维护</h2><p>用于面板升级与核心维护。进入本页会自动检查开源仓库版本。</p><div class="maintenance-versions"><div class="maintenance-version-item"><span>当前版本</span><b id="maintenanceCurrentVersion">${esc(currentVersion)}</b></div><span class="maintenance-version-arrow">→</span><div class="maintenance-version-item"><span>开源仓库</span><b id="maintenanceLatestVersion">${esc(latestVersion)}</b></div></div><div class="maintenance-action"><div><b>完整更新 m-ui</b><small>更新前端、后端、SSH 管理脚本和 Xray Core，并保留现有账号、节点、订阅与设置。</small></div><button class="btn btn-outline" id="fullUpdatePanel" type="button" ${updateReady?'':'disabled'}>${icon('restart')}<span id="fullUpdatePanelText">${esc(updateButtonText)}</span></button></div><div class="maintenance-update-status ${u?.error?'is-error':updateReady?'is-ready':'is-current'}" id="maintenanceUpdateStatus">${esc(updateHint)}</div></section><div class="settings-restart-note">只有修改设置后才可保存。修改面板端口会自动重启并重新登录；修改登录名或密码只需重新登录；其他设置保存后直接生效。</div><div class="savebar"><button class="btn btn-primary" id="saveSettings" disabled>保存设置</button></div></div>`)
+  const updateButtonText=updateReady?'进行完整更新':'暂无更新';
+  return layout(`<section class="card info-card settings-advice"><h3>使用建议</h3><p>新建节点默认使用 <b>VLESS + RAW + REALITY + XTLS Vision</b>。如果填写“节点域名”，新建节点会优先使用该域名作为连接地址；未填写时才使用服务器公网 IP。TLS 证书路径主要用于兼容已有 TLS 节点。建议使用独立根路径保护管理入口。证书有效且匹配节点域名时，HTTP 会自动切换到 HTTPS。</p></section><div class="settings-stack"><section class="card settings-card"><h2>基础设置</h2><p>管理入口与节点域名设置。</p><div class="setting-row"><label>面板名称</label><input class="input" id="setName" value="${esc(s.panel_name||'m-ui')}"><small>显示在页面标题中</small></div><div class="setting-row"><label>面板端口</label><input class="input" id="setPort" type="number" min="1024" max="65535" value="${Number(s.panel_port||location.port||16800)}"><small>修改端口后会自动重启面板，并需要重新登录</small></div><div class="setting-row"><label>面板 URL 根路径</label><input class="input" id="setPath" value="${esc(s.panel_path||'/')}" placeholder="/a8f3k2m9/"><small>修改根路径后直接切换到新入口，不需要重启面板</small></div><div class="setting-row"><label>默认协议</label><input class="input readonly" value="VLESS + RAW + REALITY + XTLS Vision" readonly><small>新建节点固定使用当前推荐配置</small></div><div class="setting-row"><label>节点域名</label><input class="input" id="setDomain" value="${esc(s.domain||'')}" placeholder="vpn.example.com（可留空）"><small>可留空；填写后新建 REALITY 节点的分享地址也会优先使用该域名</small></div></section><section class="card settings-card"><h2>证书路径</h2><p>面板 HTTPS 与 TLS 节点共用证书文件。</p><div class="setting-row"><label>证书文件</label><input class="input" id="setCert" value="${esc(s.cert_file||'~/minijet/ssh/m-ui/fullchain.pem')}"><span class="cert-status">${s.cert_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div><div class="setting-row"><label>私钥文件</label><input class="input" id="setKey" value="${esc(s.key_file||'~/minijet/ssh/m-ui/privkey.pem')}"><span class="cert-status">${s.key_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div></section><section class="card settings-card"><h2>登录账号</h2><p>修改登录名或密码时必须输入当前密码，保存后需要重新登录。</p><div class="setting-row"><label>登录名</label><input class="input" id="setUser" value="${esc(s.admin_user||'admin')}"><small>仅修改时需要重新登录</small></div><div class="setting-row"><label>当前密码</label><input class="input" id="setCurrentPass" type="password" autocomplete="current-password"><small>仅修改账号信息时需要填写</small></div><div class="setting-row"><label>新密码</label><input class="input" id="setPass" type="password" autocomplete="new-password" placeholder="至少 8 位"><small>不修改密码可留空</small></div><div class="setting-row"><label>确认新密码</label><input class="input" id="setPass2" type="password" autocomplete="new-password"><small>与新密码保持一致</small></div></section><section class="card settings-card maintenance-card"><h2>系统升级维护</h2><p>更新前端、后端、SSH 管理脚本和 Xray Core，并保留现有账号、节点、订阅与设置。</p><div class="maintenance-versions"><div class="maintenance-version-item"><span>当前版本</span><b id="maintenanceCurrentVersion">${esc(currentVersion)}</b></div><span class="maintenance-version-arrow">→</span><div class="maintenance-version-item"><span>开源仓库</span><b id="maintenanceLatestVersion">${esc(latestVersion)}</b></div></div><div class="maintenance-controls"><button class="icon-btn maintenance-refresh" id="refreshUpdateInfo" type="button" title="重新检测开源仓库版本" aria-label="重新检测开源仓库版本">${icon('restart')}</button><button class="btn ${updateReady?'btn-primary':'btn-outline'} maintenance-update-btn" id="fullUpdatePanel" type="button" ${updateReady?'':'disabled'}><span id="fullUpdatePanelText">${esc(updateButtonText)}</span></button></div></section><div class="settings-restart-note">只有修改设置后才可保存。修改面板端口会自动重启并重新登录；修改登录名或密码只需重新登录；其他设置保存后直接生效。</div><div class="savebar"><button class="btn btn-primary" id="saveSettings" disabled>保存设置</button></div></div>`)
 }
 function confirmBox(message, yes){state.modal='confirm';document.body.insertAdjacentHTML('beforeend',`<div class="modal-backdrop" id="confirmBackdrop"><div class="modal" style="max-width:460px"><div class="modal-head"><div><h2 style="margin:0 0 6px">请确认</h2><p style="margin:0;color:var(--muted)">${esc(message)}</p></div><button class="close" id="confirmNo">×</button></div><div class="modal-actions"><button class="btn btn-outline" id="confirmCancel">取消</button><button class="btn btn-danger" id="confirmYes">确认</button></div></div></div>`);const close=()=>$('#confirmBackdrop')?.remove();$('#confirmNo').onclick=close;$('#confirmCancel').onclick=close;$('#confirmBackdrop').addEventListener('click',e=>{if(e.target.id==='confirmBackdrop')close()});$('#confirmYes').onclick=async()=>{close();await yes()}}
 
 async function loadPanelInfo(){try{state.publicInfo=await api('/api/panel-info')}catch{}}
-async function loadBootstrap(){state.boot=await api('/api/bootstrap');state.publicInfo={name:state.boot?.settings?.panel_name||'m-ui',version:state.boot?.version||''};state.updateInfo=null;document.title=brandName()+' · MiniJet'}
+async function loadBootstrap(){state.boot=await api('/api/bootstrap');state.publicInfo={name:state.boot?.settings?.panel_name||'m-ui',version:state.boot?.version||''};document.title=brandName()+' · MiniJet'}
+async function preloadSystemUpdateInfo(){
+  try{state.updateInfo=await api('/api/system/update-info')}
+  catch(e){state.updateInfo={current_version:state.boot?.version||'',latest_version:'',update_available:false,error:e.message||'版本检测失败'}}
+}
 async function loadStats(){try{const st=await api('/api/system/stats');state.stats=st;const traffic=st.node_traffic||{};for(const n of state.boot?.nodes||[]){const t=traffic[n.id];if(!t)continue;n.uplink_bytes=Number(t.uplink_bytes||0);n.downlink_bytes=Number(t.downlink_bytes||0)}state.panelUptimeAnchor={seconds:Number(st.panel_uptime_seconds||0),at:Date.now()};state.netHistory.push({rx:st.rx_rate||0,tx:st.tx_rate||0});if(state.netHistory.length>30)state.netHistory.shift();if(state.route==='dashboard')render();updateStableClock()}catch(e){console.warn(e)}}
 function startPolling(){stopTimers();loadStats();state.timer=setInterval(loadStats,5000);state.clockTimer=setInterval(updateStableClock,1000)}
 
@@ -385,24 +388,23 @@ function resumeFullUpdateIfNeeded(){
 
 function paintSystemUpdateInfo(info){
   state.updateInfo=info||null;
-  const current=$('#maintenanceCurrentVersion'), latest=$('#maintenanceLatestVersion'), status=$('#maintenanceUpdateStatus'), btn=$('#fullUpdatePanel'), textEl=$('#fullUpdatePanelText');
+  const current=$('#maintenanceCurrentVersion'), latest=$('#maintenanceLatestVersion'), btn=$('#fullUpdatePanel'), textEl=$('#fullUpdatePanelText');
   const currentVersion=displayVersion(info?.current_version||state.boot?.version);
-  const latestVersion=info?.latest_version?displayVersion(info.latest_version):(info?.error?'检测失败':'检测中…');
+  const latestVersion=info?.latest_version?displayVersion(info.latest_version):(info?.error?'检测失败':'未检测');
   if(current)current.textContent=currentVersion;
   if(latest)latest.textContent=latestVersion;
   const available=info?.update_available===true;
-  if(btn)btn.disabled=!available;
-  if(textEl)textEl.textContent=!info?'正在检测…':info.error?'暂不可用':available?'完整更新':'已是最新版本';
-  if(status){
-    status.className='maintenance-update-status '+(info?.error?'is-error':available?'is-ready':'is-current');
-    status.textContent=!info?'正在读取开源仓库版本…':info.error?info.error:available?`检测到新版本 ${latestVersion}，可以执行完整更新。`:'当前版本已与开源仓库一致，无需更新。';
+  if(btn){
+    btn.disabled=!available;
+    btn.classList.toggle('btn-primary',available);
+    btn.classList.toggle('btn-outline',!available);
   }
+  if(textEl)textEl.textContent=available?'进行完整更新':'暂无更新';
 }
 
 async function refreshSystemUpdateInfo({silent=false}={}){
-  const btn=$('#fullUpdatePanel'), textEl=$('#fullUpdatePanelText');
-  if(btn)btn.disabled=true;
-  if(textEl)textEl.textContent='正在检测…';
+  const refresh=$('#refreshUpdateInfo');
+  if(refresh){refresh.disabled=true;refresh.classList.add('is-loading')}
   try{
     const info=await api('/api/system/update-info');
     paintSystemUpdateInfo(info);
@@ -412,15 +414,14 @@ async function refreshSystemUpdateInfo({silent=false}={}){
     paintSystemUpdateInfo(info);
     if(!silent)toast(info.error,false);
     return info;
+  }finally{
+    if(refresh){refresh.disabled=false;refresh.classList.remove('is-loading')}
   }
 }
 
 async function fullUpdatePanel(){
-  const info=await refreshSystemUpdateInfo({silent:false});
-  if(!info?.update_available){
-    if(!info?.error)toast('当前已是最新版本，无需更新');
-    return;
-  }
+  const info=state.updateInfo;
+  if(!info?.update_available)return;
   const from=displayVersion(info.current_version), to=displayVersion(info.latest_version);
   confirmBox(`已检测版本：${from} → ${to}。完整更新会更新前端、后端、SSH 管理脚本和 Xray Core，过程中面板会重启。确认现在开始？`,async()=>{
     const btn=$('#fullUpdatePanel'), textEl=$('#fullUpdatePanelText');
@@ -432,7 +433,8 @@ async function fullUpdatePanel(){
       if(!updateID)throw new Error('后台未返回更新任务编号');
       beginFullUpdateProgress(updateID,{progress:2,stage:'启动更新',message:out?.message||'完整更新已在后台启动'});
     }catch(e){
-      await refreshSystemUpdateInfo({silent:true});
+      if(btn)btn.disabled=false;
+      if(textEl)textEl.textContent='进行完整更新';
       toast(e.message,false);
     }
   });
@@ -472,11 +474,11 @@ function render(){
   if(state.route==='settings')bindSettings();
 }
 
-function bindLogin(){$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const fd=new FormData(e.target);try{await api('/api/login',{method:'POST',body:JSON.stringify({username:fd.get('user'),password:fd.get('pass')})});state.loggedIn=true;await loadBootstrap();startPolling();render()}catch(err){toast(err.message,false)}})}
+function bindLogin(){$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const fd=new FormData(e.target);try{await api('/api/login',{method:'POST',body:JSON.stringify({username:fd.get('user'),password:fd.get('pass')})});state.loggedIn=true;state.updateInfo=null;await loadBootstrap();await preloadSystemUpdateInfo();startPolling();render()}catch(err){toast(err.message,false)}})}
 function closeMobileMenu(){const menu=$('#mobileNavDropdown'),toggle=$('#mobileMenuToggle');if(menu)menu.hidden=true;if(toggle)toggle.setAttribute('aria-expanded','false')}
 function bindCommon(){
   $$('[data-route]').forEach(b=>b.onclick=()=>{closeMobileMenu();state.route=b.dataset.route;location.hash='#/'+state.route;render()});
-  const restart=$('#restartPanelSidebar');if(restart)restart.onclick=restartPanel;const mobileRestart=$('#mobileRestart');if(mobileRestart)mobileRestart.onclick=restartPanel;
+  const restart=$('#restartPanelSidebar');if(restart)restart.onclick=restartPanel;const mobileRestart=$('#mobileRestart');if(mobileRestart)mobileRestart.onclick=()=>{closeMobileMenu();restartPanel()};
   const toggle=$('#mobileMenuToggle'),menu=$('#mobileNavDropdown');
   if(toggle&&menu)toggle.onclick=()=>{const opening=menu.hidden;menu.hidden=!opening;toggle.setAttribute('aria-expanded',opening?'true':'false')};
   const logoutAction=async()=>{closeMobileMenu();try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;stopTimers();render()};
@@ -546,7 +548,7 @@ function bindSettings(){
   ['setName','setPort','setPath','setDomain','setCert','setKey','setUser','setCurrentPass','setPass','setPass2'].forEach(id=>$('#'+id)?.addEventListener('input',refreshSaveState));
   refreshSaveState();
   $('#fullUpdatePanel')?.addEventListener('click',fullUpdatePanel);
-  refreshSystemUpdateInfo({silent:true});
+  $('#refreshUpdateInfo')?.addEventListener('click',()=>refreshSystemUpdateInfo({silent:false}));
 
   save?.addEventListener('click',async()=>{
     if(!changed()||state.busy)return;
@@ -609,4 +611,9 @@ function bindSettings(){
 async function copyText(text,msg){try{await navigator.clipboard.writeText(text);toast(msg)}catch{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();toast(msg)}}
 
 window.addEventListener('hashchange',()=>{state.route=location.hash.replace('#/','')||'dashboard';if(state.loggedIn)render()});
-(async()=>{await loadPanelInfo();if(resumeFullUpdateIfNeeded())return;try{await api('/api/me');state.loggedIn=true;await loadBootstrap();startPolling()}catch{}render()})();
+document.addEventListener('click',e=>{
+  if(!window.matchMedia('(max-width:760px)').matches)return;
+  const menu=$('#mobileNavDropdown'),wrap=$('.mobile-menu-wrap');
+  if(menu&&!menu.hidden&&wrap&&!wrap.contains(e.target))closeMobileMenu();
+});
+(async()=>{await loadPanelInfo();if(resumeFullUpdateIfNeeded())return;try{await api('/api/me');state.loggedIn=true;state.updateInfo=null;await loadBootstrap();await preloadSystemUpdateInfo();startPolling()}catch{}render()})();
