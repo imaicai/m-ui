@@ -1,0 +1,110 @@
+name: Publish v1.5.11 Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/publish-v1511-release.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify version
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(tr -d '[:space:]' < VERSION)" = "1.5.11"
+
+      - name: Ensure release does not already exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view v1.5.11 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v1.5.11 release already exists" >&2
+            exit 1
+          fi
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build Linux amd64 server
+        shell: bash
+        run: |
+          set -euo pipefail
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=1.5.11" -o /tmp/m-ui-server
+
+      - name: Package ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAME="m-ui-v1.5.11"
+          ROOT="dist/$NAME"
+          mkdir -p "$ROOT"
+
+          cp README.md LICENSE VERSION Makefile go.mod go.sum "$ROOT/"
+          cp ./*.go "$ROOT/"
+          cp install.sh uninstall.sh m-ui m-ui-ctl "$ROOT/"
+          cp -R web "$ROOT/"
+          install -m 0755 /tmp/m-ui-server "$ROOT/m-ui-server-linux-amd64"
+
+          (
+            cd dist
+            zip -qr "$NAME.zip" "$NAME"
+          )
+          sha256sum "dist/$NAME.zip" > "dist/$NAME.zip.sha256"
+
+      - name: Remove one-time workflow from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATH_IN_REPO=".github/workflows/publish-v1511-release.yml"
+          SHA="$(gh api "repos/$GITHUB_REPOSITORY/contents/$PATH_IN_REPO?ref=main" --jq .sha)"
+          gh api --method DELETE "repos/$GITHUB_REPOSITORY/contents/$PATH_IN_REPO" \
+            -f message="清理一次性 v1.5.11 发布工作流" \
+            -f sha="$SHA" \
+            -f branch="main" >/dev/null
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          cat > /tmp/release-notes.md <<'EOF'
+          ## v1.5.11
+
+          - 移动端顶部新增重启面板图标按钮，并保持顶部导航吸顶。
+          - 移动端服务器资源调整为 2×2 布局：CPU / 磁盘、内存 / SWAP。
+          - 系统设置新增“完整更新 m-ui”，可在网页后台执行与 SSH 菜单一致的完整更新流程。
+          - 完整更新任务由独立 systemd 任务执行，避免面板自身重启中断更新，并阻止重复启动。
+          - 上述移动端导航与资源布局调整不改变 PC 端现有 UI。
+          EOF
+
+          gh release create v1.5.11 \
+            "dist/m-ui-v1.5.11.zip" \
+            "dist/m-ui-v1.5.11.zip.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_SHA" \
+            --title "M-Ui v1.5.11" \
+            --notes-file /tmp/release-notes.md
