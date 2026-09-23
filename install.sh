@@ -69,22 +69,43 @@ warn(){ echo -e "${YELLOW}[m-ui]${NC} $*"; }
 err(){ echo -e "${RED}[m-ui]${NC} $*" >&2; }
 die(){ err "$*"; update_progress "$CURRENT_UPDATE_PROGRESS" "$CURRENT_UPDATE_STAGE" "更新失败，请查看系统日志后重试" "failed" || true; exit 1; }
 
+curl_fetch(){
+  local url="$1" output="$2"
+  curl -fL --connect-timeout 8 --max-time 180 --retry 5 --retry-delay 2 --retry-connrefused "$url" -o "$output"
+}
+
 [[ ${EUID:-$(id -u)} -eq 0 ]] || die "请使用 root 用户执行安装。"
 command -v systemctl >/dev/null 2>&1 || die "当前系统不支持 systemd，暂不支持安装。"
 [[ "$PANEL_PORT" =~ ^[0-9]+$ ]] && (( PANEL_PORT >= 1024 && PANEL_PORT <= 65535 )) || die "MUI_PORT 必须是 1024-65535 的端口。"
 
 install_packages(){
+  local missing=0 cmd
+  for cmd in curl wget git unzip go jq; do
+    command -v "$cmd" >/dev/null 2>&1 || { missing=1; break; }
+  done
+  if (( missing == 0 )); then
+    info "基础依赖已完整，跳过系统软件源更新。"
+    return 0
+  fi
+
+  warn "检测到缺失基础依赖，正在通过系统软件源补齐…"
   if command -v apt-get >/dev/null 2>&1; then
     export DEBIAN_FRONTEND=noninteractive
-    apt-get update -y >/dev/null
-    apt-get install -y ca-certificates curl wget git unzip golang-go jq >/dev/null
+    local n
+    for n in 1 2 3; do
+      if apt-get update -y >/dev/null 2>&1 && apt-get install -y ca-certificates curl wget git unzip golang-go jq >/dev/null 2>&1; then
+        return 0
+      fi
+      sleep $((n*2))
+    done
   elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y ca-certificates curl wget git unzip golang jq >/dev/null
+    dnf install -y ca-certificates curl wget git unzip golang jq >/dev/null 2>&1 && return 0
   elif command -v yum >/dev/null 2>&1; then
-    yum install -y ca-certificates curl wget git unzip golang jq >/dev/null
+    yum install -y ca-certificates curl wget git unzip golang jq >/dev/null 2>&1 && return 0
   else
     die "暂不支持当前包管理器。建议使用 Ubuntu / Debian / Rocky / AlmaLinux。"
   fi
+  die "基础依赖安装失败，请检查系统软件源网络。"
 }
 
 ensure_xray_user(){
@@ -214,7 +235,16 @@ restore_xray(){
   systemctl daemon-reload || true
   systemctl restart xray || true
 }
-curl -fsSL --retry 3 "https://github.com/XTLS/Xray-install/raw/main/install-release.sh" -o "$XRAY_SCRIPT" || die "无法下载 Xray 官方安装脚本。"
+XRAY_SCRIPT_AVAILABLE=1
+if ! curl_fetch "https://github.com/XTLS/Xray-install/raw/main/install-release.sh" "$XRAY_SCRIPT"; then
+  if [[ -x /usr/local/bin/xray ]]; then
+    XRAY_SCRIPT_AVAILABLE=0
+    warn "暂时无法下载 Xray 更新脚本，将保留当前稳定 Xray 并继续更新面板。"
+    update_progress 34 "保留 Xray" "Xray 更新源暂不可用，已保留当前稳定版本并继续"
+  else
+    die "无法下载 Xray 官方安装脚本，且本机没有可用 Xray。"
+  fi
+fi
 
 CURRENT_XRAY="$(xray_version || true)"
 LOCKED_XRAY=""
@@ -229,16 +259,26 @@ elif [[ "$XRAY_REFRESH" != "1" && -n "$LOCKED_XRAY" ]]; then
 else
   XRAY_INSTALL_ARGS+=(--force)
 fi
+if (( XRAY_SCRIPT_AVAILABLE == 0 )); then
+  NEED_XRAY_INSTALL=0
+fi
 
 if (( NEED_XRAY_INSTALL == 1 )); then
   info "Xray 运行用户: $XRAY_RUN_USER"
   if ! bash "$XRAY_SCRIPT" "${XRAY_INSTALL_ARGS[@]}" >/dev/null; then
-    restore_xray
-    rm -f "$XRAY_SCRIPT"; rm -rf "$XRAY_BACKUP_DIR"
-    die "Xray 安装失败，已尝试恢复上一版本。"
+    if [[ -f "$XRAY_BACKUP_DIR/xray" ]]; then
+      restore_xray
+      warn "Xray 在线更新失败，已恢复上一稳定版本；继续更新 m-ui 面板。"
+      update_progress 42 "Xray 已回滚" "Xray 在线更新失败，已恢复稳定版本并继续更新面板"
+    else
+      rm -f "$XRAY_SCRIPT"; rm -rf "$XRAY_BACKUP_DIR"
+      die "Xray 安装失败，且没有可回滚版本。"
+    fi
   fi
 else
-  info "Xray 已处于锁定稳定版本 $CURRENT_XRAY，本次不追新。"
+  if (( XRAY_SCRIPT_AVAILABLE == 1 )); then
+    info "Xray 已处于锁定稳定版本 $CURRENT_XRAY，本次不追新。"
+  fi
 fi
 rm -f "$XRAY_SCRIPT"
 update_progress 46 "校验 Xray" "Xray Core 已更新，正在校验现有配置与服务"
@@ -266,35 +306,79 @@ rm -rf "$XRAY_BACKUP_DIR"
 update_progress 60 "获取源码" "正在获取最新 m-ui 源码"
 info "获取 m-ui 最新源码…"
 rm -rf "$INSTALL_SRC"
-git clone --depth 1 --branch "$BRANCH" "$REPO" "$INSTALL_SRC" >/dev/null 2>&1 || die "无法获取 m-ui 源码。"
+
+fetch_source_tree(){
+  local n archive tmpdir srcdir
+  for n in 1 2 3; do
+    rm -rf "$INSTALL_SRC"
+    if git clone --depth 1 --branch "$BRANCH" "$REPO" "$INSTALL_SRC" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep $((n*2))
+  done
+
+  warn "Git 克隆失败，正在改用 GitHub ZIP 源码包…"
+  archive="$(mktemp)"
+  tmpdir="$(mktemp -d)"
+  if ! curl_fetch "https://github.com/imaicai/m-ui/archive/refs/heads/${BRANCH}.zip" "$archive"; then
+    rm -f "$archive"; rm -rf "$tmpdir"
+    return 1
+  fi
+  if ! unzip -q "$archive" -d "$tmpdir"; then
+    rm -f "$archive"; rm -rf "$tmpdir"
+    return 1
+  fi
+  srcdir="$(find "$tmpdir" -mindepth 1 -maxdepth 1 -type d | head -n1)"
+  [[ -n "$srcdir" && -d "$srcdir" ]] || { rm -f "$archive"; rm -rf "$tmpdir"; return 1; }
+  mv "$srcdir" "$INSTALL_SRC"
+  rm -f "$archive"; rm -rf "$tmpdir"
+}
+fetch_source_tree || die "多次尝试后仍无法获取 m-ui 源码。"
 
 info "准备编译 m-ui…"
 cd "$INSTALL_SRC"
 APP_VERSION="$(tr -d '[:space:]' < VERSION)"
 [[ -n "$APP_VERSION" ]] || APP_VERSION="1.5.0"
 BUILD_LOG="/var/log/m-ui/full-update-build.log"
+GOCACHE_DIR="/var/cache/m-ui/go-build"
+GOMODCACHE_DIR="/var/cache/m-ui/go-mod"
+mkdir -p "$GOCACHE_DIR" "$GOMODCACHE_DIR"
+export HOME="${HOME:-/root}"
+export GOCACHE="$GOCACHE_DIR"
+export GOMODCACHE="$GOMODCACHE_DIR"
 : > "$BUILD_LOG"
 {
   printf 'm-ui target version: %s\n' "$APP_VERSION"
+  printf 'GOCACHE=%s\nGOMODCACHE=%s\n' "$GOCACHE" "$GOMODCACHE"
   go version
 } >>"$BUILD_LOG" 2>&1 || true
 
-update_progress 66 "准备编译" "正在下载 Go 依赖，并降低编译资源占用"
-if ! GOMAXPROCS=1 GOGC=50 go mod download >>"$BUILD_LOG" 2>&1; then
-  warn "默认 Go 模块源下载失败，正在改用直连模式重试…"
-  if ! GOMAXPROCS=1 GOGC=50 GOPROXY=direct go mod download >>"$BUILD_LOG" 2>&1; then
-    update_progress 66 "依赖下载失败" "Go 依赖下载失败，请查看 /var/log/m-ui/full-update-build.log" "failed"
-    err "Go 依赖下载失败，最近日志："
-    tail -n 30 "$BUILD_LOG" >&2 || true
-    exit 1
+update_progress 66 "准备编译" "正在使用本地缓存并自动选择可用 Go 模块源"
+rm -f /tmp/m-ui-server-build
+BUILD_OK=0
+GO_PROXIES=(
+  "off"
+  "https://proxy.golang.org,direct"
+  "https://goproxy.cn,direct"
+  "https://goproxy.io,direct"
+  "direct"
+)
+for proxy in "${GO_PROXIES[@]}"; do
+  printf '\n===== GOPROXY=%s =====\n' "$proxy" >>"$BUILD_LOG"
+  if GOMAXPROCS=1 GOGC=50 GOPROXY="$proxy" GOSUMDB=off CGO_ENABLED=0 go build -p=1 -trimpath -ldflags "-s -w -X main.version=${APP_VERSION}" -o /tmp/m-ui-server-build . >>"$BUILD_LOG" 2>&1; then
+    if GOSUMDB=off go mod verify >>"$BUILD_LOG" 2>&1; then
+      BUILD_OK=1
+      break
+    fi
+    rm -f /tmp/m-ui-server-build
   fi
-fi
+done
 
-update_progress 72 "编译程序" "依赖准备完成，正在以低资源模式编译最新 m-ui 后端"
-if ! GOMAXPROCS=1 GOGC=50 CGO_ENABLED=0 go build -p=1 -trimpath -ldflags "-s -w -X main.version=${APP_VERSION}" -o /tmp/m-ui-server-build . >>"$BUILD_LOG" 2>&1; then
-  update_progress 72 "编译失败" "m-ui 编译失败，请查看 /var/log/m-ui/full-update-build.log" "failed"
-  err "m-ui 编译失败，最近日志："
-  tail -n 30 "$BUILD_LOG" >&2 || true
+update_progress 72 "编译程序" "Go 依赖与源码校验完成，正在完成低资源编译"
+if (( BUILD_OK != 1 )) || [[ ! -s /tmp/m-ui-server-build ]]; then
+  update_progress 72 "编译失败" "已尝试本地缓存与多个 Go 模块源，仍无法完成编译" "failed"
+  err "m-ui 编译失败，已经依次尝试本地缓存、proxy.golang.org、goproxy.cn、goproxy.io 和直连。最近日志："
+  tail -n 40 "$BUILD_LOG" >&2 || true
   exit 1
 fi
 update_progress 82 "安装程序" "编译完成，正在替换前端、后端与管理脚本"

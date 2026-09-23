@@ -219,7 +219,7 @@ jobs:
           assert 'fmtPercent' in app and '面板累计运行' in app
           assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
           assert 'contentOnly' in app and 'syncShellChrome' in app and 'app.querySelector(\'.shell .content\')' in app
-          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.15' in app
+          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.16' in app
           assert 'admin-account' in app and "icon('user')" in app and '管理员账号：' not in app
           assert 'class="admin-account" data-route="settings" type="button"' in app
           assert 'title="管理员账号 · 系统设置"' in app
@@ -268,18 +268,31 @@ jobs:
           assert 'writeFullUpdateStatus' in server and 'readFullUpdateStatus' in server
           assert '--setenv=MUI_UPDATE_TOKEN=' in server and '--setenv=MUI_UPDATE_STATUS_FILE=' in server
           assert 'systemd-run' in server and 'm-ui-full-update' in server
+          assert '--property=TimeoutStartSec=infinity' in server and '--property=Type=oneshot' in server
+          assert '--setenv=HOME=/root' in server and '--setenv=GOCACHE=/var/cache/m-ui/go-build' in server and '--setenv=GOMODCACHE=/var/cache/m-ui/go-mod' in server
           install_script = Path("install.sh").read_text(encoding="utf-8")
           for marker in ['update_progress 10', 'update_progress 28', 'update_progress 46', 'update_progress 60', 'update_progress 66', 'update_progress 72', 'update_progress 82', 'update_progress 90', 'update_progress 97', 'update_progress 99']:
               assert marker in install_script
           assert 'GOMAXPROCS=1' in install_script and 'GOGC=50' in install_script and 'go build -p=1' in install_script
           assert '/var/log/m-ui/full-update-build.log' in install_script
+          assert 'fetch_source_tree' in install_script and 'archive/refs/heads/' in install_script
+          assert '/var/cache/m-ui/go-build' in install_script and '/var/cache/m-ui/go-mod' in install_script
+          assert 'https://proxy.golang.org,direct' in install_script and 'https://goproxy.cn,direct' in install_script and 'https://goproxy.io,direct' in install_script
+          assert 'GOPROXY="off"' not in install_script and '"off"' in install_script
+          assert 'go mod verify' in install_script
+          assert 'XRAY_SCRIPT_AVAILABLE' in install_script and '继续更新面板' in install_script
+          assert '基础依赖已完整，跳过系统软件源更新' in install_script
           menu_script = Path("m-ui").read_text(encoding="utf-8")
           assert '--full-update' in menu_script and 'MUI_NONINTERACTIVE_UPDATE=1 update_program' in menu_script
           assert 'write_update_status 100 "更新完成"' in menu_script
+          assert 'fetch_repo_file' in menu_script and 'raw/refs/heads/main' in menu_script
           assert 'v1.5.12 full-update progress' in css
           assert 'v1.5.14 update version gate and progress layout' in css
           assert 'v1.5.15 mobile menu and upgrade-maintenance refinement' in css
+          assert 'v1.5.16 full-update reliability and spacing' in css
           assert '.maintenance-versions' in css and '.maintenance-controls' in css and '.maintenance-refresh' in css
+          assert '.update-progress-details' in css and 'margin-top:14px' in css
+          assert 'update-progress-details' in app
           assert 'justify-self:center' in css and 'width:min(680px,calc(100vw - 48px))' in css
           assert "stat('代理流量',fmtBytes(traffic.total),trafficSub,'i-green'" in app and "trafficSub,'i-purple'" not in app
           resource_block = app[app.index('<section class=\"card section-card dashboard-resources\"'):app.index('<div class=\"grid dashboard-bottom\"')]
@@ -294,7 +307,7 @@ jobs:
           assert "## v1.5.0" not in readme and "安全稳定性能版" not in readme
           assert "## 🚀 核心能力" in readme and "## ⚙️ 一键安装" in readme and "## 🛡️ 安全设计" in readme
           assert '<img src="web/assets/app-icon.png"' in readme
-          assert "**当前版本：v1.5.15**" in readme
+          assert "**当前版本：v1.5.16**" in readme
           assert "请输入选项 [1-8，CTRL+C退出]" in readme
           assert "YOUR_SERVER_IP" in readme and "ADMIN_USER" in readme and "PANEL_PORT" in readme and "/PANEL_PATH/" in readme
           assert "实际内容由你的服务器动态读取" in readme
@@ -409,10 +422,20 @@ jobs:
           grep -q 'GOMAXPROCS=1' install.sh
           grep -q 'go build -p=1' install.sh
           grep -q 'full-update-build.log' install.sh
+          grep -q 'fetch_source_tree' install.sh
+          grep -q 'goproxy.cn' install.sh
+          grep -q 'goproxy.io' install.sh
+          grep -q 'go mod verify' install.sh
+          grep -q '/var/cache/m-ui/go-build' install.sh
+          grep -q 'XRAY_SCRIPT_AVAILABLE' install.sh
+          grep -q 'fetch_repo_file' m-ui
           grep -q 'write_update_status 100' m-ui
           grep -q 'v1.5.12 full-update progress' web/assets/app.css
           grep -q 'v1.5.14 update version gate and progress layout' web/assets/app.css
           grep -q 'v1.5.15 mobile menu and upgrade-maintenance refinement' web/assets/app.css
+          grep -q 'v1.5.16 full-update reliability and spacing' web/assets/app.css
+          grep -q 'update-progress-details' web/assets/app.js
+          grep -q 'margin-top:14px' web/assets/app.css
           grep -q 'maintenance-versions' web/assets/app.css
           grep -q 'maintenance-controls' web/assets/app.css
           grep -q 'position:fixed!important;top:0!important;left:0!important;right:0!important' web/assets/app.css
@@ -420,6 +443,8 @@ jobs:
           grep -q '/api/system/full-update' server.go
           grep -q 'handleFullUpdate' server.go
           grep -q 'systemd-run' server.go
+          grep -q -- '--property=TimeoutStartSec=infinity' server.go
+          grep -q -- '--setenv=GOCACHE=/var/cache/m-ui/go-build' server.go
           grep -q -- '--full-update' m-ui
           grep -q 'MUI_NONINTERACTIVE_UPDATE=1 update_program' m-ui
           grep -q 'v1.5.11 maintenance action and mobile-only refinements' web/assets/app.css
@@ -428,7 +453,7 @@ jobs:
           ! grep -q '## v1.5.0' README.md
           grep -q '## 🚀 核心能力' README.md
           grep -q '## ⚙️ 一键安装' README.md
-          grep -q '当前版本：v1.5.15' README.md
+          grep -q '当前版本：v1.5.16' README.md
           grep -Fq '请输入选项 [1-8，CTRL+C退出]' README.md
           ! grep -q 'm-ui-ctl status' README.md
           grep -q "trafficSub,'i-green'" web/assets/app.js
@@ -465,4 +490,4 @@ jobs:
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
           test -f web/assets/app-icon.png
           test ! -e app-icon.png
-          grep -q '^1\.5\.15$' VERSION
+          grep -q '^1\.5\.16$' VERSION

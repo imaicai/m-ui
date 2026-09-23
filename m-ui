@@ -212,9 +212,27 @@ run_offline_setting(){
   return "$rc"
 }
 
+fetch_repo_file(){
+  local path="$1" output="$2"
+  local primary="$RAW/$path"
+  local fallback="https://github.com/imaicai/m-ui/raw/refs/heads/main/$path"
+  curl -fL --connect-timeout 8 --max-time 180 --retry 5 --retry-delay 2 --retry-connrefused "$primary" -o "$output" 2>/dev/null ||
+    curl -fL --connect-timeout 8 --max-time 180 --retry 5 --retry-delay 2 --retry-connrefused "$fallback" -o "$output" 2>/dev/null
+}
+
 install_panel(){
   info "开始一键安装/升级 m-ui..."
-  bash <(curl -fsSL --retry 3 "$RAW/install.sh")
+  local installer
+  installer="$(mktemp)"
+  if ! fetch_repo_file "install.sh" "$installer"; then
+    rm -f "$installer"
+    err "无法下载安装脚本，请检查服务器访问 GitHub 的网络。"
+    return 1
+  fi
+  bash "$installer"
+  local rc=$?
+  rm -f "$installer"
+  return "$rc"
 }
 
 purge_panel(){
@@ -241,9 +259,14 @@ purge_panel(){
 update_program(){
   installed || { warn "尚未检测到完整安装，将转入一键安装。"; install_panel; return; }
 
-  local current remote
+  local current remote version_file
   current="$("$SERVER_BIN" --version 2>/dev/null | awk '{print $2}' || true)"
-  remote="$(curl -fsSL --max-time 8 "$RAW/VERSION" 2>/dev/null | tr -d '[:space:]' || true)"
+  version_file="$(mktemp)"
+  remote=""
+  if fetch_repo_file "VERSION" "$version_file"; then
+    remote="$(tr -d '[:space:]' < "$version_file")"
+  fi
+  rm -f "$version_file"
   [[ -n "$current" ]] || current="未知"
   [[ -n "$remote" ]] || remote="未知"
 
@@ -254,10 +277,10 @@ update_program(){
   local updater
   updater="$(mktemp)"
   write_update_status 7 "下载更新脚本" "正在下载并校验最新安装脚本"
-  if ! curl -fsSL --retry 3 "$RAW/install.sh" -o "$updater"; then
+  if ! fetch_repo_file "install.sh" "$updater"; then
     rm -f "$updater"
-    write_update_status 7 "下载失败" "无法下载最新安装脚本，请检查网络后重试" "failed"
-    err "无法下载最新安装脚本。"
+    write_update_status 7 "下载失败" "多次尝试仍无法下载最新安装脚本，请检查 GitHub 网络" "failed"
+    err "多次尝试仍无法下载最新安装脚本。"
     return 1
   fi
   if ! MUI_XRAY_REFRESH=1 bash "$updater"; then
