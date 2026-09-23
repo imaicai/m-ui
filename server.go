@@ -681,9 +681,39 @@ func (s *Server) handleUpdateInfo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, currentSystemUpdateInfo(r.Context()))
 }
 
+func validUpdateRequestID(v string) bool {
+	if len(v) < 16 || len(v) > 128 {
+		return false
+	}
+	for i := 0; i < len(v); i++ {
+		c := v[i]
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
 func (s *Server) handleFullUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		methodNotAllowed(w)
+		return
+	}
+
+	var input struct {
+		UpdateID string `json:"update_id"`
+	}
+	if r.Body != nil && r.ContentLength != 0 {
+		dec := json.NewDecoder(io.LimitReader(r.Body, 4096))
+		if err := dec.Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "更新请求格式不正确")
+			return
+		}
+	}
+	requestedUpdateID := strings.TrimSpace(input.UpdateID)
+	if requestedUpdateID != "" && !validUpdateRequestID(requestedUpdateID) {
+		writeError(w, http.StatusBadRequest, "更新任务编号格式不正确")
 		return
 	}
 
@@ -718,7 +748,10 @@ func (s *Server) handleFullUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	updateID := randomSessionToken()
+	updateID := requestedUpdateID
+	if updateID == "" {
+		updateID = randomSessionToken()
+	}
 	initial := fullUpdateStatus{
 		UpdateID: updateID,
 		Status:   "running",
