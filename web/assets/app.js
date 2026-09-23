@@ -90,7 +90,7 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.16')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
+function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.17')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
 
 function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon('sidebar')}<div><strong class="brand-title">${esc(brandName())}</strong><small>最简单的代理面板</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
@@ -293,19 +293,20 @@ async function preloadSystemUpdateInfo(){
 async function loadStats(){try{const st=await api('/api/system/stats');state.stats=st;const traffic=st.node_traffic||{};for(const n of state.boot?.nodes||[]){const t=traffic[n.id];if(!t)continue;n.uplink_bytes=Number(t.uplink_bytes||0);n.downlink_bytes=Number(t.downlink_bytes||0)}state.panelUptimeAnchor={seconds:Number(st.panel_uptime_seconds||0),at:Date.now()};state.netHistory.push({rx:st.rx_rate||0,tx:st.tx_rate||0});if(state.netHistory.length>30)state.netHistory.shift();if(state.route==='dashboard')render();updateStableClock()}catch(e){console.warn(e)}}
 function startPolling(){stopTimers();loadStats();state.timer=setInterval(loadStats,5000);state.clockTimer=setInterval(updateStableClock,1000)}
 
-async function restartPanel(){
-  if(!confirm('确认重启面板？重启后需要重新登录。'))return;
-  const target=new URL(location.href);
-  const nextPort=Number(state.pendingPort||state.boot?.settings?.panel_port||location.port||0);
-  if(nextPort>0)target.port=String(nextPort);
-  const nextPath=state.boot?.settings?.panel_path||PANEL_BASE;
-  target.pathname=nextPath;
-  target.hash='';
-  target.search='';
-  toast('正在重启面板…');
-  try{await api('/api/system/restart',{method:'POST'})}catch{}
-  stopTimers();
-  setTimeout(()=>{location.href=target.toString()},4200);
+function restartPanel(){
+  confirmBox('确认重启面板？重启后需要重新登录。',async()=>{
+    const target=new URL(location.href);
+    const nextPort=Number(state.pendingPort||state.boot?.settings?.panel_port||location.port||0);
+    if(nextPort>0)target.port=String(nextPort);
+    const nextPath=state.boot?.settings?.panel_path||PANEL_BASE;
+    target.pathname=nextPath;
+    target.hash='';
+    target.search='';
+    toast('正在重启面板…');
+    try{await api('/api/system/restart',{method:'POST'})}catch{}
+    stopTimers();
+    setTimeout(()=>{location.href=target.toString()},4200);
+  });
 }
 
 function updateProgressScreen(st={progress:2,stage:'启动更新',message:'正在创建独立后台更新任务'}){
