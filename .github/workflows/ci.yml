@@ -219,7 +219,7 @@ jobs:
           assert 'fmtPercent' in app and '面板累计运行' in app
           assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
           assert 'contentOnly' in app and 'syncShellChrome' in app and 'app.querySelector(\'.shell .content\')' in app
-          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.22' in app
+          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.23' in app
           assert 'admin-account' in app and "icon('user')" in app and '管理员账号：' not in app
           assert 'class="admin-account" data-route="settings" type="button"' in app
           assert 'title="管理员账号 · 系统设置"' in app
@@ -266,30 +266,31 @@ jobs:
           assert 'id="refreshUpdateInfo"' in app and 'maintenance-refresh' in app
           assert 'maintenance-update-status' not in app
           assert "refreshSystemUpdateInfo({silent:true})" not in app
-          assert 'function updateProgressScreen' in app and 'updateProgressBar' in app and 'updateProgressPercent' in app
-          assert 'id="updateProgressBackdrop"' in app and 'update-progress-backdrop' in app
-          assert '确认并开始更新' in app and 'update-confirm-card' in app
+          assert 'id="maintenanceProgress"' in app and 'maintenance-progress-track' in app
+          assert 'maintenanceProgressBar' in app and 'maintenanceProgressPercent' in app
+          assert '更新完成后面板会自动重启并退出当前登录，请重新登录。' in app
           assert 'function newUpdateRequestID()' in app and 'function isNetworkFetchError(err)' in app
+          assert 'function publicPanelVersion()' in app and 'function versionEquals(a,b)' in app
           assert "JSON.stringify({update_id:updateID})" in app
-          assert "后台更新可能仍在继续" in app
-          assert "confirmBox(`已检测版本" not in app
           full_update = app[app.index('async function fullUpdatePanel()'):app.index('function syncShellChrome()')]
-          assert "backdrop.innerHTML=updateProgressScreen" in full_update
+          assert "document.body.insertAdjacentHTML" not in full_update
+          assert "confirmBox(" not in full_update
           assert "api('/api/system/full-update',{method:'POST',body:JSON.stringify({update_id:updateID})})" in full_update
-          assert "$('#app').innerHTML=updateProgressScreen" not in app
-          assert 'document.body.insertAdjacentHTML(\'beforeend\',updateProgressScreen(initial))' in app
+          assert 'setMaintenanceUpdateBusy(true)' in full_update and 'paintMaintenanceProgress' in full_update
           assert 'stopTimers();' in app[app.index('function beginFullUpdateProgress'):app.index('function resumeFullUpdateIfNeeded')]
-          assert '关闭</button>' in app
+          assert '面板正在重启' in app and '正常现象' in app
           assert 'location.replace(target.toString())' in app
-          assert '更新完成' in app and '正在重新载入登录界面' in app
+          assert '更新完成' in app and '进入登录界面' in app
           assert "confirm('确认重启面板" not in app
-          restart_block = app[app.index('function restartPanel()'):app.index('function updateProgressScreen')]
+          restart_block = app[app.index('function restartPanel()'):app.index('function clearFullUpdateSession')]
           assert "confirmBox('确认重启面板？重启后需要重新登录。'" in restart_block
           assert '#confirmBackdrop' in css and 'align-items:center!important' in css and 'justify-content:center!important' in css
           assert 'v1.5.17 centered restart confirmation' in css
           assert 'v1.5.18 in-page update modal and mobile login centering' in css
-          assert '.update-progress-backdrop' in css and 'z-index:1100!important' in css
           assert '.login-shell{' in css and 'height:100dvh!important' in css and 'align-items:center!important' in css and 'justify-content:center!important' in css
+          assert 'v1.5.23 inline full-update progress' in css
+          assert '.maintenance-progress{' in css and '.maintenance-progress-track' in css
+          assert '.maintenance-progress.is-error' in css and '.maintenance-progress.is-restarting' in css
           assert "sessionStorage.setItem('mui_full_update_id'" in app and 'resumeFullUpdateIfNeeded' in app
           assert "full-update-status?update_id=" in app and "st.status==='completed'" in app
           assert '/api/system/full-update-status' in server and 'handleFullUpdateStatus' in server
@@ -323,9 +324,9 @@ jobs:
           assert 'v1.5.15 mobile menu and upgrade-maintenance refinement' in css
           assert 'v1.5.16 full-update reliability and spacing' in css
           assert '.maintenance-versions' in css and '.maintenance-controls' in css and '.maintenance-refresh' in css
-          assert '.update-progress-details' in css and 'margin-top:14px' in css
-          assert 'update-progress-details' in app
-          assert 'justify-self:center' in css and 'width:min(680px,calc(100vw - 48px))' in css
+          assert '.maintenance-progress-copy' in css and '.maintenance-progress-track' in css
+          assert 'maintenanceProgressMessage' in app
+          assert '更新完成后面板会自动重启并退出当前登录，请重新登录。' in app
           assert "stat('代理流量',fmtBytes(traffic.total),trafficSub,'i-green'" in app and "trafficSub,'i-purple'" not in app
           resource_block = app[app.index('<section class=\"card section-card dashboard-resources\"'):app.index('<div class=\"grid dashboard-bottom\"')]
           assert resource_block.index("ring('CPU'") < resource_block.index("ring('磁盘'") < resource_block.index("ring('内存'") < resource_block.index("ring('SWAP'")
@@ -339,7 +340,7 @@ jobs:
           assert "## v1.5.0" not in readme and "安全稳定性能版" not in readme
           assert "## 🚀 核心能力" in readme and "## ⚙️ 一键安装" in readme and "## 🛡️ 安全设计" in readme
           assert '<img src="web/assets/app-icon.png"' in readme
-          assert "**当前版本：v1.5.22**" in readme
+          assert "**当前版本：v1.5.23**" in readme
           assert "请输入选项 [1-8，CTRL+C退出]" in readme
           assert "YOUR_SERVER_IP" in readme and "ADMIN_USER" in readme and "PANEL_PORT" in readme and "/PANEL_PATH/" in readme
           assert "实际内容由你的服务器动态读取" in readme
@@ -349,7 +350,7 @@ jobs:
           assert "输入说明会排列在对应输入框下方" in readme
           assert "“重启面板”移动到菜单内" in readme and "点击菜单以外区域会自动收起菜单" in readme
           assert "完整更新 m-ui" in readme and "SSH 菜单“完整更新 m-ui”相同的更新流程" in readme
-          assert "真实进度百分比" in readme and "自动刷新并进入登录界面" in readme
+          assert "真实进度百分比" in readme and "自动进入登录界面" in readme
           assert "新手说明 → 搜索框 → 清空全部节点流量 / +新建节点 → 节点列表" in readme
           release = Path('.github/workflows/release.yml').read_text(encoding='utf-8')
           assert 'workflow_dispatch:' in release and '  push:' not in release
@@ -432,11 +433,12 @@ jobs:
           grep -q 'mobileNavDropdown' web/assets/app.js
           grep -q 'mobileLogout' web/assets/app.js
           grep -q 'brand-home' web/assets/app.js
-          grep -q '确认并开始更新' web/assets/app.js
-          grep -q 'update-confirm-card' web/assets/app.js
+          ! grep -q '确认并开始更新' web/assets/app.js
+          ! grep -q 'update-confirm-card' web/assets/app.js
           grep -q 'newUpdateRequestID' web/assets/app.js
           grep -q 'isNetworkFetchError' web/assets/app.js
-          grep -q '后台更新可能仍在继续' web/assets/app.js
+          grep -q 'maintenanceProgressMessage' web/assets/app.js
+          grep -q '面板正在重启' web/assets/app.js
           grep -q 'mobileRestart' web/assets/app.js
           ! grep -q 'mobile-restart-btn' web/assets/app.js
           ! grep -q '<span class="sep">·</span>' web/assets/app.js
@@ -448,10 +450,10 @@ jobs:
           grep -q '进行完整更新' web/assets/app.js
           grep -q '暂无更新' web/assets/app.js
           grep -q 'maintenanceCurrentVersion' web/assets/app.js
-          grep -q 'updateProgressBar' web/assets/app.js
-          grep -q 'updateProgressBackdrop' web/assets/app.js
-          grep -q 'ensureUpdateProgressModal' web/assets/app.js
-          grep -q 'closeUpdateProgressAfterFailure' web/assets/app.js
+          grep -q 'maintenanceProgressBar' web/assets/app.js
+          grep -q 'maintenanceProgressPercent' web/assets/app.js
+          grep -q 'publicPanelVersion' web/assets/app.js
+          ! grep -q 'id="updateProgressBackdrop"' web/assets/app.js
           ! grep -q "\[$\]\('#app'\).innerHTML=updateProgressScreen" web/assets/app.js
           grep -q 'resumeFullUpdateIfNeeded' web/assets/app.js
           ! grep -q "confirm('确认重启面板" web/assets/app.js
@@ -461,7 +463,9 @@ jobs:
           grep -q 'v1.5.20 brand home, restart accent and update dialog transition' web/assets/app.css
           grep -q 'v1.5.21 restore mobile restart neutral color' web/assets/app.css
           grep -q 'mobile-nav-restart{color:#50645c}' web/assets/app.css
-          grep -q 'update-progress-backdrop' web/assets/app.css
+          grep -q 'v1.5.23 inline full-update progress' web/assets/app.css
+          grep -q 'maintenance-progress-track' web/assets/app.css
+          grep -q 'maintenance-progress-copy' web/assets/app.css
           grep -q 'height:100dvh!important' web/assets/app.css
           grep -q '#confirmBackdrop' web/assets/app.css
           grep -q 'full-update-status' web/assets/app.js
@@ -488,12 +492,11 @@ jobs:
           grep -q 'v1.5.14 update version gate and progress layout' web/assets/app.css
           grep -q 'v1.5.15 mobile menu and upgrade-maintenance refinement' web/assets/app.css
           grep -q 'v1.5.16 full-update reliability and spacing' web/assets/app.css
-          grep -q 'update-progress-details' web/assets/app.js
-          grep -q 'margin-top:14px' web/assets/app.css
+          ! grep -q 'update-progress-details' web/assets/app.js
           grep -q 'maintenance-versions' web/assets/app.css
           grep -q 'maintenance-controls' web/assets/app.css
+          grep -q 'maintenance-progress' web/assets/app.css
           grep -q 'position:fixed!important;top:0!important;left:0!important;right:0!important' web/assets/app.css
-          grep -q 'justify-self:center' web/assets/app.css
           grep -q '/api/system/full-update' server.go
           grep -q 'handleFullUpdate' server.go
           grep -q 'systemd-run' server.go
@@ -507,7 +510,7 @@ jobs:
           ! grep -q '## v1.5.0' README.md
           grep -q '## 🚀 核心能力' README.md
           grep -q '## ⚙️ 一键安装' README.md
-          grep -q '当前版本：v1.5.22' README.md
+          grep -q '当前版本：v1.5.23' README.md
           grep -Fq '请输入选项 [1-8，CTRL+C退出]' README.md
           ! grep -q 'm-ui-ctl status' README.md
           grep -q "trafficSub,'i-green'" web/assets/app.js
@@ -544,4 +547,4 @@ jobs:
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
           test -f web/assets/app-icon.png
           test ! -e app-icon.png
-          grep -q '^1\.5\.22$' VERSION
+          grep -q '^1\.5\.23$' VERSION
