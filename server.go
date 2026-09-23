@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -112,8 +114,9 @@ func (s *Server) panelPath() string {
 }
 
 const (
-	mUIServicePath     = "/etc/systemd/system/m-ui.service"
-	mUIUpdateStatusPath = "/etc/m-ui/update-status.json"
+	mUIServicePath       = "/etc/systemd/system/m-ui.service"
+	mUIUpdateStatusPath  = "/etc/m-ui/update-status.json"
+	mUIRemoteVersionURL  = "https://raw.githubusercontent.com/imaicai/m-ui/main/VERSION"
 )
 
 func (s *Server) runningPanelPort() int {
@@ -231,6 +234,7 @@ func (s *Server) Run() error {
 	panelMux.HandleFunc("/api/bootstrap", s.auth(s.handleBootstrap))
 	panelMux.HandleFunc("/api/system/stats", s.auth(s.handleStats))
 	panelMux.HandleFunc("/api/system/restart", s.auth(s.handlePanelRestart))
+	panelMux.HandleFunc("/api/system/update-info", s.auth(s.handleUpdateInfo))
 	panelMux.HandleFunc("/api/system/full-update", s.auth(s.handleFullUpdate))
 	panelMux.HandleFunc("/api/system/full-update-status", s.handleFullUpdateStatus)
 	panelMux.HandleFunc("/api/settings", s.auth(s.handleSettings))
@@ -581,11 +585,118 @@ func readFullUpdateStatus() (fullUpdateStatus, error) {
 	return st, nil
 }
 
+type systemUpdateInfo struct {
+	CurrentVersion  string `json:"current_version"`
+	LatestVersion   string `json:"latest_version"`
+	UpdateAvailable bool   `json:"update_available"`
+	Error           string `json:"error,omitempty"`
+}
+
+func semanticVersionParts(v string) ([3]int, error) {
+	var parts [3]int
+	v = strings.TrimSpace(v)
+	v = strings.TrimPrefix(strings.TrimPrefix(v, "v"), "V")
+	fields := strings.Split(v, ".")
+	if len(fields) != len(parts) {
+		return parts, fmt.Errorf("invalid semantic version %q", v)
+	}
+	for i, field := range fields {
+		n, err := strconv.Atoi(field)
+		if err != nil || n < 0 {
+			return parts, fmt.Errorf("invalid semantic version %q", v)
+		}
+		parts[i] = n
+	}
+	return parts, nil
+}
+
+func compareSemanticVersions(current, latest string) (int, error) {
+	left, err := semanticVersionParts(current)
+	if err != nil {
+		return 0, err
+	}
+	right, err := semanticVersionParts(latest)
+	if err != nil {
+		return 0, err
+	}
+	for i := range left {
+		if left[i] < right[i] {
+			return -1, nil
+		}
+		if left[i] > right[i] {
+			return 1, nil
+		}
+	}
+	return 0, nil
+}
+
+func fetchLatestMUIVersion(ctx context.Context) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mUIRemoteVersionURL, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "m-ui/"+strings.TrimSpace(version))
+	client := &http.Client{Timeout: 7 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("version endpoint returned %s", resp.Status)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 128))
+	if err != nil {
+		return "", err
+	}
+	latest := strings.TrimSpace(string(body))
+	if _, err := semanticVersionParts(latest); err != nil {
+		return "", err
+	}
+	return latest, nil
+}
+
+func currentSystemUpdateInfo(ctx context.Context) systemUpdateInfo {
+	info := systemUpdateInfo{CurrentVersion: strings.TrimSpace(version)}
+	latest, err := fetchLatestMUIVersion(ctx)
+	if err != nil {
+		info.Error = "无法读取开源仓库版本，请检查服务器访问 GitHub 的网络后重试"
+		return info
+	}
+	info.LatestVersion = latest
+	cmp, err := compareSemanticVersions(info.CurrentVersion, latest)
+	if err != nil {
+		info.Error = "版本号格式异常，暂时无法判断是否需要更新"
+		return info
+	}
+	info.UpdateAvailable = cmp < 0
+	return info
+}
+
+func (s *Server) handleUpdateInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	writeJSON(w, http.StatusOK, currentSystemUpdateInfo(r.Context()))
+}
+
 func (s *Server) handleFullUpdate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		methodNotAllowed(w)
 		return
 	}
+
+	updateInfo := currentSystemUpdateInfo(r.Context())
+	if updateInfo.Error != "" {
+		writeError(w, http.StatusBadGateway, updateInfo.Error)
+		return
+	}
+	if !updateInfo.UpdateAvailable {
+		writeError(w, http.StatusConflict, "当前版本 v"+updateInfo.CurrentVersion+" 已是最新版本，无需更新")
+		return
+	}
+
 	const (
 		unitName = "m-ui-full-update.service"
 		menuBin  = "/usr/local/bin/m-ui"
