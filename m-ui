@@ -243,6 +243,9 @@ update_program(){
   after="$("$SERVER_BIN" --version 2>/dev/null | awk '{print $2}' || true)"
   [[ -n "$after" ]] || after="未知"
   ok "完整更新完成，当前运行版本：$after"
+  if [[ "${MUI_NONINTERACTIVE_UPDATE:-0}" == "1" ]]; then
+    return 0
+  fi
   echo
   info "正在重新载入最新版 SSH 管理菜单…"
   sleep 1
@@ -451,5 +454,10 @@ main_menu(){
     esac
   done
 }
+
+if [[ "${1:-}" == "--full-update" ]]; then
+  MUI_NONINTERACTIVE_UPDATE=1 update_program
+  exit $?
+fi
 
 main_menu
