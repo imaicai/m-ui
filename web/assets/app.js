@@ -89,14 +89,14 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.10')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
+function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.11')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
 
 function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon('sidebar')}<div><strong class="brand-title">${esc(brandName())}</strong><small>最简单的代理面板</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
 </nav><div class="sidebar-bottom"><div class="system-pill"><div class="statusline stable-runtime">${icon('clock')}<span>面板累计运行</span><b id="stableUptime">${fmtStableClock(currentPanelUptimeSeconds())}</b></div><div class="service-copy"><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer" title="打开 M-Ui GitHub 源码" aria-label="打开 M-Ui GitHub 源码">${icon('github')}</a><span>M-Ui：最简单的代理面板</span></div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/MiniJet" target="_blank" rel="noopener noreferrer" title="打开 MiniJet GitHub 源码" aria-label="打开 MiniJet GitHub 源码">${icon('github')}</a><span>小飞机：最简单的代理客户端</span></div><div class="service-copyright">© 2026 <a href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer">M-Ui</a> v${ver}</div></div></div><button class="sidebar-restart" id="restartPanelSidebar" type="button"><span class="restart-mark">${icon('restart')}</span><span>重启面板</span></button></div></aside>`}
 function mobileHeader(){
   const items=[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']];
-  return `<div class="mobile-header-brand">${brandIcon('mobile')}<strong class="mobile-brand-title">${esc(brandName())}</strong></div><div class="mobile-menu-wrap"><button class="mobile-menu-toggle" id="mobileMenuToggle" type="button" aria-label="打开导航菜单" aria-expanded="false">${icon('menu')}</button><div class="mobile-nav-dropdown" id="mobileNavDropdown" hidden>${items.map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}<div class="mobile-nav-separator"></div><button class="mobile-nav-logout" id="mobileLogout" type="button">${icon('power')}<span>退出登录</span></button></div></div>`;
+  return `<div class="mobile-header-brand">${brandIcon('mobile')}<strong class="mobile-brand-title">${esc(brandName())}</strong></div><div class="mobile-menu-wrap"><button class="mobile-restart-btn" id="mobileRestart" type="button" title="重启面板" aria-label="重启面板">${icon('restart')}</button><button class="mobile-menu-toggle" id="mobileMenuToggle" type="button" aria-label="打开导航菜单" aria-expanded="false">${icon('menu')}</button><div class="mobile-nav-dropdown" id="mobileNavDropdown" hidden>${items.map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}<div class="mobile-nav-separator"></div><button class="mobile-nav-logout" id="mobileLogout" type="button">${icon('power')}<span>退出登录</span></button></div></div>`;
 }
 function layout(content){
   if(state.contentOnly)return content;
@@ -271,7 +271,7 @@ function subscriptions(){
   }).join('');
   return layout('<section class="card info-card subscription-guide"><h3>如何使用订阅地址</h3><div class="guide-inline subscription-steps"><span>默认订阅固定第一并自动包含全部节点</span><span>自定义订阅可单独选择需要分发的节点</span><span>节点变化后订阅内容会自动同步</span></div></section><section class="card subs-table"><div class="section-title"><h2>订阅列表</h2><button class="btn btn-primary" id="newSub">＋ 新建订阅</button></div><div class="table-wrap"><table class="table"><thead><tr><th>名称</th><th>订阅地址</th><th>节点数</th><th>状态</th><th class="operation-head">操作</th></tr></thead><tbody>'+rows+'</tbody></table></div></section>')
 }
-function settings(){const s=state.boot?.settings||{};return layout(`<section class="card info-card settings-advice"><h3>使用建议</h3><p>新建节点默认使用 <b>VLESS + RAW + REALITY + XTLS Vision</b>。如果填写“节点域名”，新建节点会优先使用该域名作为连接地址；未填写时才使用服务器公网 IP。TLS 证书路径主要用于兼容已有 TLS 节点。建议使用独立根路径保护管理入口。证书有效且匹配节点域名时，HTTP 会自动切换到 HTTPS。</p></section><div class="settings-stack"><section class="card settings-card"><h2>基础设置</h2><p>管理入口与节点域名设置。</p><div class="setting-row"><label>面板名称</label><input class="input" id="setName" value="${esc(s.panel_name||'m-ui')}"><small>显示在页面标题中</small></div><div class="setting-row"><label>面板端口</label><input class="input" id="setPort" type="number" min="1024" max="65535" value="${Number(s.panel_port||location.port||16800)}"><small>修改端口后会自动重启面板，并需要重新登录</small></div><div class="setting-row"><label>面板 URL 根路径</label><input class="input" id="setPath" value="${esc(s.panel_path||'/')}" placeholder="/a8f3k2m9/"><small>修改根路径后直接切换到新入口，不需要重启面板</small></div><div class="setting-row"><label>默认协议</label><input class="input readonly" value="VLESS + RAW + REALITY + XTLS Vision" readonly><small>新建节点固定使用当前推荐配置</small></div><div class="setting-row"><label>节点域名</label><input class="input" id="setDomain" value="${esc(s.domain||'')}" placeholder="vpn.example.com（可留空）"><small>可留空；填写后新建 REALITY 节点的分享地址也会优先使用该域名</small></div></section><section class="card settings-card"><h2>证书路径</h2><p>面板 HTTPS 与 TLS 节点共用证书文件。</p><div class="setting-row"><label>证书文件</label><input class="input" id="setCert" value="${esc(s.cert_file||'~/minijet/ssh/m-ui/fullchain.pem')}"><span class="cert-status">${s.cert_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div><div class="setting-row"><label>私钥文件</label><input class="input" id="setKey" value="${esc(s.key_file||'~/minijet/ssh/m-ui/privkey.pem')}"><span class="cert-status">${s.key_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div></section><section class="card settings-card"><h2>登录账号</h2><p>修改登录名或密码时必须输入当前密码，保存后需要重新登录。</p><div class="setting-row"><label>登录名</label><input class="input" id="setUser" value="${esc(s.admin_user||'admin')}"><small>仅修改时需要重新登录</small></div><div class="setting-row"><label>当前密码</label><input class="input" id="setCurrentPass" type="password" autocomplete="current-password"><small>仅修改账号信息时需要填写</small></div><div class="setting-row"><label>新密码</label><input class="input" id="setPass" type="password" autocomplete="new-password" placeholder="至少 8 位"><small>不修改密码可留空</small></div><div class="setting-row"><label>确认新密码</label><input class="input" id="setPass2" type="password" autocomplete="new-password"><small>与新密码保持一致</small></div></section><div class="settings-restart-note">只有修改设置后才可保存。修改面板端口会自动重启并重新登录；修改登录名或密码只需重新登录；其他设置保存后直接生效。</div><div class="savebar"><button class="btn btn-primary" id="saveSettings" disabled>保存设置</button></div></div>`)}
+function settings(){const s=state.boot?.settings||{};return layout(`<section class="card info-card settings-advice"><h3>使用建议</h3><p>新建节点默认使用 <b>VLESS + RAW + REALITY + XTLS Vision</b>。如果填写“节点域名”，新建节点会优先使用该域名作为连接地址；未填写时才使用服务器公网 IP。TLS 证书路径主要用于兼容已有 TLS 节点。建议使用独立根路径保护管理入口。证书有效且匹配节点域名时，HTTP 会自动切换到 HTTPS。</p></section><div class="settings-stack"><section class="card settings-card"><h2>基础设置</h2><p>管理入口与节点域名设置。</p><div class="setting-row"><label>面板名称</label><input class="input" id="setName" value="${esc(s.panel_name||'m-ui')}"><small>显示在页面标题中</small></div><div class="setting-row"><label>面板端口</label><input class="input" id="setPort" type="number" min="1024" max="65535" value="${Number(s.panel_port||location.port||16800)}"><small>修改端口后会自动重启面板，并需要重新登录</small></div><div class="setting-row"><label>面板 URL 根路径</label><input class="input" id="setPath" value="${esc(s.panel_path||'/')}" placeholder="/a8f3k2m9/"><small>修改根路径后直接切换到新入口，不需要重启面板</small></div><div class="setting-row"><label>默认协议</label><input class="input readonly" value="VLESS + RAW + REALITY + XTLS Vision" readonly><small>新建节点固定使用当前推荐配置</small></div><div class="setting-row"><label>节点域名</label><input class="input" id="setDomain" value="${esc(s.domain||'')}" placeholder="vpn.example.com（可留空）"><small>可留空；填写后新建 REALITY 节点的分享地址也会优先使用该域名</small></div></section><section class="card settings-card"><h2>证书路径</h2><p>面板 HTTPS 与 TLS 节点共用证书文件。</p><div class="setting-row"><label>证书文件</label><input class="input" id="setCert" value="${esc(s.cert_file||'~/minijet/ssh/m-ui/fullchain.pem')}"><span class="cert-status">${s.cert_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div><div class="setting-row"><label>私钥文件</label><input class="input" id="setKey" value="${esc(s.key_file||'~/minijet/ssh/m-ui/privkey.pem')}"><span class="cert-status">${s.key_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div></section><section class="card settings-card"><h2>登录账号</h2><p>修改登录名或密码时必须输入当前密码，保存后需要重新登录。</p><div class="setting-row"><label>登录名</label><input class="input" id="setUser" value="${esc(s.admin_user||'admin')}"><small>仅修改时需要重新登录</small></div><div class="setting-row"><label>当前密码</label><input class="input" id="setCurrentPass" type="password" autocomplete="current-password"><small>仅修改账号信息时需要填写</small></div><div class="setting-row"><label>新密码</label><input class="input" id="setPass" type="password" autocomplete="new-password" placeholder="至少 8 位"><small>不修改密码可留空</small></div><div class="setting-row"><label>确认新密码</label><input class="input" id="setPass2" type="password" autocomplete="new-password"><small>与新密码保持一致</small></div></section><section class="card settings-card maintenance-card"><h2>系统维护</h2><p>用于面板升级与核心维护。</p><div class="maintenance-action"><div><b>完整更新 m-ui</b><small>更新前端、后端、SSH 管理脚本和 Xray Core，并保留现有账号、节点、订阅与设置。</small></div><button class="btn btn-outline" id="fullUpdatePanel" type="button">${icon('restart')}<span>完整更新</span></button></div></section><div class="settings-restart-note">只有修改设置后才可保存。修改面板端口会自动重启并重新登录；修改登录名或密码只需重新登录；其他设置保存后直接生效。</div><div class="savebar"><button class="btn btn-primary" id="saveSettings" disabled>保存设置</button></div></div>`)}
 function confirmBox(message, yes){state.modal='confirm';document.body.insertAdjacentHTML('beforeend',`<div class="modal-backdrop" id="confirmBackdrop"><div class="modal" style="max-width:460px"><div class="modal-head"><div><h2 style="margin:0 0 6px">请确认</h2><p style="margin:0;color:var(--muted)">${esc(message)}</p></div><button class="close" id="confirmNo">×</button></div><div class="modal-actions"><button class="btn btn-outline" id="confirmCancel">取消</button><button class="btn btn-danger" id="confirmYes">确认</button></div></div></div>`);const close=()=>$('#confirmBackdrop')?.remove();$('#confirmNo').onclick=close;$('#confirmCancel').onclick=close;$('#confirmBackdrop').addEventListener('click',e=>{if(e.target.id==='confirmBackdrop')close()});$('#confirmYes').onclick=async()=>{close();await yes()}}
 
 async function loadPanelInfo(){try{state.publicInfo=await api('/api/panel-info')}catch{}}
@@ -292,6 +292,35 @@ async function restartPanel(){
   try{await api('/api/system/restart',{method:'POST'})}catch{}
   stopTimers();
   setTimeout(()=>{location.href=target.toString()},4200);
+}
+
+async function fullUpdatePanel(){
+  confirmBox('完整更新会更新前端、后端、SSH 管理脚本和 Xray Core，过程中面板会重启。确认现在开始？',async()=>{
+    const btn=$('#fullUpdatePanel');
+    if(btn){btn.disabled=true;btn.innerHTML=`${icon('restart')}<span>正在启动…</span>`}
+    try{
+      await api('/api/system/full-update',{method:'POST'});
+      stopTimers();
+      const target=new URL(location.href);
+      target.hash='#/settings';
+      document.title='m-ui · 正在完整更新';
+      $('#app').innerHTML=`<div class="loading restart-loading"><div><strong>正在完整更新 m-ui</strong><span>前端、后端、SSH 管理脚本与 Xray Core 正在更新；面板恢复后将自动重新载入。</span></div></div>`;
+      let attempts=0;
+      const check=async()=>{
+        attempts++;
+        try{
+          const res=await fetch(panelURL('/api/me'),{cache:'no-store',credentials:'same-origin'});
+          if(res.status===401){location.href=target.toString();return}
+        }catch{}
+        if(attempts<180){setTimeout(check,2000)}
+        else{location.href=target.toString()}
+      };
+      setTimeout(check,4000);
+    }catch(e){
+      if(btn){btn.disabled=false;btn.innerHTML=`${icon('restart')}<span>完整更新</span>`}
+      toast(e.message,false);
+    }
+  });
 }
 
 function syncShellChrome(){
@@ -332,7 +361,7 @@ function bindLogin(){$('#loginForm').addEventListener('submit',async e=>{e.preve
 function closeMobileMenu(){const menu=$('#mobileNavDropdown'),toggle=$('#mobileMenuToggle');if(menu)menu.hidden=true;if(toggle)toggle.setAttribute('aria-expanded','false')}
 function bindCommon(){
   $$('[data-route]').forEach(b=>b.onclick=()=>{closeMobileMenu();state.route=b.dataset.route;location.hash='#/'+state.route;render()});
-  const restart=$('#restartPanelSidebar');if(restart)restart.onclick=restartPanel;
+  const restart=$('#restartPanelSidebar');if(restart)restart.onclick=restartPanel;const mobileRestart=$('#mobileRestart');if(mobileRestart)mobileRestart.onclick=restartPanel;
   const toggle=$('#mobileMenuToggle'),menu=$('#mobileNavDropdown');
   if(toggle&&menu)toggle.onclick=()=>{const opening=menu.hidden;menu.hidden=!opening;toggle.setAttribute('aria-expanded',opening?'true':'false')};
   const logoutAction=async()=>{closeMobileMenu();try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;stopTimers();render()};
@@ -401,6 +430,7 @@ function bindSettings(){
   const refreshSaveState=()=>{save.disabled=!changed()||state.busy};
   ['setName','setPort','setPath','setDomain','setCert','setKey','setUser','setCurrentPass','setPass','setPass2'].forEach(id=>$('#'+id)?.addEventListener('input',refreshSaveState));
   refreshSaveState();
+  $('#fullUpdatePanel')?.addEventListener('click',fullUpdatePanel);
 
   save?.addEventListener('click',async()=>{
     if(!changed()||state.busy)return;

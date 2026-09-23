@@ -518,3 +518,35 @@ html,body,#app{max-width:100%;overflow-x:hidden}
   .modal{width:100%;max-width:100%;padding:18px;border-radius:14px}
   .modal-head{gap:10px}
 }
+
+
+/* v1.5.11 maintenance action and mobile-only refinements */
+.maintenance-action{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 0 2px}
+.maintenance-action>div{min-width:0;display:grid;gap:5px}
+.maintenance-action b{font-size:14px;color:var(--text)}
+.maintenance-action small{color:var(--muted);line-height:1.55}
+.maintenance-action .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap}
+.maintenance-action .btn .icon{width:16px;height:16px}
+
+@media(max-width:760px){
+  /* Mobile only: keep the header pinned while page content scrolls. */
+  .topbar{position:sticky!important;top:0!important;z-index:50!important}
+
+  /* Mobile only: restart icon sits immediately left of the menu icon. */
+  .mobile-menu-wrap{display:flex!important;align-items:center;gap:8px}
+  .mobile-restart-btn{
+    width:40px;height:40px;padding:0;border:1px solid var(--line);border-radius:10px;background:#fff;color:#50645c;
+    display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s
+  }
+  .mobile-restart-btn .icon{width:19px;height:19px}
+  .mobile-restart-btn:hover{border-color:#efc9c9;background:#fff8f8;color:#a94444}
+
+  /* Mobile only: server resources are a 2 x 2 grid. */
+  .dashboard-resources .resources{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .dashboard-resources .resource{border-right:0;border-bottom:0;padding:10px 6px 15px}
+  .dashboard-resources .resource:nth-child(odd){border-right:1px solid var(--line)}
+  .dashboard-resources .resource:nth-child(-n+2){border-bottom:1px solid var(--line)}
+
+  .maintenance-action{align-items:stretch;flex-direction:column;gap:12px}
+  .maintenance-action .btn{width:100%}
+}
