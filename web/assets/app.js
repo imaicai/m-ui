@@ -53,6 +53,15 @@ function cookieValue(name){
   }
   return '';
 }
+function newUpdateRequestID(){
+  if(globalThis.crypto?.randomUUID)return globalThis.crypto.randomUUID();
+  const bytes=new Uint8Array(16);
+  globalThis.crypto?.getRandomValues?.(bytes);
+  return [...bytes].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+function isNetworkFetchError(err){
+  return err instanceof TypeError || /Failed to fetch|NetworkError|Load failed|fetch failed/i.test(String(err?.message||err||''));
+}
 async function api(path, options={}){
   const method=String(options.method||'GET').toUpperCase();
   const mutating=['POST','PUT','PATCH','DELETE'].includes(method);
@@ -90,7 +99,7 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.21')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
+function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.22')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
 
 function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><button class="brand brand-home" data-route="dashboard" type="button" aria-label="返回仪表盘">${brandIcon('sidebar')}<span class="brand-copy"><strong class="brand-title">${esc(brandName())}</strong><small>最简单的代理面板</small></span></button><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
@@ -481,6 +490,9 @@ async function fullUpdatePanel(){
     if(btn)btn.disabled=true;
     if(textEl)textEl.textContent='正在启动…';
 
+    const updateID=newUpdateRequestID();
+    sessionStorage.setItem('mui_full_update_id',updateID);
+
     if(backdrop){
       backdrop.classList.remove('update-confirm-backdrop');
       backdrop.innerHTML=updateProgressScreen({progress:2,stage:'启动更新',message:'正在创建独立后台更新任务'})
@@ -489,11 +501,13 @@ async function fullUpdatePanel(){
     }
 
     try{
-      const out=await api('/api/system/full-update',{method:'POST'});
-      const updateID=String(out?.update_id||'');
-      if(!updateID)throw new Error('后台未返回更新任务编号');
+      const out=await api('/api/system/full-update',{method:'POST',body:JSON.stringify({update_id:updateID})});
       beginFullUpdateProgress(updateID,{progress:2,stage:'启动更新',message:out?.message||'完整更新已在后台启动'});
     }catch(e){
+      if(isNetworkFetchError(e)){
+        beginFullUpdateProgress(updateID,{progress:90,stage:'等待面板恢复',message:'面板连接暂时中断，后台更新可能仍在继续，正在自动确认更新状态…'});
+        return;
+      }
       sessionStorage.removeItem('mui_full_update_id');
       const currentBackdrop=$('#updateProgressBackdrop');
       if(currentBackdrop){
