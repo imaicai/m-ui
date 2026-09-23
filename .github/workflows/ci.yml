@@ -438,8 +438,8 @@ jobs:
           ! grep -q 'update-confirm-card' web/assets/app.js
           grep -q 'newUpdateRequestID' web/assets/app.js
           grep -q 'isNetworkFetchError' web/assets/app.js
-          grep -q 'maintenanceProgressMessage' web/assets/app.js
-          grep -q '面板正在重启' web/assets/app.js
+          grep -q 'startSilentFullUpdateWatch' web/assets/app.js
+          grep -q '后台更新中…' web/assets/app.js
           grep -q 'mobileRestart' web/assets/app.js
           ! grep -q 'mobile-restart-btn' web/assets/app.js
           ! grep -q '<span class="sep">·</span>' web/assets/app.js
