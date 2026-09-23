@@ -66,7 +66,8 @@ BLUE='\033[0;34m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC
 info(){ echo -e "${BLUE}[m-ui]${NC} $*"; }
 ok(){ echo -e "${GREEN}[m-ui]${NC} $*"; }
 warn(){ echo -e "${YELLOW}[m-ui]${NC} $*"; }
-die(){ echo -e "${RED}[m-ui]${NC} $*" >&2; update_progress "$CURRENT_UPDATE_PROGRESS" "$CURRENT_UPDATE_STAGE" "更新失败，请查看系统日志后重试" "failed" || true; exit 1; }
+err(){ echo -e "${RED}[m-ui]${NC} $*" >&2; }
+die(){ err "$*"; update_progress "$CURRENT_UPDATE_PROGRESS" "$CURRENT_UPDATE_STAGE" "更新失败，请查看系统日志后重试" "failed" || true; exit 1; }
 
 [[ ${EUID:-$(id -u)} -eq 0 ]] || die "请使用 root 用户执行安装。"
 command -v systemctl >/dev/null 2>&1 || die "当前系统不支持 systemd，暂不支持安装。"
@@ -267,12 +268,35 @@ info "获取 m-ui 最新源码…"
 rm -rf "$INSTALL_SRC"
 git clone --depth 1 --branch "$BRANCH" "$REPO" "$INSTALL_SRC" >/dev/null 2>&1 || die "无法获取 m-ui 源码。"
 
-update_progress 72 "编译程序" "源码获取完成，正在编译最新 m-ui 后端"
-info "编译 m-ui…"
+info "准备编译 m-ui…"
 cd "$INSTALL_SRC"
 APP_VERSION="$(tr -d '[:space:]' < VERSION)"
 [[ -n "$APP_VERSION" ]] || APP_VERSION="1.5.0"
-CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${APP_VERSION}" -o /tmp/m-ui-server-build .
+BUILD_LOG="/var/log/m-ui/full-update-build.log"
+: > "$BUILD_LOG"
+{
+  printf 'm-ui target version: %s\n' "$APP_VERSION"
+  go version
+} >>"$BUILD_LOG" 2>&1 || true
+
+update_progress 66 "准备编译" "正在下载 Go 依赖，并降低编译资源占用"
+if ! GOMAXPROCS=1 GOGC=50 go mod download >>"$BUILD_LOG" 2>&1; then
+  warn "默认 Go 模块源下载失败，正在改用直连模式重试…"
+  if ! GOMAXPROCS=1 GOGC=50 GOPROXY=direct go mod download >>"$BUILD_LOG" 2>&1; then
+    update_progress 66 "依赖下载失败" "Go 依赖下载失败，请查看 /var/log/m-ui/full-update-build.log" "failed"
+    err "Go 依赖下载失败，最近日志："
+    tail -n 30 "$BUILD_LOG" >&2 || true
+    exit 1
+  fi
+fi
+
+update_progress 72 "编译程序" "依赖准备完成，正在以低资源模式编译最新 m-ui 后端"
+if ! GOMAXPROCS=1 GOGC=50 CGO_ENABLED=0 go build -p=1 -trimpath -ldflags "-s -w -X main.version=${APP_VERSION}" -o /tmp/m-ui-server-build . >>"$BUILD_LOG" 2>&1; then
+  update_progress 72 "编译失败" "m-ui 编译失败，请查看 /var/log/m-ui/full-update-build.log" "failed"
+  err "m-ui 编译失败，最近日志："
+  tail -n 30 "$BUILD_LOG" >&2 || true
+  exit 1
+fi
 update_progress 82 "安装程序" "编译完成，正在替换前端、后端与管理脚本"
 install -m 0755 /tmp/m-ui-server-build "$SERVER_BIN"
 rm -f /tmp/m-ui-server-build

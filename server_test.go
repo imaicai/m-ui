@@ -71,6 +71,30 @@ func TestValidateEditedPortRejectsDigitFour(t *testing.T) {
 	}
 }
 
+func TestCompareSemanticVersions(t *testing.T) {
+	tests := []struct {
+		current string
+		latest  string
+		want    int
+	}{
+		{"1.5.13", "1.5.14", -1},
+		{"v1.5.14", "1.5.14", 0},
+		{"1.6.0", "1.5.14", 1},
+	}
+	for _, tt := range tests {
+		got, err := compareSemanticVersions(tt.current, tt.latest)
+		if err != nil {
+			t.Fatalf("compareSemanticVersions(%q, %q): %v", tt.current, tt.latest, err)
+		}
+		if got != tt.want {
+			t.Fatalf("compareSemanticVersions(%q, %q) = %d; want %d", tt.current, tt.latest, got, tt.want)
+		}
+	}
+	if _, err := compareSemanticVersions("1.5", "1.5.14"); err == nil {
+		t.Fatal("invalid semantic version should be rejected")
+	}
+}
+
 func TestPanelPortDefault(t *testing.T) {
 	if got := panelPort("0.0.0.0:16800"); got != "16800" {
 		t.Fatalf("unexpected panel port: %s", got)

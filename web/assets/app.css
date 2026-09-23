@@ -521,12 +521,21 @@ html,body,#app{max-width:100%;overflow-x:hidden}
 
 
 /* v1.5.11 maintenance action and mobile-only refinements */
+.maintenance-versions{display:flex;align-items:center;gap:12px;margin:4px 0 6px;padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:#f8fbfa}
+.maintenance-version-item{display:grid;gap:2px;min-width:104px}
+.maintenance-version-item span{font-size:12px;color:var(--muted)}
+.maintenance-version-item b{font-size:15px;color:var(--text);font-variant-numeric:tabular-nums}
+.maintenance-version-arrow{color:#9aacA5;font-weight:700}
 .maintenance-action{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 0 2px}
 .maintenance-action>div{min-width:0;display:grid;gap:5px}
 .maintenance-action b{font-size:14px;color:var(--text)}
 .maintenance-action small{color:var(--muted);line-height:1.55}
-.maintenance-action .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap}
+.maintenance-action .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;min-width:118px}
 .maintenance-action .btn .icon{width:16px;height:16px}
+.maintenance-update-status{margin-top:10px;padding:10px 12px;border-radius:9px;background:#f7faf9;color:var(--muted);font-size:12px;line-height:1.55}
+.maintenance-update-status.is-ready{background:#ecfaf5;color:#177253}
+.maintenance-update-status.is-error{background:#fff7f1;color:#9d6421}
+.maintenance-action .btn:disabled{transform:none;filter:none}
 
 @media(max-width:760px){
   /* Mobile only: keep the header pinned while page content scrolls. */
@@ -553,26 +562,27 @@ html,body,#app{max-width:100%;overflow-x:hidden}
 
 
 /* v1.5.12 full-update progress */
-.update-progress-screen{padding:20px;box-sizing:border-box}
+.update-progress-screen{padding:28px;box-sizing:border-box}
 .update-progress-card{
-  width:min(520px,calc(100vw - 32px));box-sizing:border-box;padding:28px;border:1px solid var(--line);border-radius:16px;
-  background:#fff;box-shadow:0 20px 60px rgba(29,55,46,.14);display:grid;gap:14px;color:var(--text)
+  width:min(680px,calc(100vw - 48px));min-height:310px;box-sizing:border-box;padding:36px 40px;border:1px solid var(--line);border-radius:18px;
+  background:#fff;box-shadow:0 20px 60px rgba(29,55,46,.14);display:grid;align-content:start;gap:18px;color:var(--text)
 }
-.update-progress-card>strong{font-size:21px;line-height:1.25}
-.update-progress-head{display:flex;align-items:center;justify-content:space-between;gap:14px;color:#536760}
-.update-progress-head span{font-weight:700}
-.update-progress-head b{font-size:15px;color:var(--primary);font-variant-numeric:tabular-nums}
-.update-progress-track{height:10px;border-radius:999px;background:#EDF2F8;overflow:hidden}
+.update-progress-card>strong{font-size:23px;line-height:1.3;text-align:center}
+.update-progress-head{display:flex;align-items:center;justify-content:space-between;gap:18px;color:#536760}
+.update-progress-head span{min-width:0;font-weight:700;overflow-wrap:anywhere}
+.update-progress-head b{flex:0 0 auto;font-size:16px;color:var(--primary);font-variant-numeric:tabular-nums}
+.update-progress-track{height:11px;border-radius:999px;background:#EDF2F8;overflow:hidden}
 .update-progress-track i{display:block;height:100%;border-radius:inherit;background:var(--primary);transition:width .3s ease}
-.update-progress-message{min-height:22px;color:#536760;line-height:1.6}
-.update-progress-card small{color:var(--muted);line-height:1.55}
-.update-progress-return{margin-top:4px;justify-self:start}
+.update-progress-message{min-height:28px;color:#536760;line-height:1.7;overflow-wrap:anywhere}
+.update-progress-card small{color:var(--muted);line-height:1.65;overflow-wrap:anywhere}
+.update-progress-return{margin-top:8px;min-width:160px;justify-self:center}
 
 @media(max-width:760px){
   .update-progress-screen{padding:14px}
-  .update-progress-card{width:100%;padding:22px 18px;border-radius:14px}
-  .update-progress-card>strong{font-size:19px}
-  .update-progress-return{width:100%;justify-self:stretch}
+  .update-progress-card{width:100%;min-height:0;padding:24px 20px;border-radius:14px;gap:15px}
+  .update-progress-card>strong{font-size:20px}
+  .update-progress-head{gap:12px}
+  .update-progress-return{width:auto;min-width:156px;justify-self:center}
 }
 
 
@@ -610,4 +620,13 @@ html,body,#app{max-width:100%;overflow-x:hidden}
     padding:0 10px;
     justify-content:center;
   }
+}
+
+
+/* v1.5.14 update version gate and progress layout */
+@media(max-width:760px){
+  .maintenance-versions{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;padding:11px 12px}
+  .maintenance-version-item{min-width:0}
+  .maintenance-version-item:last-child{text-align:right}
+  .maintenance-action .btn{width:100%}
 }
