@@ -275,7 +275,7 @@ jobs:
           assert "confirmBox(`已检测版本" not in app
           full_update = app[app.index('async function fullUpdatePanel()'):app.index('function syncShellChrome()')]
           assert "backdrop.innerHTML=updateProgressScreen" in full_update
-          assert "api('/api/system/full-update',{method:'POST'})" in full_update
+          assert "api('/api/system/full-update',{method:'POST',body:JSON.stringify({update_id:updateID})})" in full_update
           assert "$('#app').innerHTML=updateProgressScreen" not in app
           assert 'document.body.insertAdjacentHTML(\'beforeend\',updateProgressScreen(initial))' in app
           assert 'stopTimers();' in app[app.index('function beginFullUpdateProgress'):app.index('function resumeFullUpdateIfNeeded')]
