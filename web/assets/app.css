@@ -659,3 +659,49 @@ html,body,#app{max-width:100%;overflow-x:hidden}
   #confirmBackdrop{padding:16px!important}
   #confirmBackdrop .modal{width:min(460px,calc(100vw - 24px))!important}
 }
+
+
+/* v1.5.18 in-page update modal and mobile login centering */
+.update-progress-backdrop{
+  position:fixed!important;
+  inset:0!important;
+  width:100vw!important;
+  height:100dvh!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:24px!important;
+  z-index:1100!important;
+  overflow:auto;
+}
+.update-progress-backdrop .update-progress-card{
+  width:min(680px,calc(100vw - 48px))!important;
+  max-height:calc(100dvh - 48px);
+  overflow:auto;
+  margin:0!important;
+}
+@media(max-width:760px){
+  .login-shell{
+    position:fixed!important;
+    inset:0!important;
+    width:100%!important;
+    height:100dvh!important;
+    min-height:100dvh!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    padding:18px!important;
+    overflow:auto;
+  }
+  .login-card{
+    width:min(540px,calc(100vw - 36px))!important;
+    margin:auto!important;
+    padding:28px 22px!important;
+  }
+  .update-progress-backdrop{padding:14px!important}
+  .update-progress-backdrop .update-progress-card{
+    width:100%!important;
+    max-height:calc(100dvh - 28px);
+    padding:24px 20px!important;
+  }
+}
