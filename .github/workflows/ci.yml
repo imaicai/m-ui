@@ -283,7 +283,7 @@ jobs:
           assert 'location.replace(target.toString())' in app
           assert "后台更新中…" in app and "静默执行" in app
           assert "confirm('确认重启面板" not in app
-          restart_block = app[app.index('function restartPanel()'):app.index('function clearFullUpdateSession')]
+          restart_block = app[app.index('function restartPanel()'):app.index('function clearSilentFullUpdate')]
           assert "confirmBox('确认重启面板？重启后需要重新登录。'" in restart_block
           assert '#confirmBackdrop' in css and 'align-items:center!important' in css and 'justify-content:center!important' in css
           assert 'v1.5.17 centered restart confirmation' in css
