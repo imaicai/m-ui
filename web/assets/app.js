@@ -90,7 +90,7 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.17')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
+function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.18')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
 
 function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon('sidebar')}<div><strong class="brand-title">${esc(brandName())}</strong><small>最简单的代理面板</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
@@ -311,7 +311,25 @@ function restartPanel(){
 
 function updateProgressScreen(st={progress:2,stage:'启动更新',message:'正在创建独立后台更新任务'}){
   const progress=Math.max(0,Math.min(100,Number(st.progress)||0));
-  return `<div class="loading restart-loading update-progress-screen"><div class="update-progress-card"><strong>正在完整更新 m-ui</strong><div class="update-progress-head"><span id="updateProgressStage">${esc(st.stage||'更新中')}</span><b id="updateProgressPercent">${progress}%</b></div><div class="update-progress-track"><i id="updateProgressBar" style="width:${progress}%"></i></div><div class="update-progress-details"><span class="update-progress-message" id="updateProgressMessage">${esc(st.message||'正在更新，请稍候…')}</span><small>更新过程中面板可能短暂离线；进度会在面板恢复后继续同步。</small><button class="btn btn-outline update-progress-return" id="updateProgressReturn" type="button" hidden>返回登录页</button></div></div></div>`;
+  return `<div class="modal-backdrop update-progress-backdrop" id="updateProgressBackdrop"><div class="update-progress-card" role="dialog" aria-modal="true" aria-labelledby="updateProgressTitle"><strong id="updateProgressTitle">正在完整更新 m-ui</strong><div class="update-progress-head"><span id="updateProgressStage">${esc(st.stage||'更新中')}</span><b id="updateProgressPercent">${progress}%</b></div><div class="update-progress-track"><i id="updateProgressBar" style="width:${progress}%"></i></div><div class="update-progress-details"><span class="update-progress-message" id="updateProgressMessage">${esc(st.message||'正在更新，请稍候…')}</span><small>更新过程中面板可能短暂离线；进度会在面板恢复后继续同步。</small><button class="btn btn-outline update-progress-return" id="updateProgressReturn" type="button" hidden>关闭</button></div></div></div>`;
+}
+
+async function closeUpdateProgressAfterFailure(){
+  sessionStorage.removeItem('mui_full_update_id');
+  $('#updateProgressBackdrop')?.remove();
+  document.title=brandName()+' · MiniJet';
+  try{
+    await api('/api/me');
+    if(state.loggedIn&&state.boot){
+      startPolling();
+      render();
+    }
+  }catch{
+    state.loggedIn=false;
+    state.boot=null;
+    stopTimers();
+    render();
+  }
 }
 
 function paintUpdateProgress(st){
@@ -323,23 +341,25 @@ function paintUpdateProgress(st){
   if(message)message.textContent=st?.message||'正在更新，请稍候…';
   if(st?.status==='failed'&&back){
     back.hidden=false;
-    back.onclick=()=>{
-      sessionStorage.removeItem('mui_full_update_id');
-      const target=new URL(location.href);
-      target.hash='';
-      target.search='';
-      location.replace(target.toString());
-    };
+    back.onclick=closeUpdateProgressAfterFailure;
   }
+}
+
+function ensureUpdateProgressModal(initial){
+  let backdrop=$('#updateProgressBackdrop');
+  if(!backdrop){
+    document.body.insertAdjacentHTML('beforeend',updateProgressScreen(initial));
+    backdrop=$('#updateProgressBackdrop');
+  }else{
+    paintUpdateProgress(initial);
+  }
+  return backdrop;
 }
 
 function beginFullUpdateProgress(updateID, initial){
   sessionStorage.setItem('mui_full_update_id',updateID);
-  stopTimers();
-  state.loggedIn=false;
-  state.boot=null;
+  ensureUpdateProgressModal(initial);
   document.title='m-ui · 正在完整更新';
-  $('#app').innerHTML=updateProgressScreen(initial);
   let stopped=false;
   const target=new URL(location.href);
   target.hash='';
@@ -351,18 +371,24 @@ function beginFullUpdateProgress(updateID, initial){
       const url=panelURL('/api/system/full-update-status?update_id='+encodeURIComponent(updateID));
       const res=await fetch(url,{cache:'no-store',credentials:'same-origin'});
       if(res.status===404){
-        sessionStorage.removeItem('mui_full_update_id');
-        location.replace(target.toString());
-        return;
-      }
-      if(res.ok){
+        const message=$('#updateProgressMessage');
+        if(message)message.textContent='更新任务状态暂不可用，正在等待面板恢复…';
+      }else if(res.ok){
         const st=await res.json();
         paintUpdateProgress(st);
         if(st.status==='completed'){
           stopped=true;
           sessionStorage.removeItem('mui_full_update_id');
+          const message=$('#updateProgressMessage');
+          const stage=$('#updateProgressStage');
+          const percent=$('#updateProgressPercent');
+          const bar=$('#updateProgressBar');
+          if(stage)stage.textContent='更新完成';
+          if(percent)percent.textContent='100%';
+          if(bar)bar.style.width='100%';
+          if(message)message.textContent='升级完成，面板正在重新载入登录界面…';
           document.title='m-ui · 更新完成';
-          setTimeout(()=>location.replace(target.toString()),900);
+          setTimeout(()=>location.replace(target.toString()),1000);
           return;
         }
         if(st.status==='failed'){
@@ -373,6 +399,8 @@ function beginFullUpdateProgress(updateID, initial){
       }
     }catch{
       const message=$('#updateProgressMessage');
+      const stage=$('#updateProgressStage');
+      if(stage)stage.textContent='等待面板恢复';
       if(message)message.textContent='面板正在重启或暂时离线，正在等待后台更新状态恢复…';
     }
     setTimeout(poll,1500);
@@ -617,4 +645,17 @@ document.addEventListener('click',e=>{
   const menu=$('#mobileNavDropdown'),wrap=$('.mobile-menu-wrap');
   if(menu&&!menu.hidden&&wrap&&!wrap.contains(e.target))closeMobileMenu();
 });
-(async()=>{await loadPanelInfo();if(resumeFullUpdateIfNeeded())return;try{await api('/api/me');state.loggedIn=true;state.updateInfo=null;await loadBootstrap();await preloadSystemUpdateInfo();startPolling()}catch{}render()})();
+(async()=>{
+  await loadPanelInfo();
+  const updateID=sessionStorage.getItem('mui_full_update_id');
+  try{
+    await api('/api/me');
+    state.loggedIn=true;
+    state.updateInfo=null;
+    await loadBootstrap();
+    await preloadSystemUpdateInfo();
+    startPolling();
+  }catch{}
+  render();
+  if(updateID)beginFullUpdateProgress(updateID,{progress:2,stage:'恢复更新状态',message:'正在读取后台更新进度…'});
+})();
