@@ -747,18 +747,19 @@ html,body,#app{max-width:100%;overflow-x:hidden}
 @media(max-width:760px){
   .maintenance-controls{
     display:grid;
-    grid-template-columns:minmax(0,1fr) 44px minmax(118px,auto);
-    align-items:center;
+    grid-template-columns:44px minmax(0,1fr);
+    align-items:stretch;
   }
   .maintenance-update-note{
-    grid-column:1;
+    grid-column:1 / -1;
+    grid-row:1;
     min-width:0;
     text-align:left;
     font-size:11px;
     line-height:1.4;
   }
-  .maintenance-refresh{grid-column:2}
-  .maintenance-update-btn{grid-column:3}
+  .maintenance-refresh{grid-column:1;grid-row:2}
+  .maintenance-update-btn{grid-column:2;grid-row:2}
 }
 
 
@@ -766,3 +767,11 @@ html,body,#app{max-width:100%;overflow-x:hidden}
 .maintenance-controls>.maintenance-update-note{order:1}
 .maintenance-controls>.maintenance-refresh{order:2}
 .maintenance-controls>.maintenance-update-btn{order:3}
+
+
+/* v1.5.27 mobile update note above controls */
+@media(max-width:760px){
+  .maintenance-update-note{grid-column:1 / -1;grid-row:1}
+  .maintenance-refresh{grid-column:1;grid-row:2}
+  .maintenance-update-btn{grid-column:2;grid-row:2}
+}
