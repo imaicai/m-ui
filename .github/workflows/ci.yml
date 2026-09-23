@@ -219,7 +219,7 @@ jobs:
           assert 'fmtPercent' in app and '面板累计运行' in app
           assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
           assert 'contentOnly' in app and 'syncShellChrome' in app and 'app.querySelector(\'.shell .content\')' in app
-          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.13' in app
+          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.14' in app
           assert 'admin-account' in app and "icon('user')" in app and '管理员账号：' not in app
           assert 'class="admin-account" data-route="settings" type="button"' in app
           assert 'title="管理员账号 · 系统设置"' in app
@@ -248,20 +248,29 @@ jobs:
           nodes_html = app[app.index('function nodes()'):app.index('function subscriptionURL')]
           assert nodes_html.index('node-guide') < nodes_html.index('nodeSearch') < nodes_html.index('resetAllTraffic') < nodes_html.index('addNode') < nodes_html.index('node-table-card')
           assert 'id="fullUpdatePanel"' in app and "api('/api/system/full-update',{method:'POST'})" in app
+          assert "api('/api/system/update-info')" in app and 'refreshSystemUpdateInfo' in app and 'paintSystemUpdateInfo' in app
+          assert 'maintenanceCurrentVersion' in app and 'maintenanceLatestVersion' in app and 'update_available' in app
           assert 'function updateProgressScreen' in app and 'updateProgressBar' in app and 'updateProgressPercent' in app
           assert "sessionStorage.setItem('mui_full_update_id'" in app and 'resumeFullUpdateIfNeeded' in app
           assert "full-update-status?update_id=" in app and "st.status==='completed'" in app
           assert '/api/system/full-update-status' in server and 'handleFullUpdateStatus' in server
+          assert '/api/system/update-info' in server and 'handleUpdateInfo' in server
+          assert 'compareSemanticVersions' in server and 'fetchLatestMUIVersion' in server and 'UpdateAvailable' in server
           assert 'writeFullUpdateStatus' in server and 'readFullUpdateStatus' in server
           assert '--setenv=MUI_UPDATE_TOKEN=' in server and '--setenv=MUI_UPDATE_STATUS_FILE=' in server
           assert 'systemd-run' in server and 'm-ui-full-update' in server
           install_script = Path("install.sh").read_text(encoding="utf-8")
-          for marker in ['update_progress 10', 'update_progress 28', 'update_progress 46', 'update_progress 60', 'update_progress 72', 'update_progress 82', 'update_progress 90', 'update_progress 97', 'update_progress 99']:
+          for marker in ['update_progress 10', 'update_progress 28', 'update_progress 46', 'update_progress 60', 'update_progress 66', 'update_progress 72', 'update_progress 82', 'update_progress 90', 'update_progress 97', 'update_progress 99']:
               assert marker in install_script
+          assert 'GOMAXPROCS=1' in install_script and 'GOGC=50' in install_script and 'go build -p=1' in install_script
+          assert '/var/log/m-ui/full-update-build.log' in install_script
           menu_script = Path("m-ui").read_text(encoding="utf-8")
           assert '--full-update' in menu_script and 'MUI_NONINTERACTIVE_UPDATE=1 update_program' in menu_script
           assert 'write_update_status 100 "更新完成"' in menu_script
           assert 'v1.5.12 full-update progress' in css
+          assert 'v1.5.14 update version gate and progress layout' in css
+          assert '.maintenance-versions' in css and '.maintenance-update-status' in css
+          assert 'justify-self:center' in css and 'width:min(680px,calc(100vw - 48px))' in css
           assert "stat('代理流量',fmtBytes(traffic.total),trafficSub,'i-green'" in app and "trafficSub,'i-purple'" not in app
           resource_block = app[app.index('<section class=\"card section-card dashboard-resources\"'):app.index('<div class=\"grid dashboard-bottom\"')]
           assert resource_block.index("ring('CPU'") < resource_block.index("ring('磁盘'") < resource_block.index("ring('内存'") < resource_block.index("ring('SWAP'")
@@ -275,7 +284,7 @@ jobs:
           assert "## v1.5.0" not in readme and "安全稳定性能版" not in readme
           assert "## 🚀 核心能力" in readme and "## ⚙️ 一键安装" in readme and "## 🛡️ 安全设计" in readme
           assert '<img src="web/assets/app-icon.png"' in readme
-          assert "**当前版本：v1.5.13**" in readme
+          assert "**当前版本：v1.5.14**" in readme
           assert "请输入选项 [1-8，CTRL+C退出]" in readme
           assert "YOUR_SERVER_IP" in readme and "ADMIN_USER" in readme and "PANEL_PORT" in readme and "/PANEL_PATH/" in readme
           assert "实际内容由你的服务器动态读取" in readme
@@ -369,14 +378,25 @@ jobs:
           grep -q 'mobileLogout' web/assets/app.js
           grep -q 'mobileRestart' web/assets/app.js
           grep -q 'fullUpdatePanel' web/assets/app.js
+          grep -q 'refreshSystemUpdateInfo' web/assets/app.js
+          grep -q 'maintenanceCurrentVersion' web/assets/app.js
           grep -q 'updateProgressBar' web/assets/app.js
           grep -q 'resumeFullUpdateIfNeeded' web/assets/app.js
           grep -q 'full-update-status' web/assets/app.js
           grep -q 'handleFullUpdateStatus' server.go
+          grep -q 'handleUpdateInfo' server.go
+          grep -q 'compareSemanticVersions' server.go
           grep -q 'MUI_UPDATE_STATUS_FILE' install.sh
+          grep -q 'update_progress 66' install.sh
           grep -q 'update_progress 90' install.sh
+          grep -q 'GOMAXPROCS=1' install.sh
+          grep -q 'go build -p=1' install.sh
+          grep -q 'full-update-build.log' install.sh
           grep -q 'write_update_status 100' m-ui
           grep -q 'v1.5.12 full-update progress' web/assets/app.css
+          grep -q 'v1.5.14 update version gate and progress layout' web/assets/app.css
+          grep -q 'maintenance-versions' web/assets/app.css
+          grep -q 'justify-self:center' web/assets/app.css
           grep -q '/api/system/full-update' server.go
           grep -q 'handleFullUpdate' server.go
           grep -q 'systemd-run' server.go
@@ -388,7 +408,7 @@ jobs:
           ! grep -q '## v1.5.0' README.md
           grep -q '## 🚀 核心能力' README.md
           grep -q '## ⚙️ 一键安装' README.md
-          grep -q '当前版本：v1.5.13' README.md
+          grep -q '当前版本：v1.5.14' README.md
           grep -Fq '请输入选项 [1-8，CTRL+C退出]' README.md
           ! grep -q 'm-ui-ctl status' README.md
           grep -q "trafficSub,'i-green'" web/assets/app.js
