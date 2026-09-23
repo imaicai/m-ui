@@ -219,7 +219,7 @@ jobs:
           assert 'fmtPercent' in app and '面板累计运行' in app
           assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
           assert 'contentOnly' in app and 'syncShellChrome' in app and 'app.querySelector(\'.shell .content\')' in app
-          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.12' in app
+          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.13' in app
           assert 'admin-account' in app and "icon('user')" in app and '管理员账号：' not in app
           assert 'class="admin-account" data-route="settings" type="button"' in app
           assert 'title="管理员账号 · 系统设置"' in app
