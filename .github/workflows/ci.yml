@@ -225,7 +225,7 @@ jobs:
           assert 'title="管理员账号 · 系统设置"' in app
           assert 'function mobileHeader()' in app and 'id="mobileMenuToggle"' in app and 'id="mobileNavDropdown"' in app
           assert 'id="mobileLogout"' in app and "icon('menu')" in app
-          assert "$('.nav [data-route],.mobile-nav-dropdown [data-route]')" in app
+          assert "$$('.nav [data-route],.mobile-nav-dropdown [data-route]')" in app
           mobile_css = css[css.index('/* v1.5.10 mobile responsive navigation and single-column layout */'):]
           assert '@media(max-width:760px)' in mobile_css
           assert '.sidebar{display:none!important}' in mobile_css
