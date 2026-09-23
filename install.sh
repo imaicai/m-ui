@@ -27,12 +27,13 @@ update_progress(){
   CURRENT_UPDATE_STAGE="$stage"
   local dir tmp
   dir="$(dirname "$MUI_UPDATE_STATUS_FILE")"
-  mkdir -p "$dir"
+  mkdir -p "$dir" 2>/dev/null || return 0
   tmp="${MUI_UPDATE_STATUS_FILE}.tmp"
   printf '{"update_id":"%s","status":"%s","progress":%d,"stage":"%s","message":"%s","updated_at":%d}\n' \
-    "$MUI_UPDATE_TOKEN" "$status" "$progress" "$stage" "$message" "$(date +%s)" > "$tmp"
-  chmod 600 "$tmp"
-  mv -f "$tmp" "$MUI_UPDATE_STATUS_FILE"
+    "$MUI_UPDATE_TOKEN" "$status" "$progress" "$stage" "$message" "$(date +%s)" > "$tmp" || return 0
+  chmod 600 "$tmp" 2>/dev/null || { rm -f "$tmp"; return 0; }
+  mv -f "$tmp" "$MUI_UPDATE_STATUS_FILE" 2>/dev/null || { rm -f "$tmp"; return 0; }
+  return 0
 }
 
 on_update_error(){
