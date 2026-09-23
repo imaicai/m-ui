@@ -219,7 +219,7 @@ jobs:
           assert 'fmtPercent' in app and '面板累计运行' in app
           assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
           assert 'contentOnly' in app and 'syncShellChrome' in app and 'app.querySelector(\'.shell .content\')' in app
-          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.16' in app
+          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.17' in app
           assert 'admin-account' in app and "icon('user')" in app and '管理员账号：' not in app
           assert 'class="admin-account" data-route="settings" type="button"' in app
           assert 'title="管理员账号 · 系统设置"' in app
@@ -260,6 +260,11 @@ jobs:
           assert 'maintenance-update-status' not in app
           assert "refreshSystemUpdateInfo({silent:true})" not in app
           assert 'function updateProgressScreen' in app and 'updateProgressBar' in app and 'updateProgressPercent' in app
+          assert "confirm('确认重启面板" not in app
+          restart_block = app[app.index('function restartPanel()'):app.index('function updateProgressScreen')]
+          assert "confirmBox('确认重启面板？重启后需要重新登录。'" in restart_block
+          assert '#confirmBackdrop' in css and 'align-items:center!important' in css and 'justify-content:center!important' in css
+          assert 'v1.5.17 centered restart confirmation' in css
           assert "sessionStorage.setItem('mui_full_update_id'" in app and 'resumeFullUpdateIfNeeded' in app
           assert "full-update-status?update_id=" in app and "st.status==='completed'" in app
           assert '/api/system/full-update-status' in server and 'handleFullUpdateStatus' in server
@@ -307,7 +312,7 @@ jobs:
           assert "## v1.5.0" not in readme and "安全稳定性能版" not in readme
           assert "## 🚀 核心能力" in readme and "## ⚙️ 一键安装" in readme and "## 🛡️ 安全设计" in readme
           assert '<img src="web/assets/app-icon.png"' in readme
-          assert "**当前版本：v1.5.16**" in readme
+          assert "**当前版本：v1.5.17**" in readme
           assert "请输入选项 [1-8，CTRL+C退出]" in readme
           assert "YOUR_SERVER_IP" in readme and "ADMIN_USER" in readme and "PANEL_PORT" in readme and "/PANEL_PATH/" in readme
           assert "实际内容由你的服务器动态读取" in readme
@@ -412,6 +417,10 @@ jobs:
           grep -q 'maintenanceCurrentVersion' web/assets/app.js
           grep -q 'updateProgressBar' web/assets/app.js
           grep -q 'resumeFullUpdateIfNeeded' web/assets/app.js
+          ! grep -q "confirm('确认重启面板" web/assets/app.js
+          grep -q "confirmBox('确认重启面板？重启后需要重新登录。'" web/assets/app.js
+          grep -q 'v1.5.17 centered restart confirmation' web/assets/app.css
+          grep -q '#confirmBackdrop' web/assets/app.css
           grep -q 'full-update-status' web/assets/app.js
           grep -q 'handleFullUpdateStatus' server.go
           grep -q 'handleUpdateInfo' server.go
@@ -453,7 +462,7 @@ jobs:
           ! grep -q '## v1.5.0' README.md
           grep -q '## 🚀 核心能力' README.md
           grep -q '## ⚙️ 一键安装' README.md
-          grep -q '当前版本：v1.5.16' README.md
+          grep -q '当前版本：v1.5.17' README.md
           grep -Fq '请输入选项 [1-8，CTRL+C退出]' README.md
           ! grep -q 'm-ui-ctl status' README.md
           grep -q "trafficSub,'i-green'" web/assets/app.js
@@ -490,4 +499,4 @@ jobs:
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
           test -f web/assets/app-icon.png
           test ! -e app-icon.png
-          grep -q '^1\.5\.16$' VERSION
+          grep -q '^1\.5\.17$' VERSION
