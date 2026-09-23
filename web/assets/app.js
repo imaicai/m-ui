@@ -99,7 +99,7 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.22')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
+function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.23')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
 
 function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><button class="brand brand-home" data-route="dashboard" type="button" aria-label="返回仪表盘">${brandIcon('sidebar')}<span class="brand-copy"><strong class="brand-title">${esc(brandName())}</strong><small>最简单的代理面板</small></span></button><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
@@ -289,7 +289,7 @@ function settings(){
   const latestVersion=u?.latest_version?displayVersion(u.latest_version):(u?.error?'检测失败':'未检测');
   const updateReady=u?.update_available===true;
   const updateButtonText=updateReady?'进行完整更新':'暂无更新';
-  return layout(`<section class="card info-card settings-advice"><h3>使用建议</h3><p>新建节点默认使用 <b>VLESS + RAW + REALITY + XTLS Vision</b>。如果填写“节点域名”，新建节点会优先使用该域名作为连接地址；未填写时才使用服务器公网 IP。TLS 证书路径主要用于兼容已有 TLS 节点。建议使用独立根路径保护管理入口。证书有效且匹配节点域名时，HTTP 会自动切换到 HTTPS。</p></section><div class="settings-stack"><section class="card settings-card"><h2>基础设置</h2><p>管理入口与节点域名设置。</p><div class="setting-row"><label>面板名称</label><input class="input" id="setName" value="${esc(s.panel_name||'m-ui')}"><small>显示在页面标题中</small></div><div class="setting-row"><label>面板端口</label><input class="input" id="setPort" type="number" min="1024" max="65535" value="${Number(s.panel_port||location.port||16800)}"><small>修改端口后会自动重启面板，并需要重新登录</small></div><div class="setting-row"><label>面板 URL 根路径</label><input class="input" id="setPath" value="${esc(s.panel_path||'/')}" placeholder="/a8f3k2m9/"><small>修改根路径后直接切换到新入口，不需要重启面板</small></div><div class="setting-row"><label>默认协议</label><input class="input readonly" value="VLESS + RAW + REALITY + XTLS Vision" readonly><small>新建节点固定使用当前推荐配置</small></div><div class="setting-row"><label>节点域名</label><input class="input" id="setDomain" value="${esc(s.domain||'')}" placeholder="vpn.example.com（可留空）"><small>可留空；填写后新建 REALITY 节点的分享地址也会优先使用该域名</small></div></section><section class="card settings-card"><h2>证书路径</h2><p>面板 HTTPS 与 TLS 节点共用证书文件。</p><div class="setting-row"><label>证书文件</label><input class="input" id="setCert" value="${esc(s.cert_file||'~/minijet/ssh/m-ui/fullchain.pem')}"><span class="cert-status">${s.cert_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div><div class="setting-row"><label>私钥文件</label><input class="input" id="setKey" value="${esc(s.key_file||'~/minijet/ssh/m-ui/privkey.pem')}"><span class="cert-status">${s.key_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div></section><section class="card settings-card"><h2>登录账号</h2><p>修改登录名或密码时必须输入当前密码，保存后需要重新登录。</p><div class="setting-row"><label>登录名</label><input class="input" id="setUser" value="${esc(s.admin_user||'admin')}"><small>仅修改时需要重新登录</small></div><div class="setting-row"><label>当前密码</label><input class="input" id="setCurrentPass" type="password" autocomplete="current-password"><small>仅修改账号信息时需要填写</small></div><div class="setting-row"><label>新密码</label><input class="input" id="setPass" type="password" autocomplete="new-password" placeholder="至少 8 位"><small>不修改密码可留空</small></div><div class="setting-row"><label>确认新密码</label><input class="input" id="setPass2" type="password" autocomplete="new-password"><small>与新密码保持一致</small></div></section><section class="card settings-card maintenance-card"><h2>系统升级维护</h2><p>更新前端、后端、SSH 管理脚本和 Xray Core，并保留现有账号、节点、订阅与设置。</p><div class="maintenance-versions"><div class="maintenance-version-item"><span>当前版本</span><b id="maintenanceCurrentVersion">${esc(currentVersion)}</b></div><span class="maintenance-version-arrow">→</span><div class="maintenance-version-item"><span>开源仓库</span><b id="maintenanceLatestVersion">${esc(latestVersion)}</b></div></div><div class="maintenance-controls"><button class="icon-btn maintenance-refresh" id="refreshUpdateInfo" type="button" title="重新检测开源仓库版本" aria-label="重新检测开源仓库版本">${icon('restart')}</button><button class="btn ${updateReady?'btn-primary':'btn-outline'} maintenance-update-btn" id="fullUpdatePanel" type="button" ${updateReady?'':'disabled'}><span id="fullUpdatePanelText">${esc(updateButtonText)}</span></button></div></section><div class="settings-restart-note">只有修改设置后才可保存。修改面板端口会自动重启并重新登录；修改登录名或密码只需重新登录；其他设置保存后直接生效。</div><div class="savebar"><button class="btn btn-primary" id="saveSettings" disabled>保存设置</button></div></div>`)
+  return layout(`<section class="card info-card settings-advice"><h3>使用建议</h3><p>新建节点默认使用 <b>VLESS + RAW + REALITY + XTLS Vision</b>。如果填写“节点域名”，新建节点会优先使用该域名作为连接地址；未填写时才使用服务器公网 IP。TLS 证书路径主要用于兼容已有 TLS 节点。建议使用独立根路径保护管理入口。证书有效且匹配节点域名时，HTTP 会自动切换到 HTTPS。</p></section><div class="settings-stack"><section class="card settings-card"><h2>基础设置</h2><p>管理入口与节点域名设置。</p><div class="setting-row"><label>面板名称</label><input class="input" id="setName" value="${esc(s.panel_name||'m-ui')}"><small>显示在页面标题中</small></div><div class="setting-row"><label>面板端口</label><input class="input" id="setPort" type="number" min="1024" max="65535" value="${Number(s.panel_port||location.port||16800)}"><small>修改端口后会自动重启面板，并需要重新登录</small></div><div class="setting-row"><label>面板 URL 根路径</label><input class="input" id="setPath" value="${esc(s.panel_path||'/')}" placeholder="/a8f3k2m9/"><small>修改根路径后直接切换到新入口，不需要重启面板</small></div><div class="setting-row"><label>默认协议</label><input class="input readonly" value="VLESS + RAW + REALITY + XTLS Vision" readonly><small>新建节点固定使用当前推荐配置</small></div><div class="setting-row"><label>节点域名</label><input class="input" id="setDomain" value="${esc(s.domain||'')}" placeholder="vpn.example.com（可留空）"><small>可留空；填写后新建 REALITY 节点的分享地址也会优先使用该域名</small></div></section><section class="card settings-card"><h2>证书路径</h2><p>面板 HTTPS 与 TLS 节点共用证书文件。</p><div class="setting-row"><label>证书文件</label><input class="input" id="setCert" value="${esc(s.cert_file||'~/minijet/ssh/m-ui/fullchain.pem')}"><span class="cert-status">${s.cert_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div><div class="setting-row"><label>私钥文件</label><input class="input" id="setKey" value="${esc(s.key_file||'~/minijet/ssh/m-ui/privkey.pem')}"><span class="cert-status">${s.key_exists?'<span class="dot"></span> 已检测':'<span class="warn-dot"></span> 未找到'}</span></div></section><section class="card settings-card"><h2>登录账号</h2><p>修改登录名或密码时必须输入当前密码，保存后需要重新登录。</p><div class="setting-row"><label>登录名</label><input class="input" id="setUser" value="${esc(s.admin_user||'admin')}"><small>仅修改时需要重新登录</small></div><div class="setting-row"><label>当前密码</label><input class="input" id="setCurrentPass" type="password" autocomplete="current-password"><small>仅修改账号信息时需要填写</small></div><div class="setting-row"><label>新密码</label><input class="input" id="setPass" type="password" autocomplete="new-password" placeholder="至少 8 位"><small>不修改密码可留空</small></div><div class="setting-row"><label>确认新密码</label><input class="input" id="setPass2" type="password" autocomplete="new-password"><small>与新密码保持一致</small></div></section><section class="card settings-card maintenance-card"><h2>系统升级维护</h2><p>更新前端、后端、SSH 管理脚本和 Xray Core，并保留现有账号、节点、订阅与设置。</p><div class="maintenance-versions"><div class="maintenance-version-item"><span>当前版本</span><b id="maintenanceCurrentVersion">${esc(currentVersion)}</b></div><span class="maintenance-version-arrow">→</span><div class="maintenance-version-item"><span>开源仓库</span><b id="maintenanceLatestVersion">${esc(latestVersion)}</b></div></div><div class="maintenance-controls"><div class="maintenance-progress" id="maintenanceProgress" hidden><div class="maintenance-progress-head"><span id="maintenanceProgressStage">准备更新</span><b id="maintenanceProgressPercent">0%</b></div><div class="maintenance-progress-track"><i id="maintenanceProgressBar" style="width:0%"></i></div><div class="maintenance-progress-copy"><span id="maintenanceProgressMessage">正在准备完整更新…</span><small>更新完成后面板会自动重启并退出当前登录，请重新登录。</small></div></div><button class="icon-btn maintenance-refresh" id="refreshUpdateInfo" type="button" title="重新检测开源仓库版本" aria-label="重新检测开源仓库版本">${icon('restart')}</button><button class="btn ${updateReady?'btn-primary':'btn-outline'} maintenance-update-btn" id="fullUpdatePanel" type="button" ${updateReady?'':'disabled'}><span id="fullUpdatePanelText">${esc(updateButtonText)}</span></button></div></section><div class="settings-restart-note">只有修改设置后才可保存。修改面板端口会自动重启并重新登录；修改登录名或密码只需重新登录；其他设置保存后直接生效。</div><div class="savebar"><button class="btn btn-primary" id="saveSettings" disabled>保存设置</button></div></div>`)
 }
 function confirmBox(message, yes){state.modal='confirm';document.body.insertAdjacentHTML('beforeend',`<div class="modal-backdrop" id="confirmBackdrop"><div class="modal" style="max-width:460px"><div class="modal-head"><div><h2 style="margin:0 0 6px">请确认</h2><p style="margin:0;color:var(--muted)">${esc(message)}</p></div><button class="close" id="confirmNo">×</button></div><div class="modal-actions"><button class="btn btn-outline" id="confirmCancel">取消</button><button class="btn btn-danger" id="confirmYes">确认</button></div></div></div>`);const close=()=>$('#confirmBackdrop')?.remove();$('#confirmNo').onclick=close;$('#confirmCancel').onclick=close;$('#confirmBackdrop').addEventListener('click',e=>{if(e.target.id==='confirmBackdrop')close()});$('#confirmYes').onclick=async()=>{close();await yes()}}
 
@@ -318,100 +318,124 @@ function restartPanel(){
   });
 }
 
-function updateProgressScreen(st={progress:2,stage:'启动更新',message:'正在创建独立后台更新任务'}){
-  const progress=Math.max(0,Math.min(100,Number(st.progress)||0));
-  return `<div class="modal-backdrop update-progress-backdrop" id="updateProgressBackdrop"><div class="update-progress-card" role="dialog" aria-modal="true" aria-labelledby="updateProgressTitle"><strong id="updateProgressTitle">正在完整更新 m-ui</strong><div class="update-progress-head"><span id="updateProgressStage">${esc(st.stage||'更新中')}</span><b id="updateProgressPercent">${progress}%</b></div><div class="update-progress-track"><i id="updateProgressBar" style="width:${progress}%"></i></div><div class="update-progress-details"><span class="update-progress-message" id="updateProgressMessage">${esc(st.message||'正在更新，请稍候…')}</span><small>更新过程中面板可能短暂离线；进度会在面板恢复后继续同步。</small><button class="btn btn-outline update-progress-return" id="updateProgressReturn" type="button" hidden>关闭</button></div></div></div>`;
-}
-
-async function closeUpdateProgressAfterFailure(){
+function clearFullUpdateSession(){
   sessionStorage.removeItem('mui_full_update_id');
-  $('#updateProgressBackdrop')?.remove();
-  document.title=brandName()+' · MiniJet';
-  try{
-    await api('/api/me');
-    if(state.loggedIn&&state.boot){
-      startPolling();
-      render();
-    }
-  }catch{
-    state.loggedIn=false;
-    state.boot=null;
-    stopTimers();
-    render();
-  }
+  sessionStorage.removeItem('mui_full_update_target');
 }
 
-function paintUpdateProgress(st){
-  const progress=Math.max(0,Math.min(100,Number(st?.progress)||0));
-  const stage=$('#updateProgressStage'), percent=$('#updateProgressPercent'), bar=$('#updateProgressBar'), message=$('#updateProgressMessage'), back=$('#updateProgressReturn');
-  if(stage)stage.textContent=st?.stage||'更新中';
+function paintMaintenanceProgress(st={}){
+  const root=$('#maintenanceProgress');
+  if(!root)return;
+  const progress=Math.max(0,Math.min(100,Number(st.progress)||0));
+  root.hidden=false;
+  root.classList.toggle('is-error',st.status==='failed');
+  root.classList.toggle('is-restarting',st.status==='restarting');
+  const stage=$('#maintenanceProgressStage'), percent=$('#maintenanceProgressPercent'), bar=$('#maintenanceProgressBar'), message=$('#maintenanceProgressMessage');
+  if(stage)stage.textContent=st.stage||'更新中';
   if(percent)percent.textContent=progress+'%';
   if(bar)bar.style.width=progress+'%';
-  if(message)message.textContent=st?.message||'正在更新，请稍候…';
-  if(st?.status==='failed'&&back){
-    back.hidden=false;
-    back.onclick=closeUpdateProgressAfterFailure;
+  if(message)message.textContent=st.message||'正在更新，请稍候…';
+}
+
+function setMaintenanceUpdateBusy(busy){
+  const btn=$('#fullUpdatePanel'), refresh=$('#refreshUpdateInfo'), textEl=$('#fullUpdatePanelText');
+  if(btn)btn.disabled=busy;
+  if(refresh)refresh.disabled=busy;
+  if(textEl&&busy)textEl.textContent='正在更新';
+}
+
+async function publicPanelVersion(){
+  try{
+    const res=await fetch(panelURL('/api/panel-info'),{cache:'no-store',credentials:'same-origin'});
+    if(!res.ok)return '';
+    const info=await res.json();
+    return String(info?.version||'').replace(/^v/i,'').trim();
+  }catch{
+    return '';
   }
 }
 
-function ensureUpdateProgressModal(initial){
-  let backdrop=$('#updateProgressBackdrop');
-  if(!backdrop){
-    document.body.insertAdjacentHTML('beforeend',updateProgressScreen(initial));
-    backdrop=$('#updateProgressBackdrop');
-  }else{
-    paintUpdateProgress(initial);
-  }
-  return backdrop;
+function versionEquals(a,b){
+  return String(a||'').replace(/^v/i,'').trim()===String(b||'').replace(/^v/i,'').trim();
 }
 
-function beginFullUpdateProgress(updateID, initial){
+function finishFullUpdateToLogin(target,message='新版面板已启动，正在进入登录界面…'){
+  paintMaintenanceProgress({progress:100,stage:'更新完成',message,status:'restarting'});
+  clearFullUpdateSession();
+  document.title='m-ui · 更新完成';
+  setTimeout(()=>location.replace(target.toString()),700);
+}
+
+function failInlineFullUpdate(message){
+  clearFullUpdateSession();
+  paintMaintenanceProgress({progress:0,stage:'更新失败',message:message||'完整更新失败，请检查日志后重试',status:'failed'});
+  const btn=$('#fullUpdatePanel'), refresh=$('#refreshUpdateInfo'), textEl=$('#fullUpdatePanelText');
+  if(btn)btn.disabled=false;
+  if(refresh)refresh.disabled=false;
+  if(textEl)textEl.textContent='重新尝试';
+  document.title=brandName()+' · MiniJet';
+}
+
+function beginFullUpdateProgress(updateID, initial, expectedVersion=''){
   sessionStorage.setItem('mui_full_update_id',updateID);
+  if(expectedVersion)sessionStorage.setItem('mui_full_update_target',String(expectedVersion));
   stopTimers();
-  ensureUpdateProgressModal(initial);
+  setMaintenanceUpdateBusy(true);
+  paintMaintenanceProgress(initial);
   document.title='m-ui · 正在完整更新';
-  let stopped=false;
+
   const target=new URL(location.href);
   target.hash='';
   target.search='';
+  let stopped=false;
+  let lastProgress=Math.max(0,Number(initial?.progress)||0);
 
   const poll=async()=>{
     if(stopped)return;
     try{
       const url=panelURL('/api/system/full-update-status?update_id='+encodeURIComponent(updateID));
       const res=await fetch(url,{cache:'no-store',credentials:'same-origin'});
-      if(res.status===404){
-        const message=$('#updateProgressMessage');
-        if(message)message.textContent='更新任务状态暂不可用，正在等待面板恢复…';
-      }else if(res.ok){
+      if(res.ok){
         const st=await res.json();
-        paintUpdateProgress(st);
+        lastProgress=Math.max(lastProgress,Number(st?.progress)||0);
+        paintMaintenanceProgress(st);
         if(st.status==='completed'){
           stopped=true;
-          sessionStorage.removeItem('mui_full_update_id');
-          const message=$('#updateProgressMessage');
-          const stage=$('#updateProgressStage');
-          const percent=$('#updateProgressPercent');
-          const bar=$('#updateProgressBar');
-          if(stage)stage.textContent='更新完成';
-          if(percent)percent.textContent='100%';
-          if(bar)bar.style.width='100%';
-          if(message)message.textContent='升级完成，面板正在重新载入登录界面…';
-          document.title='m-ui · 更新完成';
-          setTimeout(()=>location.replace(target.toString()),1000);
+          finishFullUpdateToLogin(target,'完整更新已完成，面板将退出当前登录，请重新登录。');
           return;
         }
         if(st.status==='failed'){
+          const currentVersion=await publicPanelVersion();
+          if(expectedVersion&&versionEquals(currentVersion,expectedVersion)){
+            stopped=true;
+            finishFullUpdateToLogin(target,'新版面板已经启动，更新已完成；正在进入登录界面…');
+            return;
+          }
           stopped=true;
-          document.title='m-ui · 更新失败';
+          failInlineFullUpdate(st.message||'后台更新任务失败，请查看系统日志后重试');
+          return;
+        }
+      }else if(res.status!==404){
+        const currentVersion=await publicPanelVersion();
+        if(expectedVersion&&versionEquals(currentVersion,expectedVersion)){
+          stopped=true;
+          finishFullUpdateToLogin(target);
           return;
         }
       }
     }catch{
-      const message=$('#updateProgressMessage');
-      const stage=$('#updateProgressStage');
-      if(stage)stage.textContent='等待面板恢复';
-      if(message)message.textContent='面板正在重启或暂时离线，正在等待后台更新状态恢复…';
+      const currentVersion=await publicPanelVersion();
+      if(expectedVersion&&versionEquals(currentVersion,expectedVersion)){
+        stopped=true;
+        finishFullUpdateToLogin(target,'面板已重启并运行新版本，正在进入登录界面…');
+        return;
+      }
+      paintMaintenanceProgress({
+        progress:Math.max(lastProgress,90),
+        stage:'面板正在重启',
+        message:'更新连接暂时中断，这是面板重启时的正常现象；恢复后会自动进入登录界面。',
+        status:'restarting'
+      });
     }
     setTimeout(poll,1500);
   };
@@ -421,7 +445,12 @@ function beginFullUpdateProgress(updateID, initial){
 function resumeFullUpdateIfNeeded(){
   const updateID=sessionStorage.getItem('mui_full_update_id');
   if(!updateID)return false;
-  beginFullUpdateProgress(updateID,{progress:2,stage:'恢复更新状态',message:'正在读取后台更新进度…'});
+  if(!state.loggedIn){
+    clearFullUpdateSession();
+    return false;
+  }
+  const expectedVersion=sessionStorage.getItem('mui_full_update_target')||'';
+  beginFullUpdateProgress(updateID,{progress:2,stage:'恢复更新状态',message:'正在读取后台更新进度…'},expectedVersion);
   return true;
 }
 
@@ -461,70 +490,31 @@ async function refreshSystemUpdateInfo({silent=false}={}){
 async function fullUpdatePanel(){
   const info=state.updateInfo;
   if(!info?.update_available)return;
-  const from=displayVersion(info.current_version), to=displayVersion(info.latest_version);
 
-  $('#updateProgressBackdrop')?.remove();
-  document.body.insertAdjacentHTML('beforeend',
-    `<div class="modal-backdrop update-progress-backdrop update-confirm-backdrop" id="updateProgressBackdrop">
-      <div class="update-progress-card update-confirm-card" role="dialog" aria-modal="true" aria-labelledby="updateConfirmTitle">
-        <strong id="updateConfirmTitle">确认完整更新</strong>
-        <div class="update-confirm-copy">
-          <p>已检测版本：<b>${esc(from)}</b> → <b>${esc(to)}</b></p>
-          <small>将更新前端、后端、SSH 管理脚本和 Xray Core；更新过程中面板会重启。</small>
-        </div>
-        <div class="update-confirm-actions">
-          <button class="btn btn-outline" id="cancelFullUpdate" type="button">取消</button>
-          <button class="btn btn-primary" id="confirmFullUpdate" type="button">确认并开始更新</button>
-        </div>
-      </div>
-    </div>`);
+  const expectedVersion=String(info.latest_version||'').replace(/^v/i,'').trim();
+  const updateID=newUpdateRequestID();
+  sessionStorage.setItem('mui_full_update_id',updateID);
+  sessionStorage.setItem('mui_full_update_target',expectedVersion);
 
-  const backdrop=$('#updateProgressBackdrop');
-  const cancel=$('#cancelFullUpdate');
-  const confirm=$('#confirmFullUpdate');
-  const close=()=>backdrop?.remove();
-  if(cancel)cancel.onclick=close;
+  setMaintenanceUpdateBusy(true);
+  paintMaintenanceProgress({progress:2,stage:'启动更新',message:'正在创建独立后台更新任务…'});
+  stopTimers();
 
-  if(confirm)confirm.onclick=async()=>{
-    const btn=$('#fullUpdatePanel'), textEl=$('#fullUpdatePanelText');
-    if(btn)btn.disabled=true;
-    if(textEl)textEl.textContent='正在启动…';
-
-    const updateID=newUpdateRequestID();
-    sessionStorage.setItem('mui_full_update_id',updateID);
-
-    if(backdrop){
-      backdrop.classList.remove('update-confirm-backdrop');
-      backdrop.innerHTML=updateProgressScreen({progress:2,stage:'启动更新',message:'正在创建独立后台更新任务'})
-        .replace(/^<div class="modal-backdrop update-progress-backdrop" id="updateProgressBackdrop">/,'')
-        .replace(/<\/div>$/,'');
+  try{
+    const out=await api('/api/system/full-update',{method:'POST',body:JSON.stringify({update_id:updateID})});
+    beginFullUpdateProgress(updateID,{progress:2,stage:'启动更新',message:out?.message||'完整更新已在后台启动'},expectedVersion);
+  }catch(e){
+    if(isNetworkFetchError(e)){
+      beginFullUpdateProgress(updateID,{
+        progress:90,
+        stage:'面板正在重启',
+        message:'连接暂时中断，后台更新可能仍在继续；更新完成后会自动进入登录界面。',
+        status:'restarting'
+      },expectedVersion);
+      return;
     }
-
-    try{
-      const out=await api('/api/system/full-update',{method:'POST',body:JSON.stringify({update_id:updateID})});
-      beginFullUpdateProgress(updateID,{progress:2,stage:'启动更新',message:out?.message||'完整更新已在后台启动'});
-    }catch(e){
-      if(isNetworkFetchError(e)){
-        beginFullUpdateProgress(updateID,{progress:90,stage:'等待面板恢复',message:'面板连接暂时中断，后台更新可能仍在继续，正在自动确认更新状态…'});
-        return;
-      }
-      sessionStorage.removeItem('mui_full_update_id');
-      const currentBackdrop=$('#updateProgressBackdrop');
-      if(currentBackdrop){
-        currentBackdrop.innerHTML=`<div class="update-progress-card update-failed-card" role="dialog" aria-modal="true">
-          <strong>更新启动失败</strong>
-          <div class="update-progress-details">
-            <span class="update-progress-message">${esc(e.message||'无法启动完整更新')}</span>
-            <button class="btn btn-outline update-progress-return" id="updateProgressReturn" type="button">关闭</button>
-          </div>
-        </div>`;
-        const back=$('#updateProgressReturn');
-        if(back)back.onclick=()=>currentBackdrop.remove();
-      }
-      if(btn)btn.disabled=false;
-      if(textEl)textEl.textContent='进行完整更新';
-    }
-  };
+    failInlineFullUpdate(e.message||'无法启动完整更新');
+  }
 }
 
 function syncShellChrome(){
@@ -715,5 +705,10 @@ document.addEventListener('click',e=>{
     startPolling();
   }catch{}
   render();
-  if(updateID)beginFullUpdateProgress(updateID,{progress:2,stage:'恢复更新状态',message:'正在读取后台更新进度…'});
+  if(updateID&&state.loggedIn){
+    const expectedVersion=sessionStorage.getItem('mui_full_update_target')||'';
+    beginFullUpdateProgress(updateID,{progress:2,stage:'恢复更新状态',message:'正在读取后台更新进度…'},expectedVersion);
+  }else if(updateID){
+    clearFullUpdateSession();
+  }
 })();
