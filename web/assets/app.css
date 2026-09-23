@@ -568,9 +568,10 @@ html,body,#app{max-width:100%;overflow-x:hidden}
 .update-progress-head b{flex:0 0 auto;font-size:16px;color:var(--primary);font-variant-numeric:tabular-nums}
 .update-progress-track{height:11px;border-radius:999px;background:#EDF2F8;overflow:hidden}
 .update-progress-track i{display:block;height:100%;border-radius:inherit;background:var(--primary);transition:width .3s ease}
+.update-progress-details{display:grid;gap:14px;margin-top:14px}
 .update-progress-message{min-height:28px;color:#536760;line-height:1.7;overflow-wrap:anywhere}
 .update-progress-card small{color:var(--muted);line-height:1.65;overflow-wrap:anywhere}
-.update-progress-return{margin-top:8px;min-width:160px;justify-self:center}
+.update-progress-return{margin-top:4px;min-width:160px;justify-self:center}
 
 @media(max-width:760px){
   .update-progress-screen{padding:14px}
@@ -631,3 +632,7 @@ html,body,#app{max-width:100%;overflow-x:hidden}
 @media(max-width:760px){
   .mobile-nav-dropdown{position:fixed;right:12px;top:62px}
 }
+
+
+/* v1.5.16 full-update reliability and spacing */
+.update-progress-details{padding-top:2px}
