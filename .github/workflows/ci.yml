@@ -219,7 +219,7 @@ jobs:
           assert 'fmtPercent' in app and '面板累计运行' in app
           assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
           assert 'contentOnly' in app and 'syncShellChrome' in app and 'app.querySelector(\'.shell .content\')' in app
-          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.14' in app
+          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.15' in app
           assert 'admin-account' in app and "icon('user')" in app and '管理员账号：' not in app
           assert 'class="admin-account" data-route="settings" type="button"' in app
           assert 'title="管理员账号 · 系统设置"' in app
@@ -235,8 +235,12 @@ jobs:
           assert '.grid,.stats,.resources,.subs-top,.dashboard-middle,.dashboard-bottom,.feature-row,.settings-layout' in mobile_css
           assert '.table-wrap{width:100%;max-width:100%;overflow-x:auto' in mobile_css
           assert '.setting-row small,.setting-row .cert-status' in mobile_css
-          assert 'id="mobileRestart"' in app and "mobileRestart.onclick=restartPanel" in app
-          assert 'position:sticky!important;top:0!important' in css
+          assert 'id="mobileRestart"' in app and "mobileRestart.onclick=()=>{closeMobileMenu();restartPanel()}" in app
+          assert 'mobile-restart-btn' not in app
+          assert '<span class="sep">·</span>' not in app
+          assert 'position:fixed!important;top:0!important;left:0!important;right:0!important' in css
+          assert '.main{padding-top:70px!important}' in css
+          assert "wrap&&!wrap.contains(e.target)" in app
           assert '.dashboard-resources .resources{grid-template-columns:repeat(2,minmax(0,1fr))!important}' in css
           assert 'v1.5.13 mobile node-management layout only' in css
           node_mobile = css[css.index('/* v1.5.13 mobile node-management layout only */'):]
@@ -249,7 +253,12 @@ jobs:
           assert nodes_html.index('node-guide') < nodes_html.index('nodeSearch') < nodes_html.index('resetAllTraffic') < nodes_html.index('addNode') < nodes_html.index('node-table-card')
           assert 'id="fullUpdatePanel"' in app and "api('/api/system/full-update',{method:'POST'})" in app
           assert "api('/api/system/update-info')" in app and 'refreshSystemUpdateInfo' in app and 'paintSystemUpdateInfo' in app
+          assert 'preloadSystemUpdateInfo' in app and 'await preloadSystemUpdateInfo()' in app
           assert 'maintenanceCurrentVersion' in app and 'maintenanceLatestVersion' in app and 'update_available' in app
+          assert '系统升级维护' in app and '进行完整更新' in app and '暂无更新' in app
+          assert 'id="refreshUpdateInfo"' in app and 'maintenance-refresh' in app
+          assert 'maintenance-update-status' not in app
+          assert "refreshSystemUpdateInfo({silent:true})" not in app
           assert 'function updateProgressScreen' in app and 'updateProgressBar' in app and 'updateProgressPercent' in app
           assert "sessionStorage.setItem('mui_full_update_id'" in app and 'resumeFullUpdateIfNeeded' in app
           assert "full-update-status?update_id=" in app and "st.status==='completed'" in app
@@ -269,7 +278,8 @@ jobs:
           assert 'write_update_status 100 "更新完成"' in menu_script
           assert 'v1.5.12 full-update progress' in css
           assert 'v1.5.14 update version gate and progress layout' in css
-          assert '.maintenance-versions' in css and '.maintenance-update-status' in css
+          assert 'v1.5.15 mobile menu and upgrade-maintenance refinement' in css
+          assert '.maintenance-versions' in css and '.maintenance-controls' in css and '.maintenance-refresh' in css
           assert 'justify-self:center' in css and 'width:min(680px,calc(100vw - 48px))' in css
           assert "stat('代理流量',fmtBytes(traffic.total),trafficSub,'i-green'" in app and "trafficSub,'i-purple'" not in app
           resource_block = app[app.index('<section class=\"card section-card dashboard-resources\"'):app.index('<div class=\"grid dashboard-bottom\"')]
@@ -284,15 +294,15 @@ jobs:
           assert "## v1.5.0" not in readme and "安全稳定性能版" not in readme
           assert "## 🚀 核心能力" in readme and "## ⚙️ 一键安装" in readme and "## 🛡️ 安全设计" in readme
           assert '<img src="web/assets/app-icon.png"' in readme
-          assert "**当前版本：v1.5.14**" in readme
+          assert "**当前版本：v1.5.15**" in readme
           assert "请输入选项 [1-8，CTRL+C退出]" in readme
           assert "YOUR_SERVER_IP" in readme and "ADMIN_USER" in readme and "PANEL_PORT" in readme and "/PANEL_PATH/" in readme
           assert "实际内容由你的服务器动态读取" in readme
           assert "m-ui-ctl status" not in readme
           assert "高级控制脚本（为自动化和兼容已有运维流程保留）" in readme
-          assert "📱 **移动适配**" in readme and "手机端使用 Logo + 网站名称 + 重启 + 菜单" in readme
+          assert "📱 **移动适配**" in readme and "手机端使用 Logo + 网站名称 + 菜单的固定顶部导航" in readme
           assert "输入说明会排列在对应输入框下方" in readme
-          assert "重启 + 菜单的吸顶导航" in readme
+          assert "“重启面板”移动到菜单内" in readme and "点击菜单以外区域会自动收起菜单" in readme
           assert "完整更新 m-ui" in readme and "SSH 菜单“完整更新 m-ui”相同的更新流程" in readme
           assert "真实进度百分比" in readme and "自动返回登录界面" in readme
           assert "新手说明 → 搜索框 → 清空全部节点流量 / +新建节点 → 节点列表" in readme
@@ -377,8 +387,15 @@ jobs:
           grep -q 'mobileNavDropdown' web/assets/app.js
           grep -q 'mobileLogout' web/assets/app.js
           grep -q 'mobileRestart' web/assets/app.js
+          ! grep -q 'mobile-restart-btn' web/assets/app.js
+          ! grep -q '<span class="sep">·</span>' web/assets/app.js
           grep -q 'fullUpdatePanel' web/assets/app.js
           grep -q 'refreshSystemUpdateInfo' web/assets/app.js
+          grep -q 'preloadSystemUpdateInfo' web/assets/app.js
+          grep -q 'refreshUpdateInfo' web/assets/app.js
+          grep -q '系统升级维护' web/assets/app.js
+          grep -q '进行完整更新' web/assets/app.js
+          grep -q '暂无更新' web/assets/app.js
           grep -q 'maintenanceCurrentVersion' web/assets/app.js
           grep -q 'updateProgressBar' web/assets/app.js
           grep -q 'resumeFullUpdateIfNeeded' web/assets/app.js
@@ -395,7 +412,10 @@ jobs:
           grep -q 'write_update_status 100' m-ui
           grep -q 'v1.5.12 full-update progress' web/assets/app.css
           grep -q 'v1.5.14 update version gate and progress layout' web/assets/app.css
+          grep -q 'v1.5.15 mobile menu and upgrade-maintenance refinement' web/assets/app.css
           grep -q 'maintenance-versions' web/assets/app.css
+          grep -q 'maintenance-controls' web/assets/app.css
+          grep -q 'position:fixed!important;top:0!important;left:0!important;right:0!important' web/assets/app.css
           grep -q 'justify-self:center' web/assets/app.css
           grep -q '/api/system/full-update' server.go
           grep -q 'handleFullUpdate' server.go
@@ -408,7 +428,7 @@ jobs:
           ! grep -q '## v1.5.0' README.md
           grep -q '## 🚀 核心能力' README.md
           grep -q '## ⚙️ 一键安装' README.md
-          grep -q '当前版本：v1.5.14' README.md
+          grep -q '当前版本：v1.5.15' README.md
           grep -Fq '请输入选项 [1-8，CTRL+C退出]' README.md
           ! grep -q 'm-ui-ctl status' README.md
           grep -q "trafficSub,'i-green'" web/assets/app.js
@@ -445,4 +465,4 @@ jobs:
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
           test -f web/assets/app-icon.png
           test ! -e app-icon.png
-          grep -q '^1\.5\.14$' VERSION
+          grep -q '^1\.5\.15$' VERSION
