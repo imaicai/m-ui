@@ -392,7 +392,7 @@ m-ui
 ~~~text
 m-ui 管理脚本 · MiniJet
 -------------------------------------------------------
-版本: 1.5.9
+版本: 1.5.10
 状态: 运行中
 公网IP: YOUR_SERVER_IP    国家: XX
 登录用户: ADMIN_USER    端口: PANEL_PORT    根路径: /PANEL_PATH/
