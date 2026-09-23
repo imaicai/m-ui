@@ -39,6 +39,7 @@ const icons={
  pulse:`<svg viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>`,
  serverStack:`<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6"/></svg>`,
  shieldCheck:`<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.6-2.8 8-7 10-4.2-2-7-5.4-7-10V6z"/><path d="m9 12 2 2 4-4"/></svg>`,
+ menu:`<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>`,
  network:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.2 2.2 3.5 5 3.5 8S14.2 17.8 12 20c-2.2-2.2-3.5-5-3.5-8S9.8 6.2 12 4"/><path d="m17.5 7.5 2-2 2 2M19.5 5.5v4M6.5 16.5l-2 2-2-2M4.5 18.5v-4"/></svg>`
 };
 function icon(name){return `<span class="icon">${icons[name]}</span>`}
@@ -88,15 +89,19 @@ function nodeNameHTML(n){
 }
 
 function brandName(){return state.boot?.settings?.panel_name||state.publicInfo?.name||'m-ui'}
-function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.7')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
+function brandIcon(kind='sidebar'){return `<span class="brand-logo-slot brand-logo-${kind}"><img src="${panelURL('assets/app-icon.png?v=1.5.10')}" width="256" height="256" alt="${esc(brandName())}" class="brand-image" decoding="async"></span>`}
 
 function nav(){const ver=esc(state.boot?.version||state.publicInfo?.version||'1.0.0');return `<aside class="sidebar"><div class="brand">${brandIcon('sidebar')}<div><strong class="brand-title">${esc(brandName())}</strong><small>最简单的代理面板</small></div></div><nav class="nav">
 ${[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']].map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}
 </nav><div class="sidebar-bottom"><div class="system-pill"><div class="statusline stable-runtime">${icon('clock')}<span>面板累计运行</span><b id="stableUptime">${fmtStableClock(currentPanelUptimeSeconds())}</b></div><div class="service-copy"><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer" title="打开 M-Ui GitHub 源码" aria-label="打开 M-Ui GitHub 源码">${icon('github')}</a><span>M-Ui：最简单的代理面板</span></div><div class="service-project"><a class="repo-icon-link" href="https://github.com/imaicai/MiniJet" target="_blank" rel="noopener noreferrer" title="打开 MiniJet GitHub 源码" aria-label="打开 MiniJet GitHub 源码">${icon('github')}</a><span>小飞机：最简单的代理客户端</span></div><div class="service-copyright">© 2026 <a href="https://github.com/imaicai/m-ui" target="_blank" rel="noopener noreferrer">M-Ui</a> v${ver}</div></div></div><button class="sidebar-restart" id="restartPanelSidebar" type="button"><span class="restart-mark">${icon('restart')}</span><span>重启面板</span></button></div></aside>`}
+function mobileHeader(){
+  const items=[['dashboard','home','仪表盘'],['nodes','nodes','节点管理'],['subscriptions','link','订阅管理'],['settings','gear','系统设置']];
+  return `<div class="mobile-header-brand">${brandIcon('mobile')}<strong class="mobile-brand-title">${esc(brandName())}</strong></div><div class="mobile-menu-wrap"><button class="mobile-menu-toggle" id="mobileMenuToggle" type="button" aria-label="打开导航菜单" aria-expanded="false">${icon('menu')}</button><div class="mobile-nav-dropdown" id="mobileNavDropdown" hidden>${items.map(([r,i,t])=>`<button data-route="${r}" class="${state.route===r?'active':''}">${icon(i)}<span>${t}</span></button>`).join('')}<div class="mobile-nav-separator"></div><button class="mobile-nav-logout" id="mobileLogout" type="button">${icon('power')}<span>退出登录</span></button></div></div>`;
+}
 function layout(content){
   if(state.contentOnly)return content;
   const [title,sub]=routeTitle(state.route), user=state.boot?.settings?.admin_user||'admin';
-  return `<div class="shell">${nav()}<main class="main"><header class="topbar"><div class="page-heading-inline"><h1>${title}</h1><span>${sub}</span></div><div class="userbox-inline"><button class="admin-account" data-route="settings" type="button" title="管理员账号 · 系统设置" aria-label="管理员账号，打开系统设置">${icon('user')}<b>${esc(user)}</b></button><span class="sep">·</span><button class="icon-btn subtle" id="logout" title="退出" aria-label="退出">${icon('power')}</button></div></header><div class="content">${content}</div></main></div>`;
+  return `<div class="shell">${nav()}<main class="main"><header class="topbar">${mobileHeader()}<div class="page-heading-inline"><h1>${title}</h1><span>${sub}</span></div><div class="userbox-inline"><button class="admin-account" data-route="settings" type="button" title="管理员账号 · 系统设置" aria-label="管理员账号，打开系统设置">${icon('user')}<b>${esc(user)}</b></button><span class="sep">·</span><button class="icon-btn subtle" id="logout" title="退出" aria-label="退出">${icon('power')}</button></div></header><div class="content">${content}</div></main></div>`;
 }
 
 function login(){return `<div class="login-shell"><form class="login-card refined" id="loginForm"><div class="login-card-head">${brandIcon('login')}<h1>${esc(brandName())}</h1><p>最简单的代理面板</p></div><div class="field"><label>用户名</label><input class="input" name="user" autocomplete="username" autofocus></div><div class="field"><label>密码</label><input class="input" name="pass" type="password" autocomplete="current-password"></div><button class="btn btn-primary btn-lg" type="submit">登录面板</button><div class="security-note">仅限管理员访问</div></form></div>`}
@@ -295,10 +300,11 @@ function syncShellChrome(){
   const h=$('.page-heading-inline h1'), p=$('.page-heading-inline span');
   if(h)h.textContent=title;
   if(p)p.textContent=sub;
-  $$('.nav [data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route===state.route));
+  $$('.nav [data-route],.mobile-nav-dropdown [data-route]').forEach(b=>b.classList.toggle('active',b.dataset.route===state.route));
   const brand=$('.brand-title'); if(brand)brand.textContent=brandName();
+  const mobileBrand=$('.mobile-brand-title'); if(mobileBrand)mobileBrand.textContent=brandName();
   const account=$('.admin-account b'); if(account)account.textContent=user;
-  const image=$('.brand-logo-sidebar .brand-image'); if(image)image.alt=brandName();
+  $$('.brand-logo-sidebar .brand-image,.brand-logo-mobile .brand-image').forEach(image=>image.alt=brandName());
 }
 function render(){
   document.title=brandName()+' · MiniJet';
@@ -323,7 +329,17 @@ function render(){
 }
 
 function bindLogin(){$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const fd=new FormData(e.target);try{await api('/api/login',{method:'POST',body:JSON.stringify({username:fd.get('user'),password:fd.get('pass')})});state.loggedIn=true;await loadBootstrap();startPolling();render()}catch(err){toast(err.message,false)}})}
-function bindCommon(){$$('[data-route]').forEach(b=>b.onclick=()=>{state.route=b.dataset.route;location.hash='#/'+state.route;render()});const restart=$('#restartPanelSidebar');if(restart)restart.onclick=restartPanel;const logout=$('#logout');if(logout)logout.onclick=async()=>{try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;stopTimers();render()};$$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'))}
+function closeMobileMenu(){const menu=$('#mobileNavDropdown'),toggle=$('#mobileMenuToggle');if(menu)menu.hidden=true;if(toggle)toggle.setAttribute('aria-expanded','false')}
+function bindCommon(){
+  $$('[data-route]').forEach(b=>b.onclick=()=>{closeMobileMenu();state.route=b.dataset.route;location.hash='#/'+state.route;render()});
+  const restart=$('#restartPanelSidebar');if(restart)restart.onclick=restartPanel;
+  const toggle=$('#mobileMenuToggle'),menu=$('#mobileNavDropdown');
+  if(toggle&&menu)toggle.onclick=()=>{const opening=menu.hidden;menu.hidden=!opening;toggle.setAttribute('aria-expanded',opening?'true':'false')};
+  const logoutAction=async()=>{closeMobileMenu();try{await api('/api/logout',{method:'POST'})}catch{}state.loggedIn=false;state.boot=null;stopTimers();render()};
+  const logout=$('#logout');if(logout)logout.onclick=logoutAction;
+  const mobileLogout=$('#mobileLogout');if(mobileLogout)mobileLogout.onclick=logoutAction;
+  $$('.copy-uri').forEach(b=>b.onclick=()=>copyText(b.dataset.uri,'节点链接已复制'))
+}
 function openNodeModal(){document.body.insertAdjacentHTML('beforeend',nodeModal());const close=()=>$('.modal-backdrop')?.remove();$('#closeModal').onclick=close;$('#cancelModal').onclick=close;$('.modal-backdrop').addEventListener('click',e=>{if(e.target.classList.contains('modal-backdrop'))close()});$('#createNode').onclick=async()=>{const btn=$('#createNode');btn.disabled=true;btn.textContent='正在识别并创建…';try{const out=await api('/api/nodes/default',{method:'POST'});close();await loadBootstrap();render();toast(out.warning?`${out.node.name} 已创建；${out.warning}`:`${out.node.name} 已创建并生效`)}catch(err){btn.disabled=false;btn.textContent='立即创建';toast(err.message,false)}}}
 function bindNodes(){
   $('#addNode')?.addEventListener('click',openNodeModal);
