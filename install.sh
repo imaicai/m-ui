@@ -157,6 +157,16 @@ apply_network_profile(){
   fi
 }
 
+configure_xray_run_user(){
+  mkdir -p /etc/systemd/system/xray.service.d
+  cat > /etc/systemd/system/xray.service.d/10-m-ui-user.conf <<EOF
+[Service]
+User=$XRAY_RUN_USER
+Group=$XRAY_RUN_USER
+EOF
+  systemctl daemon-reload
+}
+
 harden_xray_service(){
   mkdir -p /etc/systemd/system/xray.service.d
   cat > /etc/systemd/system/xray.service.d/20-m-ui-hardening.conf <<'EOF'
@@ -250,10 +260,15 @@ CURRENT_XRAY="$(xray_version || true)"
 LOCKED_XRAY=""
 [[ -f "$XRAY_LOCK_FILE" ]] && LOCKED_XRAY="$(tr -d '[:space:]' < "$XRAY_LOCK_FILE")"
 CURRENT_XRAY_USER=""
-if [[ -f /etc/systemd/system/xray.service ]]; then
+if [[ -f /etc/systemd/system/xray.service.d/10-m-ui-user.conf ]]; then
+  CURRENT_XRAY_USER="$(sed -n 's/^[[:space:]]*User[[:space:]]*=[[:space:]]*//p' /etc/systemd/system/xray.service.d/10-m-ui-user.conf 2>/dev/null | tail -n1 | awk '{print $1}' || true)"
+elif [[ -f /etc/systemd/system/xray.service ]]; then
   CURRENT_XRAY_USER="$(sed -n 's/^[[:space:]]*User[[:space:]]*=[[:space:]]*//p' /etc/systemd/system/xray.service 2>/dev/null | tail -n1 | awk '{print $1}' || true)"
 fi
-XRAY_INSTALL_ARGS=(install -u "$XRAY_RUN_USER")
+# XTLS/Xray-install removed custom -u/--install-user support on 2026-10-18.
+# Install with the upstream defaults, then enforce m-ui's required runtime user
+# through a dedicated systemd drop-in that we control.
+XRAY_INSTALL_ARGS=(install)
 NEED_XRAY_INSTALL=1
 if [[ "$XRAY_REFRESH" != "1" && -n "$LOCKED_XRAY" && "$CURRENT_XRAY" == "$LOCKED_XRAY" && "$CURRENT_XRAY_USER" == "$XRAY_RUN_USER" ]]; then
   NEED_XRAY_INSTALL=0
@@ -287,6 +302,7 @@ rm -f "$XRAY_SCRIPT"
 update_progress 46 "校验 Xray" "Xray Core 已更新，正在校验现有配置与服务"
 [[ -x /usr/local/bin/xray ]] || { restore_xray; rm -rf "$XRAY_BACKUP_DIR"; die "Xray 安装失败。"; }
 
+configure_xray_run_user
 harden_xray_service
 if [[ -f "$XRAY_CONFIG" ]]; then
   if [[ "$XRAY_RUN_USER" == "xray" ]]; then
