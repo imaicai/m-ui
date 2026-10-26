@@ -1720,9 +1720,16 @@ func normalizeDNSName(v string) (string, error) {
 	return v, nil
 }
 
+func validNodePort(port int) bool {
+	return port == 443 || (port >= 1024 && port <= 65535)
+}
+
 func validateEditedPort(port int, currentID string, nodes []Node) error {
-	if strings.Contains(strconv.Itoa(port), "4") {
-		return errors.New("节点端口不能包含数字 4")
+	if !validNodePort(port) {
+		return errors.New("节点端口仅允许推荐端口 443，或 1024-65535 的高位端口")
+	}
+	if port != 443 && strings.Contains(strconv.Itoa(port), "4") {
+		return errors.New("高位节点端口不能包含数字 4")
 	}
 	for _, n := range nodes {
 		if n.ID != currentID && n.Port == port {
