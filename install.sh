@@ -38,9 +38,13 @@ update_progress(){
 
 on_update_error(){
   local rc=$?
+  local line="${BASH_LINENO[0]:-unknown}"
+  local cmd="${BASH_COMMAND:-unknown}"
   if [[ -n "${MUI_UPDATE_STATUS_FILE:-}" && -n "${MUI_UPDATE_TOKEN:-}" ]]; then
     update_progress "$CURRENT_UPDATE_PROGRESS" "$CURRENT_UPDATE_STAGE" "更新在当前阶段失败，请查看系统日志后重试" "failed" || true
   fi
+  printf '\n' >&2
+  err "安装失败：退出码 ${rc}，第 ${line} 行：${cmd}"
   exit "$rc"
 }
 trap on_update_error ERR
@@ -256,13 +260,16 @@ if ! curl_fetch "https://github.com/XTLS/Xray-install/raw/main/install-release.s
   fi
 fi
 
-CURRENT_XRAY="$(xray_version || true)"
+info "Xray 官方安装脚本已下载，正在检查本机 Xray 状态…"
+CURRENT_XRAY="$(xray_version 2>/dev/null || true)"
 LOCKED_XRAY=""
-[[ -f "$XRAY_LOCK_FILE" ]] && LOCKED_XRAY="$(tr -d '[:space:]' < "$XRAY_LOCK_FILE")"
+if [[ -r "$XRAY_LOCK_FILE" ]]; then
+  LOCKED_XRAY="$(tr -d '[:space:]' < "$XRAY_LOCK_FILE" 2>/dev/null || true)"
+fi
 CURRENT_XRAY_USER=""
-if [[ -f /etc/systemd/system/xray.service.d/10-m-ui-user.conf ]]; then
+if [[ -r /etc/systemd/system/xray.service.d/10-m-ui-user.conf ]]; then
   CURRENT_XRAY_USER="$(sed -n 's/^[[:space:]]*User[[:space:]]*=[[:space:]]*//p' /etc/systemd/system/xray.service.d/10-m-ui-user.conf 2>/dev/null | tail -n1 | awk '{print $1}' || true)"
-elif [[ -f /etc/systemd/system/xray.service ]]; then
+elif [[ -r /etc/systemd/system/xray.service ]]; then
   CURRENT_XRAY_USER="$(sed -n 's/^[[:space:]]*User[[:space:]]*=[[:space:]]*//p' /etc/systemd/system/xray.service 2>/dev/null | tail -n1 | awk '{print $1}' || true)"
 fi
 # XTLS/Xray-install removed custom -u/--install-user support on 2026-10-18.
@@ -283,6 +290,7 @@ fi
 
 if (( NEED_XRAY_INSTALL == 1 )); then
   info "Xray 运行用户: $XRAY_RUN_USER"
+  info "开始执行 Xray 官方安装脚本…"
   if ! bash "$XRAY_SCRIPT" "${XRAY_INSTALL_ARGS[@]}" >/dev/null; then
     if [[ -f "$XRAY_BACKUP_DIR/xray" ]]; then
       restore_xray
