@@ -80,7 +80,7 @@ func TestBuildRealityConfigWithoutDomainOrCertificate(t *testing.T) {
 		}
 	}
 	uri := nodeURI(st, st.Nodes[0])
-	for _, want := range []string{"vless://", "203.0.113.10:16888", "security=reality", "flow=xtls-rprx-vision", "pbk=client-password", "sid=0123456789abcdef"} {
+	for _, want := range []string{"vless://", "203.0.113.10:16888", "security=reality", "flow=xtls-rprx-vision", "pbk=client-password", "sid=0123456789abcdef", "support-x25519mlkem768=true"} {
 		if !strings.Contains(uri, want) {
 			t.Fatalf("Reality uri missing %s: %s", want, uri)
 		}

@@ -603,6 +603,9 @@ func nodeURI(st AppState, n Node) string {
 		q.Set("pbk", n.RealityPassword)
 		q.Set("sid", n.RealityShortID)
 		q.Set("spx", "/")
+		// Xray-core v26.9.8+ REALITY expects an X25519MLKEM768 key share.
+		// Modern Mihomo clients can opt in when this URI hint is present.
+		q.Set("support-x25519mlkem768", "true")
 	} else {
 		if host == "" {
 			host = strings.TrimSpace(st.Settings.Domain)
