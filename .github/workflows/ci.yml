@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL --retry 3 https://github.com/XTLS/Xray-install/raw/main/install-release.sh -o /tmp/install-xray.sh
-          sudo bash /tmp/install-xray.sh install -u root
+          sudo bash /tmp/install-xray.sh install
 
       - name: Go tests with real Xray config validation
         shell: bash
@@ -219,7 +219,7 @@ jobs:
           assert 'fmtPercent' in app and '面板累计运行' in app
           assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
           assert 'contentOnly' in app and 'syncShellChrome' in app and 'app.querySelector(\'.shell .content\')' in app
-          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.27' in app
+          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.28' in app
           assert 'admin-account' in app and "icon('user')" in app and '管理员账号：' not in app
           assert 'class="admin-account" data-route="settings" type="button"' in app
           assert 'title="管理员账号 · 系统设置"' in app
@@ -324,6 +324,14 @@ jobs:
           assert 'go mod verify' in install_script
           assert 'XRAY_SCRIPT_AVAILABLE' in install_script and '继续更新面板' in install_script
           assert '基础依赖已完整，跳过系统软件源更新' in install_script
+          assert 'CURRENT_XRAY_USER=""' in install_script
+          assert '/etc/systemd/system/xray.service.d/10-m-ui-user.conf' in install_script
+          assert 'elif [[ -f /etc/systemd/system/xray.service ]]; then' in install_script
+          assert "awk '{print $1}' || true" in install_script
+          assert 'XRAY_INSTALL_ARGS=(install)' in install_script
+          assert 'configure_xray_run_user' in install_script
+          assert 'User=$XRAY_RUN_USER' in install_script and 'Group=$XRAY_RUN_USER' in install_script
+          assert 'install -u "$XRAY_RUN_USER"' not in install_script
           menu_script = Path("m-ui").read_text(encoding="utf-8")
           assert '--full-update' in menu_script and 'MUI_NONINTERACTIVE_UPDATE=1 update_program' in menu_script
           assert 'write_update_status 100 "更新完成"' in menu_script
@@ -349,7 +357,7 @@ jobs:
           assert "## v1.5.0" not in readme and "安全稳定性能版" not in readme
           assert "## 🚀 核心能力" in readme and "## ⚙️ 一键安装" in readme and "## 🛡️ 安全设计" in readme
           assert '<img src="web/assets/app-icon.png"' in readme
-          assert "**当前版本：v1.5.27**" in readme
+          assert "**当前版本：v1.5.28**" in readme
           assert "请输入选项 [1-8，CTRL+C退出]" in readme
           assert "YOUR_SERVER_IP" in readme and "ADMIN_USER" in readme and "PANEL_PORT" in readme and "/PANEL_PATH/" in readme
           assert "实际内容由你的服务器动态读取" in readme
@@ -402,6 +410,11 @@ jobs:
           grep -q 'MUI_INIT_PASS="$NEW_PASSWORD"' install.sh
           ! grep -q -- '--password "$NEW_PASSWORD"' install.sh
           grep -q 'MUI_XRAY_REFRESH' install.sh
+          grep -Fq 'CURRENT_XRAY_USER=""' install.sh
+          grep -Fq 'XRAY_INSTALL_ARGS=(install)' install.sh
+          grep -q 'configure_xray_run_user' install.sh
+          grep -Fq '/etc/systemd/system/xray.service.d/10-m-ui-user.conf' install.sh
+          ! grep -Fq 'install -u "$XRAY_RUN_USER"' install.sh
           grep -q 'install -m 0755 "$INSTALL_SRC/m-ui-ctl" "$CTL"' install.sh
           grep -q 'm-ui    打开交互式管理菜单' install.sh
           ! grep -q 'm-ui-ctl status    查看状态' install.sh
@@ -525,7 +538,7 @@ jobs:
           ! grep -q '## v1.5.0' README.md
           grep -q '## 🚀 核心能力' README.md
           grep -q '## ⚙️ 一键安装' README.md
-          grep -q '当前版本：v1.5.27' README.md
+          grep -q '当前版本：v1.5.28' README.md
           grep -Fq '请输入选项 [1-8，CTRL+C退出]' README.md
           ! grep -q 'm-ui-ctl status' README.md
           grep -q "trafficSub,'i-green'" web/assets/app.js
@@ -562,4 +575,4 @@ jobs:
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
           test -f web/assets/app-icon.png
           test ! -e app-icon.png
-          grep -q '^1\.5\.27$' VERSION
+          grep -q '^1\.5\.28$' VERSION
