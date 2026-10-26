@@ -249,7 +249,10 @@ fi
 CURRENT_XRAY="$(xray_version || true)"
 LOCKED_XRAY=""
 [[ -f "$XRAY_LOCK_FILE" ]] && LOCKED_XRAY="$(tr -d '[:space:]' < "$XRAY_LOCK_FILE")"
-CURRENT_XRAY_USER="$(sed -n 's/^[[:space:]]*User[[:space:]]*=[[:space:]]*//p' /etc/systemd/system/xray.service 2>/dev/null | tail -n1 | awk '{print $1}')"
+CURRENT_XRAY_USER=""
+if [[ -f /etc/systemd/system/xray.service ]]; then
+  CURRENT_XRAY_USER="$(sed -n 's/^[[:space:]]*User[[:space:]]*=[[:space:]]*//p' /etc/systemd/system/xray.service 2>/dev/null | tail -n1 | awk '{print $1}' || true)"
+fi
 XRAY_INSTALL_ARGS=(install -u "$XRAY_RUN_USER")
 NEED_XRAY_INSTALL=1
 if [[ "$XRAY_REFRESH" != "1" && -n "$LOCKED_XRAY" && "$CURRENT_XRAY" == "$LOCKED_XRAY" && "$CURRENT_XRAY_USER" == "$XRAY_RUN_USER" ]]; then
