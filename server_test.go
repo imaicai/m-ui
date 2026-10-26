@@ -71,6 +71,29 @@ func TestValidateEditedPortRejectsDigitFour(t *testing.T) {
 	}
 }
 
+func TestValidNodePortAllowsRecommended443AndHighPorts(t *testing.T) {
+	for _, port := range []int{443, 1024, 16888, 65535} {
+		if !validNodePort(port) {
+			t.Fatalf("expected port %d to be allowed", port)
+		}
+	}
+	for _, port := range []int{1, 80, 442, 444, 1023, 65536} {
+		if validNodePort(port) {
+			t.Fatalf("expected port %d to be rejected", port)
+		}
+	}
+}
+
+func TestCreateDefaultNodeRejectsUnknownProfileBeforeNodeCreation(t *testing.T) {
+	s := &Server{}
+	req := httptest.NewRequest(http.MethodPost, "/api/nodes/default", strings.NewReader(`{"profile":"unknown"}`))
+	w := httptest.NewRecorder()
+	s.handleCreateDefaultNode(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected status: %d, body=%s", w.Code, w.Body.String())
+	}
+}
+
 func TestCompareSemanticVersions(t *testing.T) {
 	tests := []struct {
 		current string

@@ -1001,16 +1001,49 @@ func (s *Server) handleCreateDefaultNode(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	var input struct {
+		Profile string `json:"profile"`
+	}
+	profile := "recommended"
+	if r.Body != nil && r.ContentLength != 0 {
+		if !decodeJSON(w, r, &input) {
+			return
+		}
+		if strings.TrimSpace(input.Profile) != "" {
+			profile = strings.ToLower(strings.TrimSpace(input.Profile))
+		}
+	}
+	if profile != "recommended" && profile != "compatible" {
+		writeError(w, 400, "节点方案不正确")
+		return
+	}
+
 	old := s.store.Snapshot()
 	next := old
 	used := map[int]bool{}
 	for _, n := range next.Nodes {
 		used[n.Port] = true
 	}
-	port, err := availablePort(used)
-	if err != nil {
-		writeError(w, 500, err.Error())
-		return
+
+	port := 443
+	if profile == "recommended" {
+		if used[443] {
+			writeError(w, http.StatusConflict, "推荐模式需要 TCP 443，但 443 已被现有节点使用；请停用/删除旧节点或选择“兼容备用”模式")
+			return
+		}
+		ln, listenErr := net.Listen("tcp", ":443")
+		if listenErr != nil {
+			writeError(w, http.StatusConflict, "推荐模式需要 TCP 443，但 443 已被系统中的其他程序占用；请释放 443 后重试，或选择“兼容备用”模式")
+			return
+		}
+		_ = ln.Close()
+	} else {
+		var err error
+		port, err = availablePort(used)
+		if err != nil {
+			writeError(w, 500, err.Error())
+			return
+		}
 	}
 	uuid, err := generateUUID()
 	if err != nil {
@@ -1052,8 +1085,15 @@ func (s *Server) handleCreateDefaultNode(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	warning := tryOpenFirewall(port)
+	if profile == "compatible" {
+		if warning != "" {
+			warning += "；"
+		}
+		warning += "兼容备用模式使用非 443 端口；如条件允许，长期使用优先推荐 TCP 443"
+	}
 	writeJSON(w, 201, map[string]any{
 		"node": NodeView{Node: node, URI: nodeURI(next, node)},
+		"profile": profile,
 		"warning": warning,
 		"country": identity.Country,
 		"address": node.Address,
@@ -1117,8 +1157,8 @@ func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 			next.Nodes[idx].Address = address
 		}
 		if in.Port != nil {
-			if *in.Port < 1024 || *in.Port > 65535 {
-				writeError(w, 400, "节点端口必须在 1024-65535 之间")
+			if !validNodePort(*in.Port) {
+				writeError(w, 400, "节点端口仅允许推荐端口 443，或 1024-65535 的高位端口")
 				return
 			}
 			if *in.Port != next.Nodes[idx].Port {
@@ -1680,9 +1720,16 @@ func normalizeDNSName(v string) (string, error) {
 	return v, nil
 }
 
+func validNodePort(port int) bool {
+	return port == 443 || (port >= 1024 && port <= 65535)
+}
+
 func validateEditedPort(port int, currentID string, nodes []Node) error {
-	if strings.Contains(strconv.Itoa(port), "4") {
-		return errors.New("节点端口不能包含数字 4")
+	if !validNodePort(port) {
+		return errors.New("节点端口仅允许推荐端口 443，或 1024-65535 的高位端口")
+	}
+	if port != 443 && strings.Contains(strconv.Itoa(port), "4") {
+		return errors.New("高位节点端口不能包含数字 4")
 	}
 	for _, n := range nodes {
 		if n.ID != currentID && n.Port == port {

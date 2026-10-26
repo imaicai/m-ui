@@ -775,3 +775,30 @@ html,body,#app{max-width:100%;overflow-x:hidden}
   .maintenance-refresh{grid-column:1;grid-row:2}
   .maintenance-update-btn{grid-column:2;grid-row:2}
 }
+
+
+/* v1.5.30 REALITY node profiles */
+.node-create-modal{width:min(760px,95vw)}
+.node-profile-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:2px 0 18px}
+.node-profile-card{position:relative;display:grid;grid-template-columns:22px minmax(0,1fr);gap:11px;align-items:start;padding:15px;border:1px solid var(--line);border-radius:13px;background:#fff;cursor:pointer;transition:.15s}
+.node-profile-card:hover{border-color:#9fd8c4;background:#fbfefd}
+.node-profile-card input{position:absolute;opacity:0;pointer-events:none}
+.node-profile-radio{width:18px;height:18px;margin-top:2px;border:2px solid #aebdb7;border-radius:50%;box-sizing:border-box;position:relative}
+.node-profile-card input:checked+.node-profile-radio{border-color:var(--primary)}
+.node-profile-card input:checked+.node-profile-radio:after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--primary)}
+.node-profile-card:has(input:checked){border-color:#8bd0b5;background:#f4fbf8;box-shadow:0 0 0 1px rgba(0,177,118,.06)}
+.node-profile-copy{display:grid;gap:6px;min-width:0}
+.node-profile-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.node-profile-title b{font-size:15px;color:var(--text)}
+.node-profile-title em{font-style:normal;font-size:11px;line-height:1;padding:4px 7px;border-radius:999px;background:var(--primary);color:#fff;font-weight:700}
+.node-profile-title em.secondary{background:#eef3f1;color:#62756d}
+.node-profile-copy small{color:#3e6254;font-weight:700;line-height:1.45}
+.node-profile-copy>span:last-child{color:var(--muted);font-size:12px;line-height:1.55}
+.node-profile-card.disabled{opacity:.58;cursor:not-allowed;background:#f6f8f7}
+.node-profile-card.disabled:hover{border-color:var(--line);background:#f6f8f7}
+.node-create-summary{margin-top:2px}
+@media(max-width:760px){
+  .node-profile-picker{grid-template-columns:1fr}
+  .node-create-modal .form-grid{grid-template-columns:1fr}
+  .node-create-modal .form-grid label{margin-top:4px}
+}
