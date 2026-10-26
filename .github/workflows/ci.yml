@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL --retry 3 https://github.com/XTLS/Xray-install/raw/main/install-release.sh -o /tmp/install-xray.sh
-          sudo bash /tmp/install-xray.sh install -u root
+          sudo bash /tmp/install-xray.sh install
 
       - name: Go tests with real Xray config validation
         shell: bash
@@ -325,8 +325,13 @@ jobs:
           assert 'XRAY_SCRIPT_AVAILABLE' in install_script and '继续更新面板' in install_script
           assert '基础依赖已完整，跳过系统软件源更新' in install_script
           assert 'CURRENT_XRAY_USER=""' in install_script
-          assert 'if [[ -f /etc/systemd/system/xray.service ]]; then' in install_script
+          assert '/etc/systemd/system/xray.service.d/10-m-ui-user.conf' in install_script
+          assert 'elif [[ -f /etc/systemd/system/xray.service ]]; then' in install_script
           assert "awk '{print $1}' || true" in install_script
+          assert 'XRAY_INSTALL_ARGS=(install)' in install_script
+          assert 'configure_xray_run_user' in install_script
+          assert 'User=$XRAY_RUN_USER' in install_script and 'Group=$XRAY_RUN_USER' in install_script
+          assert 'install -u "$XRAY_RUN_USER"' not in install_script
           menu_script = Path("m-ui").read_text(encoding="utf-8")
           assert '--full-update' in menu_script and 'MUI_NONINTERACTIVE_UPDATE=1 update_program' in menu_script
           assert 'write_update_status 100 "更新完成"' in menu_script
@@ -406,7 +411,10 @@ jobs:
           ! grep -q -- '--password "$NEW_PASSWORD"' install.sh
           grep -q 'MUI_XRAY_REFRESH' install.sh
           grep -Fq 'CURRENT_XRAY_USER=""' install.sh
-          grep -Fq 'if [[ -f /etc/systemd/system/xray.service ]]; then' install.sh
+          grep -Fq 'XRAY_INSTALL_ARGS=(install)' install.sh
+          grep -q 'configure_xray_run_user' install.sh
+          grep -Fq '/etc/systemd/system/xray.service.d/10-m-ui-user.conf' install.sh
+          ! grep -Fq 'install -u "$XRAY_RUN_USER"' install.sh
           grep -q 'install -m 0755 "$INSTALL_SRC/m-ui-ctl" "$CTL"' install.sh
           grep -q 'm-ui    打开交互式管理菜单' install.sh
           ! grep -q 'm-ui-ctl status    查看状态' install.sh
