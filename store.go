@@ -203,11 +203,14 @@ func (s *Store) load() error {
 	if s.data.Settings.DefaultProtocol == "" || strings.Contains(s.data.Settings.DefaultProtocol, "TLS") {
 		s.data.Settings.DefaultProtocol = "VLESS + RAW + REALITY + XTLS Vision"
 	}
-	if s.data.Settings.RealityTarget == "" || s.data.Settings.RealityTarget == "www.microsoft.com:443" {
-		s.data.Settings.RealityTarget = "www.apple.com:443"
+	// The former built-in defaults (www.apple.com, www.microsoft.com) are flagged by
+	// Xray-core as raising the GFW blocking risk. Only these *defaults* are migrated;
+	// nodes that already exist keep their own target so existing client links stay valid.
+	if s.data.Settings.RealityTarget == "" || isLegacyRealityDefault(strings.TrimSuffix(s.data.Settings.RealityTarget, ":443")) {
+		s.data.Settings.RealityTarget = defaultRealityServerName + ":443"
 	}
-	if s.data.Settings.RealityServerName == "" || s.data.Settings.RealityServerName == "www.microsoft.com" {
-		s.data.Settings.RealityServerName = "www.apple.com"
+	if s.data.Settings.RealityServerName == "" || isLegacyRealityDefault(s.data.Settings.RealityServerName) {
+		s.data.Settings.RealityServerName = defaultRealityServerName
 	}
 	for i := range s.data.Nodes {
 		if s.data.Nodes[i].Security == "" {
@@ -233,8 +236,8 @@ func defaultState() AppState {
 			CertFile:          defaultCertFile(),
 			KeyFile:           defaultKeyFile(),
 			DefaultProtocol:   "VLESS + RAW + REALITY + XTLS Vision",
-			RealityTarget:     "www.apple.com:443",
-			RealityServerName: "www.apple.com",
+			RealityTarget:     defaultRealityServerName + ":443",
+			RealityServerName: defaultRealityServerName,
 			AdminUser:         "admin",
 		},
 		Nodes:         []Node{},
