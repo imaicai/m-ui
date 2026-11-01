@@ -89,6 +89,11 @@ jobs:
           )
           sha256sum "dist/$NAME.zip" > "dist/$NAME.zip.sha256"
 
+      - name: Update bundle (VERSION, install scripts, source package)
+        if: steps.existing.outputs.exists != 'true'
+        shell: bash
+        run: bash scripts/make-update-bundle.sh dist/update-bundle
+
       - name: Prepare release notes
         if: steps.existing.outputs.exists != 'true'
         env:
@@ -119,6 +124,11 @@ jobs:
           gh release create "$TAG" \
             "dist/$NAME.zip" \
             "dist/$NAME.zip.sha256" \
+            dist/update-bundle/VERSION \
+            dist/update-bundle/install.sh \
+            dist/update-bundle/uninstall.sh \
+            dist/update-bundle/m-ui-src.tar.gz \
+            dist/update-bundle/m-ui-src.tar.gz.sha256 \
             --target "$GITHUB_SHA" \
             --title "M-Ui v$VERSION" \
             --notes-file /tmp/release-notes.md

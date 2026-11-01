@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-RAW="https://raw.githubusercontent.com/imaicai/m-ui/main"
+BASE="${MUI_UPDATE_BASE:-http://n5.870403.xyz:3060/m-ui}"
+BASE="${BASE%/}"
 SERVER_BIN="/usr/local/bin/m-ui-server"
 MENU_BIN="/usr/local/bin/m-ui"
 CTL_BIN="/usr/local/bin/m-ui-ctl"
@@ -214,10 +215,7 @@ run_offline_setting(){
 
 fetch_repo_file(){
   local path="$1" output="$2"
-  local primary="$RAW/$path"
-  local fallback="https://github.com/imaicai/m-ui/raw/refs/heads/main/$path"
-  curl -fL --connect-timeout 8 --max-time 180 --retry 5 --retry-delay 2 --retry-connrefused "$primary" -o "$output" 2>/dev/null ||
-    curl -fL --connect-timeout 8 --max-time 180 --retry 5 --retry-delay 2 --retry-connrefused "$fallback" -o "$output" 2>/dev/null
+  curl -fL --connect-timeout 8 --max-time 180 --retry 5 --retry-delay 2 --retry-connrefused "$BASE/$path" -o "$output" 2>/dev/null
 }
 
 install_panel(){
@@ -226,7 +224,7 @@ install_panel(){
   installer="$(mktemp)"
   if ! fetch_repo_file "install.sh" "$installer"; then
     rm -f "$installer"
-    err "无法下载安装脚本，请检查服务器访问 GitHub 的网络。"
+    err "无法下载安装脚本，请检查服务器能否访问更新服务器（$BASE）。"
     return 1
   fi
   bash "$installer"
@@ -247,7 +245,7 @@ purge_panel(){
   else
     local tmp
     tmp="$(mktemp)"
-    curl -fsSL --retry 3 "$RAW/uninstall.sh" -o "$tmp"
+    curl -fsSL --retry 3 "$BASE/uninstall.sh" -o "$tmp"
     bash "$tmp" --purge
     rm -f "$tmp"
   fi
@@ -279,7 +277,7 @@ update_program(){
   write_update_status 7 "下载更新脚本" "正在下载并校验最新安装脚本"
   if ! fetch_repo_file "install.sh" "$updater"; then
     rm -f "$updater"
-    write_update_status 7 "下载失败" "多次尝试仍无法下载最新安装脚本，请检查 GitHub 网络" "failed"
+    write_update_status 7 "下载失败" "多次尝试仍无法下载最新安装脚本，请检查服务器能否访问更新服务器" "failed"
     err "多次尝试仍无法下载最新安装脚本。"
     return 1
   fi

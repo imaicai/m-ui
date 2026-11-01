@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -e
-RAW="https://raw.githubusercontent.com/imaicai/m-ui/main/install.sh"
+BASE="${MUI_UPDATE_BASE:-http://n5.870403.xyz:3060/m-ui}"
+BASE="${BASE%/}"
 case "${1:-help}" in
   status) systemctl status m-ui --no-pager ;;
   start) systemctl start m-ui && echo "m-ui 已启动" ;;
   stop) systemctl stop m-ui && echo "m-ui 已停止" ;;
   restart) systemctl restart m-ui && echo "m-ui 已重启" ;;
   logs) journalctl -u m-ui -f --no-pager ;;
-  update) bash <(curl -fsSL "$RAW") ;;
+  update) bash <(curl -fsSL "$BASE/install.sh") ;;
   xray) systemctl status xray --no-pager ;;
   menu) exec /usr/local/bin/m-ui ;;
   *)

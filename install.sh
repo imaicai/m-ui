@@ -3,9 +3,9 @@ set -Eeuo pipefail
 
 APP="m-ui"
 AUTHOR="MiniJet"
-REPO="https://github.com/imaicai/m-ui.git"
-RAW="https://raw.githubusercontent.com/imaicai/m-ui/main"
-BRANCH="${MUI_BRANCH:-main}"
+# Update server (plain HTTP or HTTPS file server) with: VERSION, install.sh, uninstall.sh, m-ui-src.tar.gz[.sha256]
+BASE="${MUI_UPDATE_BASE:-http://n5.870403.xyz:3060/m-ui}"
+BASE="${BASE%/}"
 PANEL_PORT="${MUI_PORT:-16800}"
 ADMIN_USER="${MUI_ADMIN_USER:-minijet}"
 INSTALL_SRC="/opt/m-ui-src"
@@ -375,36 +375,47 @@ INSTALLED_XRAY="$(xray_version || true)"
 rm -rf "$XRAY_BACKUP_DIR"
 
 update_progress 60 "获取源码" "正在获取最新 m-ui 源码"
-info "获取 m-ui 最新源码…"
+info "从更新服务器获取 m-ui 最新源码…"
 rm -rf "$INSTALL_SRC"
 
 fetch_source_tree(){
-  local n archive tmpdir srcdir
+  local n archive tmpdir srcdir expected actual url
+  url="${MUI_SOURCE_URL:-$BASE/m-ui-src.tar.gz}"
+  archive="$(mktemp)"
+  tmpdir="$(mktemp -d)"
   for n in 1 2 3; do
-    rm -rf "$INSTALL_SRC"
-    if git clone --depth 1 --branch "$BRANCH" "$REPO" "$INSTALL_SRC" >/dev/null 2>&1; then
-      return 0
+    if curl_fetch "$url" "$archive" && tar -tzf "$archive" >/dev/null 2>&1; then
+      break
+    fi
+    if (( n == 3 )); then
+      rm -f "$archive"; rm -rf "$tmpdir"
+      return 1
     fi
     sleep $((n*2))
   done
 
-  warn "Git 克隆失败，正在改用 GitHub ZIP 源码包…"
-  archive="$(mktemp)"
-  tmpdir="$(mktemp -d)"
-  if ! curl_fetch "https://github.com/imaicai/m-ui/archive/refs/heads/${BRANCH}.zip" "$archive"; then
-    rm -f "$archive"; rm -rf "$tmpdir"
-    return 1
+  # The checksum file is optional; when it is there the download has to match it.
+  expected="$(curl -fsS --connect-timeout 8 --max-time 30 "${url}.sha256" 2>/dev/null | awk 'NR==1{print $1}' || true)"
+  if [[ "$expected" =~ ^[0-9a-fA-F]{64}$ ]]; then
+    actual="$(sha256sum "$archive" | awk '{print $1}')"
+    if [[ "${actual,,}" != "${expected,,}" ]]; then
+      warn "源码包 SHA-256 校验失败。"
+      rm -f "$archive"; rm -rf "$tmpdir"
+      return 1
+    fi
   fi
-  if ! unzip -q "$archive" -d "$tmpdir"; then
+
+  if ! tar -xzf "$archive" -C "$tmpdir"; then
     rm -f "$archive"; rm -rf "$tmpdir"
     return 1
   fi
   srcdir="$(find "$tmpdir" -mindepth 1 -maxdepth 1 -type d | head -n1)"
-  [[ -n "$srcdir" && -d "$srcdir" ]] || { rm -f "$archive"; rm -rf "$tmpdir"; return 1; }
+  [[ -n "$srcdir" && -f "$srcdir/go.mod" && -f "$srcdir/VERSION" ]] || { rm -f "$archive"; rm -rf "$tmpdir"; return 1; }
+  rm -rf "$INSTALL_SRC"
   mv "$srcdir" "$INSTALL_SRC"
   rm -f "$archive"; rm -rf "$tmpdir"
 }
-fetch_source_tree || die "多次尝试后仍无法获取 m-ui 源码。"
+fetch_source_tree || die "多次尝试后仍无法从更新服务器（$BASE）获取 m-ui 源码，请确认服务器能访问该地址。"
 
 info "准备编译 m-ui…"
 cd "$INSTALL_SRC"
@@ -478,6 +489,7 @@ User=root
 Environment=MUI_DATA=$DATA_FILE
 Environment=MUI_ADDR=0.0.0.0:$PANEL_PORT
 Environment=MUI_XRAY_BIN=/usr/local/bin/xray
+Environment=MUI_UPDATE_BASE=$BASE
 Environment=MUI_XRAY_CONFIG=$XRAY_CONFIG
 Environment=MUI_CERT_HOME=$SSH_HOME
 ExecStart=$SERVER_BIN

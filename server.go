@@ -122,7 +122,8 @@ func (s *Server) panelPath() string {
 const (
 	mUIServicePath       = "/etc/systemd/system/m-ui.service"
 	mUIUpdateStatusPath  = "/etc/m-ui/update-status.json"
-	mUIRemoteVersionURL  = "https://raw.githubusercontent.com/imaicai/m-ui/main/VERSION"
+	// Update server: VERSION, install.sh, uninstall.sh and m-ui-src.tar.gz are uploaded there (plain HTTP or HTTPS).
+	defaultUpdateBaseURL = "http://n5.870403.xyz:3060/m-ui"
 )
 
 func (s *Server) runningPanelPort() int {
@@ -637,8 +638,16 @@ func compareSemanticVersions(current, latest string) (int, error) {
 	return 0, nil
 }
 
+// updateBaseURL is where VERSION and the installer live; MUI_UPDATE_BASE overrides the default.
+func updateBaseURL() string {
+	if v := strings.TrimRight(strings.TrimSpace(os.Getenv("MUI_UPDATE_BASE")), "/"); v != "" {
+		return v
+	}
+	return defaultUpdateBaseURL
+}
+
 func fetchLatestMUIVersion(ctx context.Context) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mUIRemoteVersionURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, updateBaseURL()+"/VERSION", nil)
 	if err != nil {
 		return "", err
 	}
@@ -667,7 +676,7 @@ func currentSystemUpdateInfo(ctx context.Context) systemUpdateInfo {
 	info := systemUpdateInfo{CurrentVersion: strings.TrimSpace(version)}
 	latest, err := fetchLatestMUIVersion(ctx)
 	if err != nil {
-		info.Error = "无法读取开源仓库版本，请检查服务器访问 GitHub 的网络后重试"
+		info.Error = "无法读取更新服务器上的版本，请检查服务器能否访问 " + updateBaseURL() + " 后重试"
 		return info
 	}
 	info.LatestVersion = latest

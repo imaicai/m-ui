@@ -160,7 +160,7 @@ jobs:
           assert 'class="panel-runtime"' not in app
           assert 'system-meta' not in app and 'minijet-link' not in app
           assert 'sidebar-credit' not in app
-          assert 'https://github.com/imaicai/MiniJet' in app
+          assert 'github.com/imaicai' not in app  # private project: no public repository links in the panel
           assert 'id="saveSettings" disabled' in app
           assert 'out.restart_required' in app and 'out.relogin_required' in app
           assert '设置已保存' in app
@@ -227,7 +227,7 @@ jobs:
           assert 'fmtPercent' in app and '面板累计运行' in app
           assert '.sidebar-restart::before' in css and 'transition:opacity .15s ease' in css
           assert 'contentOnly' in app and 'syncShellChrome' in app and 'app.querySelector(\'.shell .content\')' in app
-          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.32' in app
+          assert 'brand-logo-slot' in app and 'width="256" height="256"' in app and 'assets/app-icon.png?v=1.5.33' in app
           assert 'admin-account' in app and "icon('user')" in app and '管理员账号：' not in app
           assert 'class="admin-account" data-route="settings" type="button"' in app
           assert 'title="管理员账号 · 系统设置"' in app
@@ -325,7 +325,8 @@ jobs:
               assert marker in install_script
           assert 'GOMAXPROCS=1' in install_script and 'GOGC=50' in install_script and 'go build -p=1' in install_script
           assert '/var/log/m-ui/full-update-build.log' in install_script
-          assert 'fetch_source_tree' in install_script and 'archive/refs/heads/' in install_script
+          assert 'fetch_source_tree' in install_script and 'm-ui-src.tar.gz' in install_script and 'MUI_UPDATE_BASE' in install_script
+          assert 'github.com' not in install_script.replace('github.com/XTLS/Xray-install', ''), 'the installer must not depend on a GitHub repository of this project'
           assert '/var/cache/m-ui/go-build' in install_script and '/var/cache/m-ui/go-mod' in install_script
           assert 'https://proxy.golang.org,direct' in install_script and 'https://goproxy.cn,direct' in install_script and 'https://goproxy.io,direct' in install_script
           assert 'GOPROXY="off"' not in install_script and '"off"' in install_script
@@ -346,7 +347,7 @@ jobs:
           menu_script = Path("m-ui").read_text(encoding="utf-8")
           assert '--full-update' in menu_script and 'MUI_NONINTERACTIVE_UPDATE=1 update_program' in menu_script
           assert 'write_update_status 100 "更新完成"' in menu_script
-          assert 'fetch_repo_file' in menu_script and 'raw/refs/heads/main' in menu_script
+          assert 'fetch_repo_file' in menu_script and 'MUI_UPDATE_BASE' in menu_script
           assert 'v1.5.12 full-update progress' in css
           assert 'v1.5.14 update version gate and progress layout' in css
           assert 'v1.5.15 mobile menu and upgrade-maintenance refinement' in css
@@ -368,7 +369,7 @@ jobs:
           assert "## v1.5.0" not in readme and "安全稳定性能版" not in readme
           assert "## 🚀 核心能力" in readme and "## ⚙️ 一键安装" in readme and "## 🛡️ 安全设计" in readme
           assert '<img src="web/assets/app-icon.png"' in readme
-          assert "**当前版本：v1.5.32**" in readme
+          assert "**当前版本：v1.5.33**" in readme
           assert "请输入选项 [1-8，CTRL+C退出]" in readme
           assert "YOUR_SERVER_IP" in readme and "ADMIN_USER" in readme and "PANEL_PORT" in readme and "/PANEL_PATH/" in readme
           assert "实际内容由你的服务器动态读取" in readme
@@ -415,6 +416,15 @@ jobs:
           assert 'TargetRisk' in server and 'target_risk' in app
           PY
 
+      - name: Update bundle can be built, verified and compiled
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/make-update-bundle.sh /tmp/update-bundle
+          (cd /tmp/update-bundle && sha256sum -c m-ui-src.tar.gz.sha256 && test "$(cat VERSION)" = "$(cat "$GITHUB_WORKSPACE/VERSION")")
+          mkdir /tmp/unpacked && tar -xzf /tmp/update-bundle/m-ui-src.tar.gz -C /tmp/unpacked
+          (cd /tmp/unpacked/m-ui-* && test -f go.mod && test -f install.sh && go build -trimpath -o /dev/null .)
+
       - name: Shell syntax
         shell: bash
         run: |
@@ -422,6 +432,9 @@ jobs:
           bash -n m-ui
           bash -n m-ui-ctl
           bash -n uninstall.sh
+          bash -n scripts/make-update-bundle.sh
+          grep -q 'MUI_UPDATE_BASE' install.sh m-ui m-ui-ctl server.go
+          ! grep -n 'githubusercontent\|github.com/imaicai' install.sh m-ui m-ui-ctl server.go
           grep -q 'ExecStart=$SERVER_BIN' install.sh
           grep -q 'SERVER_BIN="/usr/local/bin/m-ui-server"' install.sh
           grep -q '一键原版BBR+FQ加速' m-ui
@@ -470,7 +483,7 @@ jobs:
           ! grep -q '>复制</button>' web/assets/app.js
           ! grep -q '>编辑</button>' web/assets/app.js
           ! grep -q '>删除</button>' web/assets/app.js
-          grep -q 'https://github.com/imaicai/m-ui' web/assets/app.js
+          ! grep -q 'github.com/imaicai' web/assets/app.js
           grep -q 'openEditSubscription' web/assets/app.js
 
           grep -q 'brand-image' web/assets/app.js
@@ -584,7 +597,7 @@ jobs:
           ! grep -q '## v1.5.0' README.md
           grep -q '## 🚀 核心能力' README.md
           grep -q '## ⚙️ 一键安装' README.md
-          grep -q '当前版本：v1.5.32' README.md
+          grep -q '当前版本：v1.5.33' README.md
           grep -Fq '请输入选项 [1-8，CTRL+C退出]' README.md
           ! grep -q 'm-ui-ctl status' README.md
           grep -q "trafficSub,'i-green'" web/assets/app.js
@@ -606,7 +619,7 @@ jobs:
           grep -q 'v1.5.13 mobile node-management layout only' web/assets/app.css
           grep -q 'grid-column:1 / -1' web/assets/app.css
           grep -q 'grid-column:2' web/assets/app.css
-          grep -q 'repo-icon-link' web/assets/app.js
+          ! grep -q 'github.com/imaicai' web/assets/app.js
           grep -q '/api/system/restart' server.go
           grep -q '面板累计运行' web/assets/app.js
           ! grep -q '累计稳定运行' web/assets/app.js
@@ -621,4 +634,4 @@ jobs:
           ! grep -q 'MUI_ADMIN_PASS:-minijet' install.sh
           test -f web/assets/app-icon.png
           test ! -e app-icon.png
-          grep -q '^1\.5\.32$' VERSION
+          grep -q '^1\.5\.33$' VERSION
