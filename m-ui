@@ -420,6 +420,41 @@ show_logs(){
   journalctl -u m-ui -f --no-pager -n 100 || true
 }
 
+# Writes /etc/sysctl.d/99-m-ui-network.conf. Only well-known, individually explained
+# settings are used (see README "网络与稳定性策略"). $1 = 1 when BBR + FQ is available.
+write_network_profile(){
+  local bbr="${1:-0}" mem_kb buf ct
+  mem_kb="$(awk '/^MemTotal:/{print $2}' /proc/meminfo 2>/dev/null || true)"
+  [[ "$mem_kb" =~ ^[0-9]+$ ]] || mem_kb=0
+  # TCP buffer ceiling. Autotuning only grows a buffer when a long, fast path needs it,
+  # so the larger limit costs nothing on idle servers; small hosts get a smaller ceiling.
+  if (( mem_kb >= 1000000 )); then buf=33554432; else buf=16777216; fi
+  {
+    echo '# m-ui v1.5.32: conservative network performance profile'
+    echo 'net.ipv4.tcp_mtu_probing=1'
+    # Keep the congestion window after an idle period instead of restarting slow start.
+    echo 'net.ipv4.tcp_slow_start_after_idle=0'
+    echo "net.core.rmem_max=$buf"
+    echo "net.core.wmem_max=$buf"
+    echo "net.ipv4.tcp_rmem=4096 131072 $buf"
+    echo "net.ipv4.tcp_wmem=4096 65536 $buf"
+    if (( bbr == 1 )); then
+      echo 'net.core.default_qdisc=fq'
+      echo 'net.ipv4.tcp_congestion_control=bbr'
+      printf 'tcp_bbr\n' > /etc/modules-load.d/m-ui-bbr.conf
+    fi
+    # Only when connection tracking is active (ufw / firewalld): a full table silently drops
+    # new connections on a long-running proxy, and the 5-day default keeps dead entries.
+    if [[ -r /proc/sys/net/netfilter/nf_conntrack_max ]]; then
+      ct="$(cat /proc/sys/net/netfilter/nf_conntrack_max 2>/dev/null || true)"
+      [[ "$ct" =~ ^[0-9]+$ ]] || ct=0
+      if (( ct < 262144 )); then echo 'net.netfilter.nf_conntrack_max=262144'; fi
+      echo 'net.netfilter.nf_conntrack_tcp_timeout_established=86400'
+    fi
+  } > /etc/sysctl.d/99-m-ui-network.conf
+  sysctl -q -p /etc/sysctl.d/99-m-ui-network.conf >/dev/null 2>&1 || true
+}
+
 enable_bbr_fq(){
   info "检查当前内核是否支持原版 BBR..."
   modprobe tcp_bbr 2>/dev/null || true
@@ -448,18 +483,9 @@ enable_bbr_fq(){
   fi
 
   mkdir -p /etc/modules-load.d /etc/sysctl.d
-  printf 'tcp_bbr\n' > /etc/modules-load.d/m-ui-bbr.conf
-  cat > /etc/sysctl.d/99-m-ui-network.conf <<'EOF'
-# m-ui: Linux kernel native BBR + FQ
-net.core.default_qdisc=fq
-net.ipv4.tcp_congestion_control=bbr
-EOF
-
   sysctl -w net.ipv4.tcp_mtu_probing=1 >/dev/null 2>&1 || true
-  if ! grep -q "^net.ipv4.tcp_mtu_probing=1$" /etc/sysctl.d/99-m-ui-network.conf 2>/dev/null; then
-    echo "net.ipv4.tcp_mtu_probing=1" >> /etc/sysctl.d/99-m-ui-network.conf
-  fi
-  ok "已启用并持久化原版 BBR + FQ + PMTU 黑洞自动探测。"
+  write_network_profile 1
+  ok "已启用并持久化原版 BBR + FQ + PMTU 黑洞自动探测与长距离链路 TCP 缓冲优化。"
   printf '原拥塞控制: %s    原排队规则: %s\n' "${old_cc:---}" "${old_q:---}"
   printf 'tcp_congestion_control = %s\n' "$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || echo unknown)"
   printf 'default_qdisc = %s\n' "$(sysctl -n net.core.default_qdisc 2>/dev/null || echo unknown)"

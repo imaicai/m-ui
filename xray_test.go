@@ -61,8 +61,8 @@ func TestBuildRealityConfigWithoutDomainOrCertificate(t *testing.T) {
 		ID: "n1", Name: "US01", UUID: "9e7c8e21-026e-41a6-a8f1-168a7e20d819",
 		Port: 16888, Enabled: true, Security: "reality", Address: "203.0.113.10",
 		RealityPrivateKey: "server-private-key", RealityPassword: "client-password",
-		RealityShortID: "0123456789abcdef", RealityServerName: "www.microsoft.com",
-		RealityTarget: "www.microsoft.com:443",
+		RealityShortID: "0123456789abcdef", RealityServerName: defaultRealityServerName,
+		RealityTarget: defaultRealityServerName + ":443",
 	}}
 	x := NewXrayManager("/usr/local/bin/xray", filepath.Join(t.TempDir(), "config.json"))
 	b, err := x.BuildConfig(st)
@@ -74,7 +74,7 @@ func TestBuildRealityConfigWithoutDomainOrCertificate(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(b)
-	for _, want := range []string{`"method": "raw"`, `"security": "reality"`, `"target": "www.microsoft.com:443"`, `"shortIds"`, `"minClientVer": "1.8.2"`} {
+	for _, want := range []string{`"method": "raw"`, `"security": "reality"`, `"target": "` + defaultRealityServerName + `:443"`, `"shortIds"`} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("Reality config missing %s: %s", want, s)
 		}
@@ -353,5 +353,176 @@ func TestHandlerServiceRuntimeWithInstalledXray(t *testing.T) {
 	}
 	if !waitTCPState(net.JoinHostPort("127.0.0.1", strconv.Itoa(secondPort)), true, 3*time.Second) {
 		t.Fatalf("hot-added inbound port %d did not open", secondPort)
+	}
+}
+
+func realityTestState(port int) AppState {
+	st := defaultState()
+	st.Nodes = []Node{{
+		ID: "n1", Name: "US01", UUID: "9e7c8e21-026e-51a6-a8f1-168a7e20d819",
+		Port: port, Enabled: true, Security: "reality", Address: "203.0.113.10",
+		RealityPrivateKey: "WB6EuihXPL_X-53wmYNQFXC8sDoluziKlz_Gqhni_nA", RealityPassword: "client-password",
+		RealityShortID: "0123456789abcdef", RealityServerName: st.Settings.RealityServerName,
+		RealityTarget: st.Settings.RealityTarget,
+	}}
+	return st
+}
+
+func buildConfigMap(t *testing.T, st AppState) map[string]any {
+	t.Helper()
+	x := NewXrayManager("/usr/local/bin/xray", filepath.Join(t.TempDir(), "config.json"))
+	b, err := x.BuildConfig(st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	return cfg
+}
+
+func TestRealityConfigDoesNotPinMinClientVersion(t *testing.T) {
+	// sing-box based clients declare REALITY client version 1.8.1; a minClientVer above that
+	// makes Xray treat them as unauthenticated and forward them to the camouflage site.
+	cfg := buildConfigMap(t, realityTestState(443))
+	reality := cfg["inbounds"].([]any)[0].(map[string]any)["streamSettings"].(map[string]any)["realitySettings"].(map[string]any)
+	if v, ok := reality["minClientVer"]; ok {
+		t.Fatalf("minClientVer must stay unset (Xray default), got %v", v)
+	}
+	if _, ok := reality["limitFallbackUpload"]; !ok {
+		t.Fatal("fallback rate limits must stay enabled")
+	}
+}
+
+func TestNodeInboundEnablesSniffingSoBitTorrentRuleCanMatch(t *testing.T) {
+	cfg := buildConfigMap(t, realityTestState(443))
+	node := cfg["inbounds"].([]any)[0].(map[string]any)
+	sn, ok := node["sniffing"].(map[string]any)
+	if !ok || sn["enabled"] != true {
+		t.Fatalf("node inbound must enable sniffing, got %v", node["sniffing"])
+	}
+	if sn["routeOnly"] != true {
+		t.Fatal("sniffing must be routeOnly so the real destination is never rewritten")
+	}
+	// The management API inbound must not sniff anything.
+	api := cfg["inbounds"].([]any)[1].(map[string]any)
+	if _, has := api["sniffing"]; has {
+		t.Fatal("api inbound must not enable sniffing")
+	}
+
+	rules := cfg["routing"].(map[string]any)["rules"].([]any)
+	var sawBT bool
+	for _, r := range rules {
+		m := r.(map[string]any)
+		if p, ok := m["protocol"].([]any); ok && len(p) == 1 && p[0] == "bittorrent" && m["outboundTag"] == "blocked" {
+			sawBT = true
+		}
+	}
+	if !sawBT {
+		t.Fatal("bittorrent block rule missing")
+	}
+}
+
+func TestRoutingBlocksPrivateRangesAfterTheAPIRule(t *testing.T) {
+	cfg := buildConfigMap(t, realityTestState(443))
+	rules := cfg["routing"].(map[string]any)["rules"].([]any)
+	apiIdx, privIdx := -1, -1
+	for i, r := range rules {
+		m := r.(map[string]any)
+		if m["outboundTag"] == "api" {
+			apiIdx = i
+		}
+		if ips, ok := m["ip"].([]any); ok && m["outboundTag"] == "blocked" {
+			privIdx = i
+			want := map[string]bool{"127.0.0.0/8": false, "10.0.0.0/8": false, "172.16.0.0/12": false, "192.168.0.0/16": false, "169.254.0.0/16": false, "::1/128": false}
+			for _, ip := range ips {
+				if _, ok := want[ip.(string)]; ok {
+					want[ip.(string)] = true
+				}
+			}
+			for cidr, seen := range want {
+				if !seen {
+					t.Fatalf("private range %s not blocked", cidr)
+				}
+			}
+		}
+	}
+	if apiIdx < 0 || privIdx < 0 {
+		t.Fatalf("missing rules: api=%d private=%d", apiIdx, privIdx)
+	}
+	if apiIdx > privIdx {
+		t.Fatal("the api rule must be evaluated before the private-range block, or Xray could not serve its own API")
+	}
+}
+
+func TestDefaultRealityNodeProducesNoGFWWarningWithInstalledXray(t *testing.T) {
+	if os.Getenv("XRAY_INTEGRATION") != "1" {
+		t.Skip("set XRAY_INTEGRATION=1 to test against installed Xray")
+	}
+	xrayBin := "/usr/local/bin/xray"
+	if _, err := os.Stat(xrayBin); err != nil {
+		t.Fatalf("Xray integration requested but binary missing: %v", err)
+	}
+	x := NewXrayManager(xrayBin, filepath.Join(t.TempDir(), "config.json"))
+	privateKey, password, shortID, err := x.GenerateRealityMaterial()
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := realityTestState(443)
+	st.Nodes[0].RealityPrivateKey, st.Nodes[0].RealityPassword, st.Nodes[0].RealityShortID = privateKey, password, shortID
+	b, err := x.BuildConfig(st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(config, b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command(xrayBin, "run", "-test", "-config", config).CombinedOutput()
+	if err != nil {
+		t.Fatalf("Xray rejected the config: %v\n%s", err, out)
+	}
+	// Xray-core prints "... will increase the likelihood of your server's IP being blocked by
+	// the GFW" for risky targets, non-443 REALITY ports and a modified minClientVer.
+	if strings.Contains(string(out), "blocked by the GFW") {
+		t.Fatalf("Xray reports a GFW blocking risk for the default node:\n%s", out)
+	}
+	if !strings.Contains(string(out), "Configuration OK") {
+		t.Fatalf("unexpected Xray output:\n%s", out)
+	}
+}
+
+func TestRiskyDefaultTargetWouldBeFlaggedByInstalledXray(t *testing.T) {
+	// Guards realityTargetRisky() against drifting from what Xray-core really warns about.
+	if os.Getenv("XRAY_INTEGRATION") != "1" {
+		t.Skip("set XRAY_INTEGRATION=1 to test against installed Xray")
+	}
+	xrayBin := "/usr/local/bin/xray"
+	if _, err := os.Stat(xrayBin); err != nil {
+		t.Fatalf("Xray integration requested but binary missing: %v", err)
+	}
+	x := NewXrayManager(xrayBin, filepath.Join(t.TempDir(), "config.json"))
+	privateKey, password, shortID, err := x.GenerateRealityMaterial()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range append([]string{"www.apple.com", "www.microsoft.com", "gateway.icloud.com", "example.ru"}, append(realityTargetCandidates, defaultRealityServerName)...) {
+		st := realityTestState(443)
+		st.Nodes[0].RealityPrivateKey, st.Nodes[0].RealityPassword, st.Nodes[0].RealityShortID = privateKey, password, shortID
+		st.Nodes[0].RealityServerName, st.Nodes[0].RealityTarget = name, name+":443"
+		b, err := x.BuildConfig(st)
+		if err != nil {
+			t.Fatal(err)
+		}
+		config := filepath.Join(t.TempDir(), "config.json")
+		if err := os.WriteFile(config, b, 0600); err != nil {
+			t.Fatal(err)
+		}
+		out, _ := exec.Command(xrayBin, "run", "-test", "-config", config).CombinedOutput()
+		flagged := strings.Contains(string(out), "blocked by the GFW")
+		if flagged != realityTargetRisky(name) {
+			t.Fatalf("%s: Xray flagged=%v but realityTargetRisky=%v\n%s", name, flagged, realityTargetRisky(name), out)
+		}
 	}
 }

@@ -42,6 +42,9 @@ type Server struct {
 	loginMu  sync.Mutex
 	failures   map[string]*loginFailure
 	loginSlots chan struct{}
+
+	// realityProbe is replaceable so tests never touch the network.
+	realityProbe realityProbeFunc
 }
 
 type loginFailure struct {
@@ -79,6 +82,9 @@ type PublicSettings struct {
 type NodeView struct {
 	Node
 	URI string `json:"uri"`
+	// TargetRisk is true when the node's REALITY camouflage name is one that Xray-core
+	// warns about (apple / icloud / microsoft / .cn / .ru / .ir).
+	TargetRisk bool `json:"target_risk,omitempty"`
 }
 
 type Bootstrap struct {
@@ -297,6 +303,7 @@ func (s *Server) Run() error {
 
 	handler := securityHeaders(s.redirectHTTPS(rootMux))
 	go s.trafficLoop()
+	go s.xrayWatchdog()
 	return s.servePanel(handler)
 }
 
@@ -485,7 +492,7 @@ func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 func makeBootstrap(st AppState) Bootstrap {
 	nodes := make([]NodeView, 0, len(st.Nodes))
 	for _, n := range st.Nodes {
-		nodes = append(nodes, NodeView{Node: n, URI: nodeURI(st, n)})
+		nodes = append(nodes, NodeView{Node: n, URI: nodeURI(st, n), TargetRisk: nodeTargetRisky(n)})
 	}
 	_, ce := os.Stat(st.Settings.CertFile)
 	_, ke := os.Stat(st.Settings.KeyFile)
@@ -1072,11 +1079,14 @@ func (s *Server) handleCreateDefaultNode(w http.ResponseWriter, r *http.Request)
 	}
 
 	name := nextCountryNodeName(identity.Country, next.Nodes)
+	// Pick a camouflage target that was just verified from this server (TLS 1.3 + h2,
+	// valid certificate, low latency) and is not one Xray-core flags as a blocking risk.
+	realityName, realityTarget := chooseRealityTarget(next.Settings, s.realityProbe)
 	node := Node{
 		ID: newID(), Name: name, UUID: uuid, Port: port, Enabled: true,
 		Security: "reality", Address: address, Country: normalizeCountryCode(identity.Country),
 		RealityPrivateKey: privateKey, RealityPassword: password, RealityShortID: shortID,
-		RealityServerName: next.Settings.RealityServerName, RealityTarget: next.Settings.RealityTarget,
+		RealityServerName: realityName, RealityTarget: realityTarget,
 		CreatedAt: time.Now(),
 	}
 	next.Nodes = append(next.Nodes, node)
@@ -1177,6 +1187,12 @@ func (s *Server) handleNode(w http.ResponseWriter, r *http.Request) {
 			serverName, err := normalizeDNSName(*in.RealityServerName)
 			if err != nil {
 				writeError(w, 400, "REALITY 伪装域名格式不正确")
+				return
+			}
+			// The edit dialog always resends the current value, so only a *change* to a
+			// risky name is refused; leaving an old node's name untouched stays possible.
+			if !strings.EqualFold(serverName, oldNode.RealityServerName) && realityTargetRisky(serverName) {
+				writeError(w, 400, "该伪装域名被 Xray 官方标记为会提高被封锁的概率（含 apple / icloud / microsoft，或 .cn / .ru / .ir），请换一个，例如 "+defaultRealityServerName)
 				return
 			}
 			next.Nodes[idx].RealityServerName = serverName

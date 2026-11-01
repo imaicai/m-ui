@@ -22,6 +22,14 @@ import (
 
 const xrayStatsAPIAddr = "127.0.0.1:10085"
 
+// privateIPRanges are loopback, private, link-local and CGNAT ranges. They are
+// written as literal CIDRs (not geoip:private) so config validation never
+// depends on geoip.dat being present.
+var privateIPRanges = []string{
+	"127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+	"169.254.0.0/16", "100.64.0.0/10", "::1/128", "fc00::/7", "fe80::/10",
+}
+
 type TrafficDelta struct {
 	Uplink   uint64
 	Downlink uint64
@@ -82,7 +90,10 @@ func buildNodeInbound(st AppState, n Node) (map[string]any, error) {
 			"serverNames":   []string{serverName},
 			"privateKey":    n.RealityPrivateKey,
 			"shortIds":      []string{n.RealityShortID},
-			"minClientVer":  "1.8.2",
+			// minClientVer is deliberately NOT set. Xray's default accepts every client, and
+			// a non-default value both rejects clients that declare an older REALITY version
+			// (sing-box based apps send 1.8.1) and is something Xray-core itself advises
+			// against because it makes the server stand out.
 			"limitFallbackUpload":   realityFallbackLimit(n.ID+n.RealityShortID, "upload"),
 			"limitFallbackDownload": realityFallbackLimit(n.ID+n.RealityShortID, "download"),
 		}
@@ -119,6 +130,14 @@ func buildNodeInbound(st AppState, n Node) (map[string]any, error) {
 			"decryption": "none",
 		},
 		"streamSettings": stream,
+		// Without sniffing Xray never classifies traffic, so the "bittorrent" routing
+		// rule in BuildConfig could not match. routeOnly keeps the real destination
+		// untouched: the sniffed protocol is only used for routing decisions.
+		"sniffing": map[string]any{
+			"enabled":      true,
+			"destOverride": []string{"http", "tls"},
+			"routeOnly":    true,
+		},
 	}, nil
 }
 
@@ -171,6 +190,10 @@ func (x *XrayManager) BuildConfig(st AppState) ([]byte, error) {
 			"domainStrategy": "AsIs",
 			"rules": []any{
 				map[string]any{"type": "field", "inboundTag": []string{"api-in"}, "outboundTag": "api"},
+				// Proxy users must never reach the server's own loopback/LAN, in particular the
+				// local management API on 127.0.0.1:10085. Current Xray blocks this by default
+				// for VLESS inbounds; the explicit rule keeps older, version-locked cores safe.
+				map[string]any{"type": "field", "ip": privateIPRanges, "outboundTag": "blocked"},
 				map[string]any{"type": "field", "protocol": []string{"bittorrent"}, "outboundTag": "blocked"},
 			},
 		},

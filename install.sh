@@ -133,6 +133,41 @@ detect_xray_run_user(){
   printf 'xray'
 }
 
+# Writes /etc/sysctl.d/99-m-ui-network.conf. Only well-known, individually explained
+# settings are used (see README "网络与稳定性策略"). $1 = 1 when BBR + FQ is available.
+write_network_profile(){
+  local bbr="${1:-0}" mem_kb buf ct
+  mem_kb="$(awk '/^MemTotal:/{print $2}' /proc/meminfo 2>/dev/null || true)"
+  [[ "$mem_kb" =~ ^[0-9]+$ ]] || mem_kb=0
+  # TCP buffer ceiling. Autotuning only grows a buffer when a long, fast path needs it,
+  # so the larger limit costs nothing on idle servers; small hosts get a smaller ceiling.
+  if (( mem_kb >= 1000000 )); then buf=33554432; else buf=16777216; fi
+  {
+    echo '# m-ui v1.5.32: conservative network performance profile'
+    echo 'net.ipv4.tcp_mtu_probing=1'
+    # Keep the congestion window after an idle period instead of restarting slow start.
+    echo 'net.ipv4.tcp_slow_start_after_idle=0'
+    echo "net.core.rmem_max=$buf"
+    echo "net.core.wmem_max=$buf"
+    echo "net.ipv4.tcp_rmem=4096 131072 $buf"
+    echo "net.ipv4.tcp_wmem=4096 65536 $buf"
+    if (( bbr == 1 )); then
+      echo 'net.core.default_qdisc=fq'
+      echo 'net.ipv4.tcp_congestion_control=bbr'
+      printf 'tcp_bbr\n' > /etc/modules-load.d/m-ui-bbr.conf
+    fi
+    # Only when connection tracking is active (ufw / firewalld): a full table silently drops
+    # new connections on a long-running proxy, and the 5-day default keeps dead entries.
+    if [[ -r /proc/sys/net/netfilter/nf_conntrack_max ]]; then
+      ct="$(cat /proc/sys/net/netfilter/nf_conntrack_max 2>/dev/null || true)"
+      [[ "$ct" =~ ^[0-9]+$ ]] || ct=0
+      if (( ct < 262144 )); then echo 'net.netfilter.nf_conntrack_max=262144'; fi
+      echo 'net.netfilter.nf_conntrack_tcp_timeout_established=86400'
+    fi
+  } > /etc/sysctl.d/99-m-ui-network.conf
+  sysctl -q -p /etc/sysctl.d/99-m-ui-network.conf >/dev/null 2>&1 || true
+}
+
 apply_network_profile(){
   info "应用安全稳定网络参数…"
   mkdir -p /etc/sysctl.d /etc/modules-load.d
@@ -142,22 +177,14 @@ apply_network_profile(){
   if [[ " $available " == *" bbr "* ]]; then
     bbr=1
     sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1 || bbr=0
-    (( bbr == 1 )) && sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1 || true
+    if (( bbr == 1 )); then sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1 || true; fi
   fi
   sysctl -w net.ipv4.tcp_mtu_probing=1 >/dev/null 2>&1 || true
-  {
-    echo '# m-ui v1.5.0: conservative network performance profile'
-    echo 'net.ipv4.tcp_mtu_probing=1'
-    if (( bbr == 1 )); then
-      echo 'net.core.default_qdisc=fq'
-      echo 'net.ipv4.tcp_congestion_control=bbr'
-      printf 'tcp_bbr\n' > /etc/modules-load.d/m-ui-bbr.conf
-    fi
-  } > /etc/sysctl.d/99-m-ui-network.conf
+  write_network_profile "$bbr"
   if (( bbr == 1 )); then
-    ok "已启用 BBR + FQ，并开启 PMTU 黑洞自动探测。"
+    ok "已启用 BBR + FQ，并开启 PMTU 黑洞自动探测与长距离链路 TCP 缓冲优化。"
   else
-    warn "当前内核未提供 BBR；已保留现有拥塞控制并开启 PMTU 黑洞自动探测。"
+    warn "当前内核未提供 BBR；已保留现有拥塞控制，并开启 PMTU 黑洞自动探测与长距离链路 TCP 缓冲优化。"
   fi
 }
 
@@ -173,8 +200,23 @@ EOF
 
 harden_xray_service(){
   mkdir -p /etc/systemd/system/xray.service.d
-  cat > /etc/systemd/system/xray.service.d/20-m-ui-hardening.conf <<'EOF'
+  # A soft Go memory ceiling (70% of RAM, at least 96 MiB) makes the garbage collector work
+  # harder before the kernel OOM killer would ever have to pick Xray on a small server.
+  local mem_kb mem_limit_mb mem_env=""
+  mem_kb="$(awk '/^MemTotal:/{print $2}' /proc/meminfo 2>/dev/null || true)"
+  if [[ "$mem_kb" =~ ^[0-9]+$ ]] && (( mem_kb > 0 )); then
+    mem_limit_mb=$(( mem_kb / 1024 * 70 / 100 ))
+    if (( mem_limit_mb < 96 )); then mem_limit_mb=96; fi
+    mem_env="Environment=GOMEMLIMIT=${mem_limit_mb}MiB"
+  fi
+  cat > /etc/systemd/system/xray.service.d/20-m-ui-hardening.conf <<XRAYDROPIN
+[Unit]
+# Never give up restarting an unattended proxy because of a short burst of failures.
+StartLimitIntervalSec=0
+
 [Service]
+Restart=always
+RestartSec=3
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectKernelTunables=true
@@ -186,7 +228,8 @@ LockPersonality=true
 RestrictRealtime=true
 UMask=0027
 LimitNOFILE=1048576
-EOF
+${mem_env}
+XRAYDROPIN
   systemctl daemon-reload
 }
 
@@ -312,6 +355,7 @@ update_progress 46 "校验 Xray" "Xray Core 已更新，正在校验现有配置
 
 configure_xray_run_user
 harden_xray_service
+systemctl enable xray >/dev/null 2>&1 || true
 if [[ -f "$XRAY_CONFIG" ]]; then
   if [[ "$XRAY_RUN_USER" == "xray" ]]; then
     chown root:xray "$XRAY_CONFIG" 2>/dev/null || true
@@ -426,6 +470,7 @@ cat > "$SERVICE" <<SERVICEEOF
 Description=m-ui Proxy Management Panel by MiniJet
 After=network-online.target xray.service
 Wants=network-online.target
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
